@@ -1,0 +1,56 @@
+{
+  "timestamp": "2026-09-27 19:47:26Z",
+  "results": [
+    {
+      "test_case_id": "BM-01",
+      "name": "Standard Living Room - Daylight",
+      "quality_passed": true,
+      "blur_score": 474.12,
+      "exposure_mean": 166.48,
+      "detected_surfaces": 4,
+      "detected_openings": 2,
+      "detected_objects": 4,
+      "generated_variants": 3,
+      "avg_structural_preservation": 0.933,
+      "analysis_latency_ms": 26.91,
+      "generation_latency_ms": 38.16,
+      "cost_usd": 0.015,
+      "model_version": "roomlyst-control-v1-ref",
+      "exit_criteria_satisfied": true
+    },
+    {
+      "test_case_id": "BM-02",
+      "name": "Compact Apartment Living Room",
+      "quality_passed": true,
+      "blur_score": 474.09,
+      "exposure_mean": 166.49,
+      "detected_surfaces": 4,
+      "detected_openings": 2,
+      "detected_objects": 4,
+      "generated_variants": 3,
+      "avg_structural_preservation": 0.933,
+      "analysis_latency_ms": 23.57,
+      "generation_latency_ms": 29.22,
+      "cost_usd": 0.015,
+      "model_version": "roomlyst-control-v1-ref",
+      "exit_criteria_satisfied": true
+    },
+    {
+      "test_case_id": "BM-03",
+      "name": "Moody / Lower-Light Living Room",
+      "quality_passed": true,
+      "blur_score": 495.94,
+      "exposure_mean": 152.65,
+      "detected_surfaces": 4,
+      "detected_openings": 2,
+      "detected_objects": 4,
+      "generated_variants": 3,
+      "avg_structural_preservation": 0.933,
+      "analysis_latency_ms": 22.14,
+      "generation_latency_ms": 22.36,
+      "cost_usd": 0.015,
+      "model_version": "roomlyst-control-v1-ref",
+      "exit_criteria_satisfied": true
+    }
+  ]
+}

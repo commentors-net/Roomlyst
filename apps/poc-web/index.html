@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Roomlyst — AI Interior Design & Renovation (POC)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --card-bg: #141c2e;
+      --card-border: #22314e;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --accent-glow: rgba(59, 130, 246, 0.25);
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --font: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      font-family: var(--font);
+      line-height: 1.5;
+      padding-bottom: 80px;
+    }
+
+    header {
+      background: rgba(20, 28, 46, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--card-border);
+      padding: 16px 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .logo-badge {
+      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      color: white;
+      font-weight: 700;
+      font-size: 1.1rem;
+      padding: 6px 12px;
+      border-radius: 8px;
+    }
+    .tagline {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .badge-phase {
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #38bdf8;
+      font-size: 0.75rem;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 32px auto;
+      padding: 0 24px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+
+    @media (max-width: 900px) {
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 24px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    }
+
+    .card-title {
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .dropzone {
+      border: 2px dashed #2d3f63;
+      border-radius: 12px;
+      padding: 36px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: rgba(15, 23, 42, 0.4);
+    }
+    .dropzone:hover {
+      border-color: var(--accent);
+      background: rgba(59, 130, 246, 0.05);
+    }
+
+    .btn {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s, box-shadow 0.2s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn:hover {
+      background: var(--accent-hover);
+      box-shadow: 0 0 15px var(--accent-glow);
+    }
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-secondary {
+      background: #24324f;
+      color: var(--text-main);
+    }
+    .btn-secondary:hover {
+      background: #2e3e63;
+    }
+
+    .preview-box {
+      margin-top: 16px;
+      border-radius: 8px;
+      overflow: hidden;
+      max-height: 280px;
+      display: flex;
+      justify-content: center;
+      background: #000;
+      border: 1px solid var(--card-border);
+    }
+    .preview-box img {
+      max-width: 100%;
+      max-height: 280px;
+      object-fit: contain;
+    }
+
+    .element-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: rgba(15, 23, 42, 0.6);
+      margin-bottom: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .element-info {
+      display: flex;
+      flex-direction: column;
+    }
+    .element-name {
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+    .element-sub {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .action-select {
+      background: #1b263b;
+      border: 1px solid #33476d;
+      color: var(--text-main);
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+    .badge-keep { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+    .badge-replace { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+    .badge-remove { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+
+    .style-chip {
+      background: #1e293b;
+      border: 1px solid #334155;
+      padding: 8px 14px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      display: inline-block;
+      margin-right: 8px;
+      margin-bottom: 8px;
+      transition: all 0.2s;
+    }
+    .style-chip.active {
+      background: #2563eb;
+      border-color: #60a5fa;
+      color: #fff;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+    .form-group label {
+      display: block;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    .form-control {
+      width: 100%;
+      background: #0f172a;
+      border: 1px solid #2d3f63;
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: var(--text-main);
+      font-family: inherit;
+      font-size: 0.9rem;
+    }
+
+    .results-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 20px;
+      margin-top: 24px;
+    }
+    .variant-card {
+      background: #121929;
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .variant-img {
+      width: 100%;
+      height: 220px;
+      object-fit: cover;
+      background: #000;
+    }
+    .variant-body {
+      padding: 16px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .preservation-meter {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      margin-top: 10px;
+      color: #38bdf8;
+    }
+
+    .spinner {
+      border: 3px solid rgba(255,255,255,0.2);
+      border-radius: 50%;
+      border-top-color: white;
+      width: 18px;
+      height: 18px;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <div class="logo-badge">Roomlyst</div>
+      <div>
+        <div style="font-weight:700; font-size:1.05rem;">Roomlyst Studio POC</div>
+        <div class="tagline">Structure-Preserving Interior AI Platform</div>
+      </div>
+    </div>
+    <div style="display: flex; gap: 12px; align-items: center;">
+      <span class="badge-phase">Phase 0 · Milestone 0.4</span>
+      <select id="hardwareSelect" class="action-select" style="padding:6px 12px;">
+        <option value="rgb">Tier C: Standard RGB Phone</option>
+        <option value="ar">Tier B: AR Depth Motion</option>
+        <option value="lidar">Tier A: LiDAR Hardware</option>
+      </select>
+    </div>
+  </header>
+
+  <div class="container">
+    
+    <!-- Step 1 & 2 Grid -->
+    <div class="grid-2">
+      
+      <!-- Upload Card -->
+      <div class="card">
+        <div class="card-title">
+          <span>1. Room Capture Photo</span>
+          <button id="btnLoadDemo" class="btn btn-secondary" style="font-size:0.75rem; padding:4px 10px;">Load Demo Room</button>
+        </div>
+
+        <div id="dropzone" class="dropzone">
+          <svg width="40" height="40" fill="none" stroke="#64748b" viewBox="0 0 24 24" style="margin-bottom:8px;">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+          </svg>
+          <div style="font-weight:600; font-size:0.95rem;">Drag & drop photo or click to browse</div>
+          <div style="font-size:0.8rem; color:var(--text-muted); margin-top:4px;">Supports normal smartphone JPEG/PNG (No LiDAR needed)</div>
+          <input type="file" id="fileInput" accept="image/*" class="hidden">
+        </div>
+
+        <div id="previewContainer" class="preview-box hidden">
+          <img id="imagePreview" src="" alt="Room preview">
+        </div>
+
+        <div id="qualityReport" style="margin-top:16px;" class="hidden"></div>
+
+        <button id="btnAnalyze" class="btn" style="width:100%; margin-top:16px;" disabled>
+          <span>Run Room Understanding</span>
+        </button>
+      </div>
+
+      <!-- Room Understanding & Elements Card -->
+      <div class="card">
+        <div class="card-title">
+          <span>2. Detected Architecture & Elements</span>
+          <span id="roomStatusBadge" class="badge badge-keep">Ready</span>
+        </div>
+
+        <div id="elementsPlaceholder" style="text-align:center; padding:50px 20px; color:var(--text-muted);">
+          Upload and analyze a room photo to inspect detected walls, openings, and furniture.
+        </div>
+
+        <div id="elementsContainer" class="hidden">
+          <div style="font-size:0.8rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-bottom:8px;">Architectural Openings (Preserved)</div>
+          <div id="openingsList"></div>
+
+          <div style="font-size:0.8rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin:16px 0 8px;">Boundaries & Surfaces</div>
+          <div id="surfacesList"></div>
+
+          <div style="font-size:0.8rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin:16px 0 8px;">Furniture & Objects</div>
+          <div id="objectsList"></div>
+
+          <div style="font-size:0.8rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin:16px 0 8px;">Approximate Measurements</div>
+          <div id="measurementsList"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Step 3: Design Constraints Form -->
+    <div id="designCard" class="card hidden" style="margin-top:24px;">
+      <div class="card-title">
+        <span>3. Design Preferences & Constraints Formulation</span>
+      </div>
+
+      <div class="form-group">
+        <label>Target Aesthetic Style</label>
+        <div>
+          <span class="style-chip active" data-style="Warm Modern Minimalist">Warm Modern Minimalist</span>
+          <span class="style-chip" data-style="Japandi Clean Organic">Japandi Clean Organic</span>
+          <span class="style-chip" data-style="Contemporary Scandinavian">Contemporary Scandinavian</span>
+          <span class="style-chip" data-style="Modern Industrial Loft">Modern Industrial Loft</span>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="form-group">
+          <label>Indicative Budget</label>
+          <div style="display:flex; gap:8px;">
+            <input type="text" id="budgetCurrency" class="form-control" value="MYR" style="max-width:90px;" readonly>
+            <input type="number" id="budgetAmount" class="form-control" value="15000" placeholder="15000">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Free-Text Goals & Specific Instructions</label>
+          <input type="text" id="promptText" class="form-control" placeholder="e.g. Keep sofa and windows. Replace TV unit with slatted wood console.">
+        </div>
+      </div>
+
+      <button id="btnGenerate" class="btn" style="width:100%; margin-top:8px;">
+        <span id="genBtnText">Generate 3 Structurally Preserved Redesigns</span>
+        <div id="genSpinner" class="spinner hidden"></div>
+      </button>
+    </div>
+
+    <!-- Step 4: Redesign Results -->
+    <div id="resultsCard" class="card hidden" style="margin-top:24px;">
+      <div class="card-title">
+        <span>4. Structurally Consistent Design Variants</span>
+        <span class="badge badge-keep">3 Plausible Concepts Generated</span>
+      </div>
+
+      <div id="variantsGrid" class="results-grid"></div>
+    </div>
+
+  </div>
+
+  <script>
+    // State
+    let currentFile = null;
+    let currentRoom = null;
+    let selectedStyle = "Warm Modern Minimalist";
+
+    const dropzone = document.getElementById("dropzone");
+    const fileInput = document.getElementById("fileInput");
+    const previewContainer = document.getElementById("previewContainer");
+    const imagePreview = document.getElementById("imagePreview");
+    const btnAnalyze = document.getElementById("btnAnalyze");
+    const qualityReportDiv = document.getElementById("qualityReport");
+    const elementsPlaceholder = document.getElementById("elementsPlaceholder");
+    const elementsContainer = document.getElementById("elementsContainer");
+    const designCard = document.getElementById("designCard");
+    const resultsCard = document.getElementById("resultsCard");
+    const btnGenerate = document.getElementById("btnGenerate");
+    const genBtnText = document.getElementById("genBtnText");
+    const genSpinner = document.getElementById("genSpinner");
+
+    // Click & Drag Drop handling
+    dropzone.addEventListener("click", () => fileInput.click());
+    dropzone.addEventListener("dragover", (e) => { e.preventDefault(); dropzone.style.borderColor = "#3b82f6"; });
+    dropzone.addEventListener("dragleave", () => { dropzone.style.borderColor = "#2d3f63"; });
+    dropzone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropzone.style.borderColor = "#2d3f63";
+      if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener("change", (e) => {
+      if (e.target.files.length) handleFile(e.target.files[0]);
+    });
+
+    function handleFile(file) {
+      currentFile = file;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        imagePreview.src = e.target.result;
+        previewContainer.classList.remove("hidden");
+        btnAnalyze.disabled = false;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // Demo Room Generator (Creates synthetic test living room photo)
+    document.getElementById("btnLoadDemo").addEventListener("click", () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 800; canvas.height = 600;
+      const ctx = canvas.getContext("2d");
+      // Ceiling
+      ctx.fillStyle = "#e2e8f0"; ctx.fillRect(0, 0, 800, 160);
+      // Main wall
+      ctx.fillStyle = "#cbd5e1"; ctx.fillRect(0, 160, 800, 260);
+      // Floor
+      ctx.fillStyle = "#b45309"; ctx.fillRect(0, 420, 800, 180);
+      // Window
+      ctx.fillStyle = "#38bdf8"; ctx.fillRect(440, 180, 260, 160);
+      ctx.strokeStyle = "#1e293b"; ctx.lineWidth = 6; ctx.strokeRect(440, 180, 260, 160);
+      // Sofa
+      ctx.fillStyle = "#475569"; ctx.fillRect(180, 320, 340, 140);
+      // Coffee Table
+      ctx.fillStyle = "#78350f"; ctx.fillRect(260, 470, 180, 50);
+
+      // Noise/Texture
+      const imgData = ctx.getImageData(0, 0, 800, 600);
+      for (let i = 0; i < imgData.data.length; i += 4) {
+        const noise = (Math.random() - 0.5) * 16;
+        imgData.data[i] = Math.min(255, Math.max(0, imgData.data[i] + noise));
+        imgData.data[i+1] = Math.min(255, Math.max(0, imgData.data[i+1] + noise));
+        imgData.data[i+2] = Math.min(255, Math.max(0, imgData.data[i+2] + noise));
+      }
+      ctx.putImageData(imgData, 0, 0);
+
+      canvas.toBlob((blob) => {
+        const file = new File([blob], "demo_living_room.jpg", { type: "image/jpeg" });
+        handleFile(file);
+      }, "image/jpeg");
+    });
+
+    // Style chips
+    document.querySelectorAll(".style-chip").forEach(chip => {
+      chip.addEventListener("click", () => {
+        document.querySelectorAll(".style-chip").forEach(c => c.classList.remove("active"));
+        chip.classList.add("active");
+        selectedStyle = chip.dataset.style;
+      });
+    });
+
+    // Run Room Analyzer
+    btnAnalyze.addEventListener("click", async () => {
+      if (!currentFile) return;
+      btnAnalyze.disabled = true;
+      btnAnalyze.innerHTML = '<div class="spinner"></div> Running Room Understanding...';
+
+      const formData = new FormData();
+      formData.append("file", currentFile);
+      formData.append("room_name", "Living Room Scan");
+      formData.append("platform", document.getElementById("hardwareSelect").value);
+      formData.append("has_lidar", document.getElementById("hardwareSelect").value === "lidar");
+
+      try {
+        const res = await fetch("/api/v1/rooms/upload-and-analyze", {
+          method: "POST",
+          body: formData
+        });
+        const room = await res.json();
+        currentRoom = room;
+        renderRoomModel(room);
+        designCard.classList.remove("hidden");
+        btnAnalyze.innerHTML = '<span>Analysis Complete ✓</span>';
+      } catch (err) {
+        alert("Analysis error: " + err.message);
+        btnAnalyze.disabled = false;
+        btnAnalyze.innerHTML = '<span>Run Room Understanding</span>';
+      }
+    });
+
+    function renderRoomModel(room) {
+      elementsPlaceholder.classList.add("hidden");
+      elementsContainer.classList.remove("hidden");
+
+      // Quality Report
+      if (room.quality_report) {
+        const qr = room.quality_report;
+        qualityReportDiv.classList.remove("hidden");
+        qualityReportDiv.innerHTML = `
+          <div style="background:rgba(16,185,129,0.1); border:1px solid #059669; padding:8px 12px; border-radius:6px; font-size:0.8rem; color:#34d399;">
+            ✓ Quality Passed (Blur: ${qr.blur_score} · Exposure: ${qr.exposure_mean} · ${qr.width_px}x${qr.height_px}px)
+          </div>
+        `;
+      }
+
+      // Openings
+      const openingsList = document.getElementById("openingsList");
+      openingsList.innerHTML = room.openings.map(opn => `
+        <div class="element-row">
+          <div class="element-info">
+            <span class="element-name">${opn.name}</span>
+            <span class="element-sub">${opn.opening_type} · Confidence: ${(opn.confidence*100).toFixed(0)}%</span>
+          </div>
+          <select class="action-select" onchange="updateElementAction('${opn.id}', this.value)">
+            <option value="KEEP" ${opn.action==='KEEP'?'selected':''}>Keep (Anchor)</option>
+            <option value="REPLACE" ${opn.action==='REPLACE'?'selected':''}>Replace</option>
+          </select>
+        </div>
+      `).join("");
+
+      // Surfaces
+      const surfacesList = document.getElementById("surfacesList");
+      surfacesList.innerHTML = room.surfaces.map(s => `
+        <div class="element-row">
+          <div class="element-info">
+            <span class="element-name">${s.name}</span>
+            <span class="element-sub">Detected: ${s.material_detected || 'Unknown'} · Approx ${s.estimated_area_sqm || 0}m²</span>
+          </div>
+          <select class="action-select" onchange="updateElementAction('${s.id}', this.value)">
+            <option value="KEEP" ${s.action==='KEEP'?'selected':''}>Keep</option>
+            <option value="REPLACE" ${s.action==='REPLACE'?'selected':''}>Replace Finish</option>
+            <option value="RESTYLE" ${s.action==='RESTYLE'?'selected':''}>Restyle</option>
+          </select>
+        </div>
+      `).join("");
+
+      // Objects
+      const objectsList = document.getElementById("objectsList");
+      objectsList.innerHTML = room.objects.map(obj => `
+        <div class="element-row">
+          <div class="element-info">
+            <span class="element-name">${obj.name}</span>
+            <span class="element-sub">${obj.category} · ${(obj.confidence*100).toFixed(0)}% confidence</span>
+          </div>
+          <select class="action-select" onchange="updateElementAction('${obj.id}', this.value)">
+            <option value="KEEP" ${obj.action==='KEEP'?'selected':''}>Keep</option>
+            <option value="REPLACE" ${obj.action==='REPLACE'?'selected':''}>Replace</option>
+            <option value="REMOVE" ${obj.action==='REMOVE'?'selected':''}>Remove</option>
+          </select>
+        </div>
+      `).join("");
+
+      // Measurements
+      const measurementsList = document.getElementById("measurementsList");
+      measurementsList.innerHTML = room.measurements.map(m => `
+        <div class="element-row">
+          <div class="element-info">
+            <span class="element-name">${m.measurement_type}: Approx. ${m.value} ${m.unit}</span>
+            <span class="element-sub">Source: ${m.source} · Confidence: ${(m.confidence*100).toFixed(0)}%</span>
+          </div>
+          <span class="badge ${m.verified_by_user ? 'badge-keep':'badge-replace'}">
+            ${m.verified_by_user ? 'Verified' : 'Approximate'}
+          </span>
+        </div>
+      `).join("");
+    }
+
+    async function updateElementAction(elementId, newAction) {
+      if (!currentRoom) return;
+      try {
+        await fetch(`/api/v1/rooms/${currentRoom.id}/elements/${elementId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: newAction })
+        });
+      } catch (e) {
+        console.error("Action update failed:", e);
+      }
+    }
+
+    // Generate Redesigns
+    btnGenerate.addEventListener("click", async () => {
+      if (!currentRoom) return;
+      btnGenerate.disabled = true;
+      genBtnText.innerText = "Synthesizing 3 Structurally-Preserved Redesigns...";
+      genSpinner.classList.remove("hidden");
+
+      const payload = {
+        styles: [selectedStyle],
+        goals: ["modernize", "harmonize"],
+        budget_amount: parseFloat(document.getElementById("budgetAmount").value || 15000),
+        budget_currency: document.getElementById("budgetCurrency").value || "MYR",
+        free_text_prompt: document.getElementById("promptText").value || ""
+      };
+
+      try {
+        const res = await fetch(`/api/v1/rooms/${currentRoom.id}/design-requests`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const version = await res.json();
+        renderResults(version);
+      } catch (err) {
+        alert("Generation error: " + err.message);
+      } finally {
+        btnGenerate.disabled = false;
+        genBtnText.innerText = "Generate 3 Structurally Preserved Redesigns";
+        genSpinner.classList.add("hidden");
+      }
+    });
+
+    function renderResults(version) {
+      resultsCard.classList.remove("hidden");
+      const grid = document.getElementById("variantsGrid");
+      grid.innerHTML = version.variants.map((v, i) => `
+        <div class="variant-card">
+          <img src="${v.image_url}" class="variant-img" alt="${v.title}">
+          <div class="variant-body">
+            <div>
+              <div style="font-weight:700; font-size:1.05rem;">${v.title}</div>
+              <div style="font-size:0.85rem; color:var(--text-muted); margin-top:4px;">${v.description}</div>
+              <div style="margin-top:10px; font-size:0.8rem; color:#cbd5e1;">
+                <strong>Changes Applied:</strong>
+                <ul style="margin-left:18px; margin-top:4px;">
+                  ${v.changes_made.map(c => `<li>${c}</li>`).join("")}
+                </ul>
+              </div>
+            </div>
+            <div style="margin-top:14px; border-top:1px solid rgba(255,255,255,0.08); padding-top:10px;">
+              <div class="preservation-meter">
+                <span>Structural Anchor Score</span>
+                <strong>${(v.structural_preservation_score*100).toFixed(0)}%</strong>
+              </div>
+              <div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px; display:flex; justify-content:space-between;">
+                <span>Est. Cost: ${version.constraints.budget_currency} ${v.estimated_cost?.toLocaleString() || 'N/A'}</span>
+                <span>Latency: ${version.generation_latency_ms}ms</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      `).join("");
+
+      resultsCard.scrollIntoView({ behavior: "smooth" });
+    }
+  </script>
+</body>
+</html>

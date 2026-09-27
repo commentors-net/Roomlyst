@@ -1,0 +1,73 @@
+"""
+Roomlyst Canonical Room Model Package.
+
+Implements the single canonical indoor room representation across all capture tiers
+(LiDAR, AR/depth-from-motion, and monocular RGB) as dictated by
+interior_ai_app_blueprint.md Section 10 & 11.
+"""
+
+from .schema import (
+    BoundingBox2D,
+    CanonicalRoomModel,
+    CaptureFrame,
+    CaptureMetadata,
+    CoverageReport,
+    DesignConstraint,
+    DesignVariant,
+    DesignVersion,
+    FeasibilityCheck,
+    FeasibilityIssueType,
+    FeasibilityReport,
+    FeasibilitySeverity,
+    FurnitureFootprint,
+    Geometry,
+    LoopClosureStatus,
+    Measurement,
+    MeasurementSource,
+    ObjectAction,
+    ObjectType,
+    OpeningType,
+    Point2D,
+    QualityReport,
+    ReferenceScaleType,
+    RoomObject,
+    RoomOpening,
+    RoomShapeType,
+    RoomSurface,
+    ScaleCalibration,
+    SurfaceType,
+    WallSegment,
+)
+
+__all__ = [
+    "BoundingBox2D",
+    "CanonicalRoomModel",
+    "CaptureFrame",
+    "CaptureMetadata",
+    "CoverageReport",
+    "DesignConstraint",
+    "DesignVariant",
+    "DesignVersion",
+    "FeasibilityCheck",
+    "FeasibilityIssueType",
+    "FeasibilityReport",
+    "FeasibilitySeverity",
+    "FurnitureFootprint",
+    "Geometry",
+    "LoopClosureStatus",
+    "Measurement",
+    "MeasurementSource",
+    "ObjectAction",
+    "ObjectType",
+    "OpeningType",
+    "Point2D",
+    "QualityReport",
+    "ReferenceScaleType",
+    "RoomObject",
+    "RoomOpening",
+    "RoomShapeType",
+    "RoomSurface",
+    "ScaleCalibration",
+    "SurfaceType",
+    "WallSegment",
+]
