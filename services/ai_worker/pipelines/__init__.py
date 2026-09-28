@@ -18,6 +18,12 @@ from .cloud_generation import CloudInpaintingProvider
 from .mask_builder import MaskBuilder
 from .scale_calibrator import ScaleCalibrator, ReferencePreset
 from .feasibility_analyzer import GeometryAndFeasibilityAnalyzer
+from .budget_estimator import BudgetIntelligenceEngine
+from .variant_manager import VariantManager
+from .video_scan_analyzer import VideoScanAnalyzer
+from .reconstruction_pipeline import MultiViewReconstructor
+from .ar_fusion_engine import ARMotionFusionEngine
+from .native_spatial_normalizer import NativeSpatialNormalizer
 
 __all__ = [
     "DepthProviderBase",
@@ -36,4 +42,10 @@ __all__ = [
     "ScaleCalibrator",
     "ReferencePreset",
     "GeometryAndFeasibilityAnalyzer",
+    "BudgetIntelligenceEngine",
+    "VariantManager",
+    "VideoScanAnalyzer",
+    "MultiViewReconstructor",
+    "ARMotionFusionEngine",
+    "NativeSpatialNormalizer",
 ]

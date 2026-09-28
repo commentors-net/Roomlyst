@@ -136,6 +136,9 @@ class LocalRedesignGenerator(RedesignGeneratorBase):
         room_model: CanonicalRoomModel,
         constraints: DesignConstraint,
         count: int = 3,
+        parent_version_id: Optional[str] = None,
+        parent_variant_id: Optional[str] = None,
+        branch_label: Optional[str] = None,
     ) -> PipelineResult:
         start_time = time.time()
 
@@ -164,8 +167,18 @@ class LocalRedesignGenerator(RedesignGeneratorBase):
         ]
 
         variants: List[DesignVariant] = []
+        budget_target = constraints.budget_amount
+        if room_model.budget_plan and room_model.budget_plan.total_budget > 0:
+            budget_target = room_model.budget_plan.total_budget
+
         for i in range(min(count, len(variant_templates))):
             style_name, desc, pres_score, changes, est_cost = variant_templates[i]
+
+            # Adjust indicative cost to user budget constraints (Economy: ~70%, Target: ~95%, Premium: ~125%)
+            if budget_target and budget_target > 0:
+                cost_multipliers = [0.70, 0.95, 1.25]
+                est_cost = round(budget_target * cost_multipliers[i % len(cost_multipliers)], 2)
+
             img_url = self._render_styled_variant_image(
                 base_img=image,
                 room=room_model,
@@ -182,13 +195,18 @@ class LocalRedesignGenerator(RedesignGeneratorBase):
                     structural_preservation_score=pres_score,
                     changes_made=changes,
                     estimated_cost=est_cost,
+                    parent_variant_id=parent_variant_id,
                 )
             )
 
         latency_ms = (time.time() - start_time) * 1000.0
 
+        label = branch_label or ("Main Branch" if not parent_version_id else f"Branch from {parent_version_id[:6]}")
         version = DesignVersion(
             room_id=room_model.id,
+            parent_version_id=parent_version_id,
+            parent_variant_id=parent_variant_id,
+            branch_label=label,
             version_number=len(room_model.versions) + 1,
             constraints=constraints,
             variants=variants,

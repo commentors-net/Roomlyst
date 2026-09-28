@@ -164,6 +164,9 @@ class JobManager:
         room_id: str,
         constraints: DesignConstraint,
         image_bytes: bytes,
+        parent_version_id: Optional[str] = None,
+        parent_variant_id: Optional[str] = None,
+        branch_label: Optional[str] = None,
     ):
         """
         Background worker task executing structure-preserving redesign:
@@ -189,6 +192,9 @@ class JobManager:
                 room_model=room_model,
                 constraints=constraints,
                 count=3,
+                parent_version_id=parent_version_id,
+                parent_variant_id=parent_variant_id,
+                branch_label=branch_label,
             )
             version = result.data
 

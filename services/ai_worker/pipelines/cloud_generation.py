@@ -40,13 +40,26 @@ class CloudInpaintingProvider(RedesignGeneratorBase):
         self.fallback_local = fallback_local
         self.local_generator = LocalRedesignGenerator(output_dir=output_dir)
 
-    def _build_prompt(self, room_type: str, style: str, goals: list, free_text: Optional[str]) -> str:
+    def _build_prompt(
+        self,
+        room_type: str,
+        style: str,
+        goals: list,
+        free_text: Optional[str],
+        budget_currency: Optional[str] = None,
+        budget_amount: Optional[float] = None,
+        renovation_tier: Optional[str] = None,
+    ) -> str:
         prompt_parts = [
             f"Award-winning interior architecture photograph of a {room_type}",
             f"styled in {style} aesthetic",
             "natural daylight through preserved window openings",
             "photorealistic architectural finishes, clean spatial geometry, high resolution 8k",
         ]
+        if renovation_tier:
+            prompt_parts.append(f"{renovation_tier.lower()} finish tier")
+        if budget_amount and budget_currency:
+            prompt_parts.append(f"designed to fit approximate budget of {budget_currency} {budget_amount:,.0f}")
         if goals:
             prompt_parts.append(f"focusing on {', '.join(goals)}")
         if free_text:
@@ -81,6 +94,9 @@ class CloudInpaintingProvider(RedesignGeneratorBase):
                     style=primary_style,
                     goals=constraints.goals,
                     free_text=constraints.free_text_prompt,
+                    budget_currency=constraints.budget_currency,
+                    budget_amount=constraints.budget_amount,
+                    renovation_tier=constraints.renovation_tier,
                 )
 
                 # Simulated or real cloud provider request
