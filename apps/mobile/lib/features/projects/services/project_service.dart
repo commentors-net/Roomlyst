@@ -637,6 +637,159 @@ class ProjectService {
   static Future<void> removeProjectCollaborator(String projectId, String userId) async {
     await ApiClient.removeProjectCollaborator(projectId, userId);
   }
+
+  // Milestone 5.2: Collaboration, Approvals & Review
+  static Future<DesignCommentModel> createComment(
+    String roomId, {
+    required String authorId,
+    required String authorName,
+    required String text,
+    String authorRole = 'CLIENT',
+    String? variantId,
+    String? versionId,
+    double? pinX,
+    double? pinY,
+    String? elementId,
+    String? parentCommentId,
+  }) async {
+    final res = await ApiClient.createComment(
+      roomId,
+      authorId: authorId,
+      authorName: authorName,
+      text: text,
+      authorRole: authorRole,
+      variantId: variantId,
+      versionId: versionId,
+      pinX: pinX,
+      pinY: pinY,
+      elementId: elementId,
+      parentCommentId: parentCommentId,
+    );
+    return DesignCommentModel.fromMap(res as Map<String, dynamic>);
+  }
+
+  static Future<List<DesignCommentModel>> fetchComments(
+    String roomId, {
+    String? variantId,
+    String? status,
+  }) async {
+    final res = await ApiClient.getComments(roomId, variantId: variantId, status: status);
+    if (res is List) {
+      return res.map((e) => DesignCommentModel.fromMap(e as Map<String, dynamic>)).toList();
+    }
+    return [];
+  }
+
+  static Future<DesignCommentModel> updateCommentStatus(String commentId, String status) async {
+    final res = await ApiClient.updateCommentStatus(commentId, status);
+    return DesignCommentModel.fromMap(res as Map<String, dynamic>);
+  }
+
+  static Future<void> deleteComment(String commentId) async {
+    await ApiClient.deleteComment(commentId);
+  }
+
+  static Future<ApprovalRecordModel> submitApproval(
+    String roomId, {
+    required String status,
+    String? decidedByName,
+    String? decidedByRole,
+    String? notes,
+    String? versionId,
+    String? variantId,
+  }) async {
+    final res = await ApiClient.submitApproval(
+      roomId,
+      status: status,
+      decidedByName: decidedByName,
+      decidedByRole: decidedByRole,
+      notes: notes,
+      versionId: versionId,
+      variantId: variantId,
+    );
+    return ApprovalRecordModel.fromMap(res as Map<String, dynamic>);
+  }
+
+  static Future<Map<String, dynamic>> fetchApprovals(String roomId, {String? variantId}) async {
+    final res = await ApiClient.getApprovals(roomId, variantId: variantId);
+    return res as Map<String, dynamic>;
+  }
+
+  static Future<ShareReviewLinkModel> createShareLink(
+    String projectId, {
+    String? roomId,
+    String createdBy = 'designer',
+    String permission = 'CAN_COMMENT',
+    bool allowComments = true,
+    bool allowApprovals = false,
+    int expiresInDays = 14,
+  }) async {
+    final res = await ApiClient.createShareLink(
+      projectId,
+      roomId: roomId,
+      createdBy: createdBy,
+      permission: permission,
+      allowComments: allowComments,
+      allowApprovals: allowApprovals,
+      expiresInDays: expiresInDays,
+    );
+    return ShareReviewLinkModel.fromMap(res as Map<String, dynamic>);
+  }
+
+  static Future<List<ShareReviewLinkModel>> fetchProjectShareLinks(String projectId) async {
+    final res = await ApiClient.getProjectShareLinks(projectId);
+    if (res is List) {
+      return res.map((e) => ShareReviewLinkModel.fromMap(e as Map<String, dynamic>)).toList();
+    }
+    return [];
+  }
+
+  static Future<void> revokeShareLink(String linkId) async {
+    await ApiClient.revokeShareLink(linkId);
+  }
+
+  static Future<ReviewSessionModel> fetchReviewSession(String token) async {
+    final res = await ApiClient.getReviewSession(token);
+    return ReviewSessionModel.fromMap(res as Map<String, dynamic>);
+  }
+
+  static Future<DesignCommentModel> postReviewComment(
+    String token, {
+    required String authorId,
+    required String authorName,
+    required String text,
+    String? variantId,
+    double? pinX,
+    double? pinY,
+  }) async {
+    final res = await ApiClient.postReviewComment(
+      token,
+      authorId: authorId,
+      authorName: authorName,
+      text: text,
+      variantId: variantId,
+      pinX: pinX,
+      pinY: pinY,
+    );
+    return DesignCommentModel.fromMap(res as Map<String, dynamic>);
+  }
+
+  static Future<ApprovalRecordModel> submitReviewDecision(
+    String token, {
+    required String status,
+    String? decidedByName,
+    String? notes,
+    String? variantId,
+  }) async {
+    final res = await ApiClient.submitReviewDecision(
+      token,
+      status: status,
+      decidedByName: decidedByName,
+      notes: notes,
+      variantId: variantId,
+    );
+    return ApprovalRecordModel.fromMap(res as Map<String, dynamic>);
+  }
 }
 
 

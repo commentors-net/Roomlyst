@@ -12,6 +12,7 @@ import '../../renovation/presentation/material_takeoff_screen.dart';
 import '../../renovation/presentation/renovation_budget_planner_screen.dart';
 import '../../renovation/presentation/product_recommendations_screen.dart';
 import '../../renovation/presentation/renovation_plan_screen.dart';
+import '../../workspace/presentation/client_presentation_screen.dart';
 
 class RoomReviewScreen extends StatefulWidget {
   final RoomModelData room;
@@ -1742,12 +1743,87 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
     );
   }
 
+  Widget _buildClientPresentationSection() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.surfaceBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.slideshow_rounded, color: AppTheme.accent, size: 20),
+              SizedBox(width: 8),
+              Text(
+                'Client Review & Presentation',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppTheme.textMain),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Immersive presentation mode with interactive before/after split slider, spatial comment pins, and client sign-off approvals.',
+            style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: AppTheme.accent),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+              ),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ClientPresentationScreen(
+                      projectId: widget.projectId,
+                      roomId: _currentRoom.id,
+                      roomName: _currentRoom.name,
+                    ),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.open_in_new, size: 16, color: AppTheme.accent),
+              label: const Text(
+                'Launch Presentation & Review Mode',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.accent),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Review Room Understanding'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.slideshow_rounded, color: AppTheme.accent),
+            tooltip: 'Presentation & Review',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ClientPresentationScreen(
+                    projectId: widget.projectId,
+                    roomId: _currentRoom.id,
+                    roomName: _currentRoom.name,
+                  ),
+                ),
+              );
+            },
+          ),
           TextButton.icon(
             onPressed: () async {
               final updated = await Navigator.push<RoomModelData>(
@@ -1881,6 +1957,15 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
             ),
             const SizedBox(height: 8),
             _buildRenovationPlanSection(),
+            const SizedBox(height: 16),
+
+            // Client Presentation & Review Mode (Milestone 5.2)
+            const Text(
+              'Client Presentation & Approval Mode',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppTheme.accent),
+            ),
+            const SizedBox(height: 8),
+            _buildClientPresentationSection(),
             const SizedBox(height: 24),
 
             const Divider(color: AppTheme.surfaceBorder),

@@ -641,6 +641,154 @@ class ApiClient {
     return delete('/projects/$projectId/collaborators/$userId');
   }
 
+  // Milestone 5.2: Collaboration, Approvals & Review
+  static Future<dynamic> createComment(
+    String roomId, {
+    required String authorId,
+    required String authorName,
+    required String text,
+    String authorRole = 'CLIENT',
+    String? variantId,
+    String? versionId,
+    double? pinX,
+    double? pinY,
+    String? elementId,
+    String? parentCommentId,
+  }) async {
+    final payload = <String, dynamic>{
+      'author_id': authorId,
+      'author_name': authorName,
+      'author_role': authorRole,
+      'text': text,
+    };
+    if (variantId != null) payload['variant_id'] = variantId;
+    if (versionId != null) payload['version_id'] = versionId;
+    if (pinX != null) payload['pin_x'] = pinX;
+    if (pinY != null) payload['pin_y'] = pinY;
+    if (elementId != null) payload['element_id'] = elementId;
+    if (parentCommentId != null) payload['parent_comment_id'] = parentCommentId;
+
+    return post('/rooms/$roomId/comments', payload);
+  }
+
+  static Future<dynamic> getComments(
+    String roomId, {
+    String? variantId,
+    String? status,
+  }) async {
+    final params = <String, String>{};
+    if (variantId != null) params['variant_id'] = variantId;
+    if (status != null) params['status'] = status;
+    final query = params.isNotEmpty ? '?${Uri(queryParameters: params).query}' : '';
+    return get('/rooms/$roomId/comments$query');
+  }
+
+  static Future<dynamic> updateCommentStatus(String commentId, String status) async {
+    return patch('/comments/$commentId/status', {'status': status});
+  }
+
+  static Future<dynamic> deleteComment(String commentId) async {
+    return delete('/comments/$commentId');
+  }
+
+  static Future<dynamic> submitApproval(
+    String roomId, {
+    required String status,
+    String? decidedByName,
+    String? decidedByRole,
+    String? notes,
+    String? versionId,
+    String? variantId,
+  }) async {
+    final payload = <String, dynamic>{
+      'status': status,
+    };
+    if (decidedByName != null) payload['decided_by_name'] = decidedByName;
+    if (decidedByRole != null) payload['decided_by_role'] = decidedByRole;
+    if (notes != null) payload['notes'] = notes;
+    if (versionId != null) payload['version_id'] = versionId;
+    if (variantId != null) payload['variant_id'] = variantId;
+
+    return post('/rooms/$roomId/approvals', payload);
+  }
+
+  static Future<dynamic> getApprovals(String roomId, {String? variantId}) async {
+    final query = variantId != null ? '?variant_id=${Uri.encodeComponent(variantId)}' : '';
+    return get('/rooms/$roomId/approvals$query');
+  }
+
+  static Future<dynamic> createShareLink(
+    String projectId, {
+    String? roomId,
+    String createdBy = 'designer',
+    String permission = 'CAN_COMMENT',
+    bool allowComments = true,
+    bool allowApprovals = false,
+    int expiresInDays = 14,
+  }) async {
+    final payload = <String, dynamic>{
+      'created_by': createdBy,
+      'permission': permission,
+      'allow_comments': allowComments,
+      'allow_approvals': allowApprovals,
+      'expires_in_days': expiresInDays,
+    };
+    if (roomId != null) payload['room_id'] = roomId;
+
+    return post('/projects/$projectId/share-links', payload);
+  }
+
+  static Future<dynamic> getProjectShareLinks(String projectId) async {
+    return get('/projects/$projectId/share-links');
+  }
+
+  static Future<dynamic> revokeShareLink(String linkId) async {
+    return delete('/share-links/$linkId');
+  }
+
+  static Future<dynamic> getReviewSession(String token) async {
+    return get('/review/$token');
+  }
+
+  static Future<dynamic> postReviewComment(
+    String token, {
+    required String authorId,
+    required String authorName,
+    required String text,
+    String? variantId,
+    double? pinX,
+    double? pinY,
+  }) async {
+    final payload = <String, dynamic>{
+      'author_id': authorId,
+      'author_name': authorName,
+      'author_role': 'CLIENT',
+      'text': text,
+    };
+    if (variantId != null) payload['variant_id'] = variantId;
+    if (pinX != null) payload['pin_x'] = pinX;
+    if (pinY != null) payload['pin_y'] = pinY;
+
+    return post('/review/$token/comments', payload);
+  }
+
+  static Future<dynamic> submitReviewDecision(
+    String token, {
+    required String status,
+    String? decidedByName,
+    String? notes,
+    String? variantId,
+  }) async {
+    final payload = <String, dynamic>{
+      'status': status,
+    };
+    if (decidedByName != null) payload['decided_by_name'] = decidedByName;
+    if (notes != null) payload['notes'] = notes;
+    if (variantId != null) payload['variant_id'] = variantId;
+
+    return post('/review/$token/decide', payload);
+  }
+
   static dynamic _handleResponse(http.Response response) {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       if (response.body.isEmpty) return null;

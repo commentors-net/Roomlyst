@@ -4,19 +4,26 @@ Stores Projects, Rooms, Clients, and Canonical Room Models.
 Prepares clean transition to PostgreSQL in production.
 """
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 import uuid
 from pydantic import BaseModel, Field
 
 from packages.room_model import (
+    ApprovalRecord,
+    ApprovalStatus,
     CanonicalRoomModel,
     ClientRecord,
+    CommentStatus,
+    DesignComment,
     DesignVersion,
     ProjectCollaborator,
     ProjectRole,
     ProjectStatus,
     ProjectWorkspaceSummary,
+    ReviewSessionPayload,
+    SharePermissionTier,
+    ShareReviewLink,
 )
 
 
@@ -42,6 +49,9 @@ class InMemoryRepository:
         self.projects: Dict[str, ProjectRecord] = {}
         self.rooms: Dict[str, CanonicalRoomModel] = {}
         self.clients: Dict[str, ClientRecord] = {}
+        self.comments: Dict[str, DesignComment] = {}
+        self.approvals: Dict[str, ApprovalRecord] = {}
+        self.share_links: Dict[str, ShareReviewLink] = {}
 
     # ==========================
     # Project Methods
@@ -310,6 +320,234 @@ class InMemoryRepository:
         if project_id:
             return [r for r in all_rooms if r.project_id == project_id]
         return all_rooms
+
+    # ==========================
+    # Milestone 5.2: Comments & Annotations
+    # ==========================
+    def add_comment(
+        self,
+        room_id: str,
+        author_id: str,
+        author_name: str,
+        text: str,
+        author_role: str = "CLIENT",
+        variant_id: Optional[str] = None,
+        version_id: Optional[str] = None,
+        pin_x: Optional[float] = None,
+        pin_y: Optional[float] = None,
+        element_id: Optional[str] = None,
+        parent_comment_id: Optional[str] = None,
+    ) -> DesignComment:
+        cmt = DesignComment(
+            room_id=room_id,
+            author_id=author_id,
+            author_name=author_name,
+            author_role=author_role,
+            text=text,
+            variant_id=variant_id,
+            version_id=version_id,
+            pin_x=pin_x,
+            pin_y=pin_y,
+            element_id=element_id,
+            parent_comment_id=parent_comment_id,
+        )
+        self.comments[cmt.comment_id] = cmt
+        room = self.rooms.get(room_id)
+        if room:
+            room.comments.append(cmt.model_dump())
+            room.updated_at = datetime.now(timezone.utc)
+        return cmt
+
+    def list_comments(
+        self,
+        room_id: str,
+        variant_id: Optional[str] = None,
+        status: Optional[CommentStatus] = None,
+    ) -> List[DesignComment]:
+        res = [c for c in self.comments.values() if c.room_id == room_id]
+        if variant_id:
+            res = [c for c in res if c.variant_id == variant_id or c.variant_id is None]
+        if status:
+            res = [c for c in res if c.status == status]
+        return sorted(res, key=lambda x: x.created_at)
+
+    def get_comment(self, comment_id: str) -> Optional[DesignComment]:
+        return self.comments.get(comment_id)
+
+    def update_comment_status(
+        self, comment_id: str, status: CommentStatus
+    ) -> Optional[DesignComment]:
+        cmt = self.comments.get(comment_id)
+        if not cmt:
+            return None
+        cmt.status = status
+        cmt.updated_at = datetime.now(timezone.utc)
+        return cmt
+
+    def delete_comment(self, comment_id: str) -> bool:
+        if comment_id in self.comments:
+            self.comments.pop(comment_id)
+            return True
+        return False
+
+    # ==========================
+    # Milestone 5.2: Design Approvals
+    # ==========================
+    def record_approval(
+        self,
+        room_id: str,
+        status: ApprovalStatus,
+        decided_by_name: Optional[str] = None,
+        decided_by_role: Optional[str] = None,
+        notes: Optional[str] = None,
+        version_id: Optional[str] = None,
+        variant_id: Optional[str] = None,
+    ) -> ApprovalRecord:
+        record = ApprovalRecord(
+            room_id=room_id,
+            version_id=version_id,
+            variant_id=variant_id,
+            status=status,
+            decided_by_name=decided_by_name,
+            decided_by_role=decided_by_role,
+            notes=notes,
+            decided_at=datetime.now(timezone.utc) if status in [ApprovalStatus.APPROVED, ApprovalStatus.CHANGES_REQUESTED, ApprovalStatus.REJECTED] else None,
+        )
+        self.approvals[record.approval_id] = record
+        room = self.rooms.get(room_id)
+        if room:
+            room.approvals.append(record.model_dump())
+            room.updated_at = datetime.now(timezone.utc)
+        return record
+
+    def list_approvals(self, room_id: str) -> List[ApprovalRecord]:
+        return [a for a in self.approvals.values() if a.room_id == room_id]
+
+    def get_latest_approval(
+        self, room_id: str, variant_id: Optional[str] = None
+    ) -> Optional[ApprovalRecord]:
+        matches = [a for a in self.approvals.values() if a.room_id == room_id]
+        if variant_id:
+            matches = [a for a in matches if a.variant_id == variant_id or a.variant_id is None]
+        if not matches:
+            return None
+        return sorted(matches, key=lambda x: x.created_at, reverse=True)[0]
+
+    # ==========================
+    # Milestone 5.2: Shareable Review Links
+    # ==========================
+    def create_share_link(
+        self,
+        project_id: str,
+        room_id: Optional[str] = None,
+        created_by: str = "designer",
+        permission: SharePermissionTier = SharePermissionTier.CAN_COMMENT,
+        allow_comments: bool = True,
+        allow_approvals: bool = False,
+        expires_in_days: int = 14,
+    ) -> ShareReviewLink:
+        expires_at = datetime.now(timezone.utc) + timedelta(days=expires_in_days)
+        link = ShareReviewLink(
+            project_id=project_id,
+            room_id=room_id,
+            created_by=created_by,
+            permission=permission,
+            allow_comments=allow_comments,
+            allow_approvals=allow_approvals,
+            expires_at=expires_at,
+        )
+        self.share_links[link.token] = link
+        return link
+
+    def get_share_link_by_token(self, token: str) -> Optional[ShareReviewLink]:
+        link = self.share_links.get(token)
+        if not link:
+            return None
+        if link.is_revoked:
+            return None
+        if link.expires_at and datetime.now(timezone.utc) > link.expires_at:
+            return None
+        return link
+
+    def revoke_share_link(self, link_id: str) -> bool:
+        for link in self.share_links.values():
+            if link.link_id == link_id:
+                link.is_revoked = True
+                return True
+        return False
+
+    def list_project_share_links(self, project_id: str) -> List[ShareReviewLink]:
+        return [l for l in self.share_links.values() if l.project_id == project_id and not l.is_revoked]
+
+    def get_review_session(self, token: str) -> Optional[ReviewSessionPayload]:
+        link = self.get_share_link_by_token(token)
+        if not link:
+            return None
+
+        project = self.projects.get(link.project_id)
+        project_name = project.name if project else "Interior Design Workspace"
+        currency = project.currency if project else "MYR"
+        property_address = project.property_address if project else None
+
+        # Resolve target room
+        target_room_id = link.room_id
+        if not target_room_id and project and project.room_ids:
+            target_room_id = project.room_ids[0]
+
+        room = self.rooms.get(target_room_id) if target_room_id else None
+        room_name = room.name if room else "Room Design"
+        room_type = room.room_type if room else "living_room"
+        original_image_url = room.original_image_url if room else None
+
+        # Select latest or best variant
+        selected_variant_id = None
+        selected_variant_image_url = None
+        selected_variant_style = None
+        available_variants: List[Dict[str, Any]] = []
+
+        if room and room.versions:
+            latest_version = room.versions[-1]
+            if latest_version.variants:
+                fav = next((v for v in latest_version.variants if v.is_favorite), latest_version.variants[0])
+                selected_variant_id = fav.variant_id
+                selected_variant_image_url = fav.image_url
+                selected_variant_style = getattr(fav, "style", getattr(fav, "style_name", "Modern"))
+                for v in latest_version.variants:
+                    available_variants.append({
+                        "variant_id": v.variant_id,
+                        "style_name": getattr(v, "style", getattr(v, "style_name", "Modern")),
+                        "image_url": v.image_url,
+                        "estimated_cost": v.estimated_cost,
+                        "is_favorite": v.is_favorite,
+                    })
+
+        # Latest approval & comments
+        latest_approval = self.get_latest_approval(target_room_id) if target_room_id else None
+        approval_status = latest_approval.status if latest_approval else ApprovalStatus.PENDING_REVIEW
+        comments = self.list_comments(target_room_id) if target_room_id else []
+
+        return ReviewSessionPayload(
+            link_id=link.link_id,
+            token=link.token,
+            permission=link.permission,
+            allow_comments=link.allow_comments,
+            allow_approvals=link.allow_approvals,
+            project_id=link.project_id,
+            project_name=project_name,
+            currency=currency,
+            property_address=property_address,
+            room_id=target_room_id or "room_preview",
+            room_name=room_name,
+            room_type=room_type,
+            original_image_url=original_image_url,
+            selected_variant_id=selected_variant_id,
+            selected_variant_image_url=selected_variant_image_url,
+            selected_variant_style=selected_variant_style,
+            approval_status=approval_status,
+            latest_approval=latest_approval,
+            comments=comments,
+            available_variants=available_variants,
+        )
 
 
 # Global singleton repository instance for the running service

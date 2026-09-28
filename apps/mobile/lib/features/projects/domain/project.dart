@@ -1457,6 +1457,9 @@ class RoomModelData {
     this.versions = const [],
   });
 
+  List<RedesignVariantModel> get redesignVariants =>
+      versions.isNotEmpty ? versions.last.variants : const [];
+
   factory RoomModelData.fromMap(Map<String, dynamic> map) {
     final rawOpenings = (map['openings'] as List<dynamic>?) ?? [];
     final rawSurfaces = (map['surfaces'] as List<dynamic>?) ?? [];
@@ -1551,6 +1554,8 @@ class RedesignVariantModel {
     this.favoriteNotes,
     this.starredAt,
   });
+
+  String get id => variantId;
 
   factory RedesignVariantModel.fromMap(Map<String, dynamic> map) {
     return RedesignVariantModel(
@@ -2928,6 +2933,341 @@ class ProjectWorkspaceSummaryModel {
       'designer_notes': designerNotes,
       'target_completion_date': targetCompletionDate,
       'updated_at': updatedAt?.toIso8601String(),
+    };
+  }
+}
+
+// ==========================================
+// Milestone 5.2: Collaboration and Review Models
+// ==========================================
+
+class DesignCommentModel {
+  final String commentId;
+  final String roomId;
+  final String? variantId;
+  final String? versionId;
+  final String authorId;
+  final String authorName;
+  final String authorRole; // CLIENT, LEAD_DESIGNER, COLLABORATOR, OWNER
+  final String text;
+  final double? pinX;
+  final double? pinY;
+  final String? elementId;
+  final String status; // OPEN, RESOLVED
+  final String? parentCommentId;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+
+  DesignCommentModel({
+    required this.commentId,
+    required this.roomId,
+    this.variantId,
+    this.versionId,
+    required this.authorId,
+    required this.authorName,
+    this.authorRole = 'CLIENT',
+    required this.text,
+    this.pinX,
+    this.pinY,
+    this.elementId,
+    this.status = 'OPEN',
+    this.parentCommentId,
+    this.createdAt,
+    this.updatedAt,
+  });
+
+  String get id => commentId;
+  String get content => text;
+  bool get isOpen => status == 'OPEN';
+  bool get isResolved => status == 'RESOLVED';
+  bool get hasPin => pinX != null && pinY != null;
+
+  factory DesignCommentModel.fromMap(Map<String, dynamic> map) {
+    return DesignCommentModel(
+      commentId: map['comment_id'] as String? ?? map['id'] as String? ?? '',
+      roomId: map['room_id'] as String? ?? '',
+      variantId: map['variant_id'] as String?,
+      versionId: map['version_id'] as String?,
+      authorId: map['author_id'] as String? ?? '',
+      authorName: map['author_name'] as String? ?? 'Reviewer',
+      authorRole: map['author_role'] as String? ?? 'CLIENT',
+      text: map['text'] as String? ?? map['content'] as String? ?? '',
+      pinX: (map['pin_x'] as num?)?.toDouble(),
+      pinY: (map['pin_y'] as num?)?.toDouble(),
+      elementId: map['element_id'] as String?,
+      status: map['status'] as String? ?? 'OPEN',
+      parentCommentId: map['parent_comment_id'] as String?,
+      createdAt: map['created_at'] != null ? DateTime.tryParse(map['created_at'].toString()) : null,
+      updatedAt: map['updated_at'] != null ? DateTime.tryParse(map['updated_at'].toString()) : null,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'comment_id': commentId,
+      'room_id': roomId,
+      'variant_id': variantId,
+      'version_id': versionId,
+      'author_id': authorId,
+      'author_name': authorName,
+      'author_role': authorRole,
+      'text': text,
+      'content': text,
+      'pin_x': pinX,
+      'pin_y': pinY,
+      'element_id': elementId,
+      'status': status,
+      'parent_comment_id': parentCommentId,
+      'created_at': createdAt?.toIso8601String(),
+      'updated_at': updatedAt?.toIso8601String(),
+    };
+  }
+}
+
+class ApprovalRecordModel {
+  final String approvalId;
+  final String roomId;
+  final String? versionId;
+  final String? variantId;
+  final String status; // DRAFT, PENDING_REVIEW, CHANGES_REQUESTED, APPROVED, REJECTED
+  final String? decidedByName;
+  final String? decidedByRole;
+  final String? notes;
+  final DateTime? decidedAt;
+  final DateTime? createdAt;
+
+  ApprovalRecordModel({
+    required this.approvalId,
+    required this.roomId,
+    this.versionId,
+    this.variantId,
+    this.status = 'PENDING_REVIEW',
+    this.decidedByName,
+    this.decidedByRole,
+    this.notes,
+    this.decidedAt,
+    this.createdAt,
+  });
+
+  String get id => approvalId;
+  bool get isApproved => status == 'APPROVED';
+  bool get isChangesRequested => status == 'CHANGES_REQUESTED';
+  bool get hasChangesRequested => status == 'CHANGES_REQUESTED';
+
+  factory ApprovalRecordModel.fromMap(Map<String, dynamic> map) {
+    return ApprovalRecordModel(
+      approvalId: map['approval_id'] as String? ?? map['id'] as String? ?? '',
+      roomId: map['room_id'] as String? ?? '',
+      versionId: map['version_id'] as String?,
+      variantId: map['variant_id'] as String?,
+      status: map['status'] as String? ?? 'PENDING_REVIEW',
+      decidedByName: map['decided_by_name'] as String?,
+      decidedByRole: map['decided_by_role'] as String?,
+      notes: map['notes'] as String?,
+      decidedAt: map['decided_at'] != null ? DateTime.tryParse(map['decided_at'].toString()) : null,
+      createdAt: map['created_at'] != null ? DateTime.tryParse(map['created_at'].toString()) : null,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'approval_id': approvalId,
+      'room_id': roomId,
+      'version_id': versionId,
+      'variant_id': variantId,
+      'status': status,
+      'decided_by_name': decidedByName,
+      'decided_by_role': decidedByRole,
+      'notes': notes,
+      'decided_at': decidedAt?.toIso8601String(),
+      'created_at': createdAt?.toIso8601String(),
+    };
+  }
+}
+
+class ShareReviewLinkModel {
+  final String linkId;
+  final String token;
+  final String projectId;
+  final String? roomId;
+  final String createdBy;
+  final String permission; // CAN_VIEW, CAN_COMMENT, CAN_APPROVE
+  final String? label;
+  final int viewCount;
+  final bool allowComments;
+  final bool allowApprovals;
+  final DateTime? expiresAt;
+  final bool isRevoked;
+  final DateTime? createdAt;
+  final DateTime? lastAccessedAt;
+
+  ShareReviewLinkModel({
+    required this.linkId,
+    required this.token,
+    required this.projectId,
+    this.roomId,
+    required this.createdBy,
+    this.permission = 'CAN_COMMENT',
+    this.label,
+    this.viewCount = 0,
+    this.allowComments = true,
+    this.allowApprovals = false,
+    this.expiresAt,
+    this.isRevoked = false,
+    this.createdAt,
+    this.lastAccessedAt,
+  });
+
+  String get id => linkId;
+  String get permissionTier => permission;
+  bool get isExpired => expiresAt != null && DateTime.now().isAfter(expiresAt!);
+  bool get isValid => !isRevoked && !isExpired;
+
+  factory ShareReviewLinkModel.fromMap(Map<String, dynamic> map) {
+    return ShareReviewLinkModel(
+      linkId: map['link_id'] as String? ?? map['id'] as String? ?? '',
+      token: map['token'] as String? ?? '',
+      projectId: map['project_id'] as String? ?? '',
+      roomId: map['room_id'] as String?,
+      createdBy: map['created_by'] as String? ?? '',
+      permission: map['permission_tier'] as String? ?? map['permission'] as String? ?? 'CAN_COMMENT',
+      label: map['label'] as String?,
+      viewCount: map['view_count'] as int? ?? 0,
+      allowComments: map['allow_comments'] as bool? ?? true,
+      allowApprovals: map['allow_approvals'] as bool? ?? false,
+      expiresAt: map['expires_at'] != null ? DateTime.tryParse(map['expires_at'].toString()) : null,
+      isRevoked: map['is_revoked'] as bool? ?? false,
+      createdAt: map['created_at'] != null ? DateTime.tryParse(map['created_at'].toString()) : null,
+      lastAccessedAt: map['last_accessed_at'] != null ? DateTime.tryParse(map['last_accessed_at'].toString()) : null,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'link_id': linkId,
+      'token': token,
+      'project_id': projectId,
+      'room_id': roomId,
+      'created_by': createdBy,
+      'permission': permission,
+      'permission_tier': permission,
+      'label': label,
+      'view_count': viewCount,
+      'allow_comments': allowComments,
+      'allow_approvals': allowApprovals,
+      'expires_at': expiresAt?.toIso8601String(),
+      'is_revoked': isRevoked,
+      'created_at': createdAt?.toIso8601String(),
+      'last_accessed_at': lastAccessedAt?.toIso8601String(),
+    };
+  }
+}
+
+class ReviewSessionModel {
+  final String linkId;
+  final String token;
+  final String permission;
+  final bool allowComments;
+  final bool allowApprovals;
+  final String projectId;
+  final String projectName;
+  final String currency;
+  final String? propertyAddress;
+  final String roomId;
+  final String roomName;
+  final String roomType;
+  final String? originalImageUrl;
+  final String? selectedVariantId;
+  final String? selectedVariantImageUrl;
+  final String? selectedVariantStyle;
+  final String approvalStatus;
+  final ApprovalRecordModel? latestApproval;
+  final List<DesignCommentModel> comments;
+  final List<Map<String, dynamic>> availableVariants;
+
+  ReviewSessionModel({
+    required this.linkId,
+    required this.token,
+    this.permission = 'CAN_COMMENT',
+    this.allowComments = true,
+    this.allowApprovals = false,
+    required this.projectId,
+    required this.projectName,
+    this.currency = 'MYR',
+    this.propertyAddress,
+    required this.roomId,
+    required this.roomName,
+    this.roomType = 'living_room',
+    this.originalImageUrl,
+    this.selectedVariantId,
+    this.selectedVariantImageUrl,
+    this.selectedVariantStyle,
+    this.approvalStatus = 'PENDING_REVIEW',
+    this.latestApproval,
+    this.comments = const [],
+    this.availableVariants = const [],
+  });
+
+  String get permissionTier => permission;
+  List<Map<String, dynamic>> get variants => availableVariants;
+  bool get canApprove => allowApprovals || permission == 'CAN_APPROVE';
+  bool get canComment => allowComments || permission != 'CAN_VIEW';
+
+  factory ReviewSessionModel.fromMap(Map<String, dynamic> map) {
+    final rawComments = (map['comments'] as List<dynamic>?) ?? [];
+    final rawVariants = (map['available_variants'] as List<dynamic>?) ?? (map['variants'] as List<dynamic>?) ?? [];
+
+    return ReviewSessionModel(
+      linkId: map['link_id'] as String? ?? '',
+      token: map['token'] as String? ?? '',
+      permission: map['permission_tier'] as String? ?? map['permission'] as String? ?? 'CAN_COMMENT',
+      allowComments: map['allow_comments'] as bool? ?? true,
+      allowApprovals: map['allow_approvals'] as bool? ?? false,
+      projectId: map['project_id'] as String? ?? '',
+      projectName: map['project_name'] as String? ?? 'Interior Project',
+      currency: map['currency'] as String? ?? 'MYR',
+      propertyAddress: map['property_address'] as String?,
+      roomId: map['room_id'] as String? ?? '',
+      roomName: map['room_name'] as String? ?? 'Room Design',
+      roomType: map['room_type'] as String? ?? 'living_room',
+      originalImageUrl: map['original_image_url'] as String?,
+      selectedVariantId: map['selected_variant_id'] as String?,
+      selectedVariantImageUrl: map['selected_variant_image_url'] as String?,
+      selectedVariantStyle: map['selected_variant_style'] as String?,
+      approvalStatus: map['approval_status'] as String? ?? 'PENDING_REVIEW',
+      latestApproval: map['latest_approval'] != null
+          ? ApprovalRecordModel.fromMap(map['latest_approval'] as Map<String, dynamic>)
+          : null,
+      comments: rawComments
+          .map((e) => DesignCommentModel.fromMap(e as Map<String, dynamic>))
+          .toList(),
+      availableVariants: rawVariants.map((e) => e as Map<String, dynamic>).toList(),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'link_id': linkId,
+      'token': token,
+      'permission': permission,
+      'permission_tier': permission,
+      'allow_comments': allowComments,
+      'allow_approvals': allowApprovals,
+      'project_id': projectId,
+      'project_name': projectName,
+      'currency': currency,
+      'property_address': propertyAddress,
+      'room_id': roomId,
+      'room_name': roomName,
+      'room_type': roomType,
+      'original_image_url': originalImageUrl,
+      'selected_variant_id': selectedVariantId,
+      'selected_variant_image_url': selectedVariantImageUrl,
+      'selected_variant_style': selectedVariantStyle,
+      'approval_status': approvalStatus,
+      'latest_approval': latestApproval?.toMap(),
+      'comments': comments.map((e) => e.toMap()).toList(),
+      'available_variants': availableVariants,
     };
   }
 }

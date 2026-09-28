@@ -67,6 +67,13 @@ from packages.room_model import (
     ProjectRole,
     ProjectStatus,
     ProjectWorkspaceSummary,
+    ApprovalRecord,
+    ApprovalStatus,
+    CommentStatus,
+    DesignComment,
+    ReviewSessionPayload,
+    SharePermissionTier,
+    ShareReviewLink,
 )
 from services.ai_worker.pipelines.generation import LocalRedesignGenerator
 from services.ai_worker.pipelines.room_analyzer import RoomAnalyzer
@@ -163,6 +170,41 @@ class ClientUpdateRequest(BaseModel):
     budget_preference: Optional[float] = None
     currency: Optional[str] = None
     preferred_styles: Optional[List[str]] = None
+
+
+class CreateCommentRequest(BaseModel):
+    author_id: str
+    author_name: str
+    author_role: str = "CLIENT"
+    text: str
+    variant_id: Optional[str] = None
+    version_id: Optional[str] = None
+    pin_x: Optional[float] = None
+    pin_y: Optional[float] = None
+    element_id: Optional[str] = None
+    parent_comment_id: Optional[str] = None
+
+
+class UpdateCommentStatusRequest(BaseModel):
+    status: CommentStatus = CommentStatus.RESOLVED
+
+
+class CreateApprovalRequest(BaseModel):
+    status: ApprovalStatus = ApprovalStatus.APPROVED
+    decided_by_name: Optional[str] = None
+    decided_by_role: Optional[str] = None
+    notes: Optional[str] = None
+    version_id: Optional[str] = None
+    variant_id: Optional[str] = None
+
+
+class CreateShareLinkRequest(BaseModel):
+    room_id: Optional[str] = None
+    created_by: str = "designer"
+    permission: SharePermissionTier = SharePermissionTier.CAN_COMMENT
+    allow_comments: bool = True
+    allow_approvals: bool = False
+    expires_in_days: int = 14
 
 
 class ElementUpdateRequest(BaseModel):
@@ -2540,4 +2582,260 @@ def export_renovation_plan(
         "title": matched_plan.title,
         "content": matched_plan.export_markdown or renovation_plan_builder.generate_markdown_brief(matched_plan, room_model),
     }
+
+
+# ==========================================
+# Milestone 5.2: Collaboration, Approvals & Review
+# ==========================================
+
+@router.post("/rooms/{room_id}/comments", response_model=DesignComment)
+def post_room_comment(
+    room_id: str,
+    req: CreateCommentRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Fulfills Milestone 5.2:
+    Posts a spatial or element-referenced comment/annotation on a room design variant.
+    """
+    # Verify room exists
+    room = repository.get_room(room_id)
+    if not room:
+        db_room = db.query(Room).filter(Room.id == room_id).first()
+        if not db_room:
+            raise HTTPException(status_code=404, detail="Room not found")
+
+    cmt = repository.add_comment(
+        room_id=room_id,
+        author_id=req.author_id,
+        author_name=req.author_name,
+        author_role=req.author_role,
+        text=req.text,
+        variant_id=req.variant_id,
+        version_id=req.version_id,
+        pin_x=req.pin_x,
+        pin_y=req.pin_y,
+        element_id=req.element_id,
+        parent_comment_id=req.parent_comment_id,
+    )
+    return cmt
+
+
+@router.get("/rooms/{room_id}/comments", response_model=List[DesignComment])
+def get_room_comments(
+    room_id: str,
+    variant_id: Optional[str] = None,
+    status: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """
+    Fulfills Milestone 5.2:
+    Lists comments for a room, optionally filtered by variant ID and OPEN/RESOLVED status.
+    """
+    filter_status = None
+    if status:
+        try:
+            filter_status = CommentStatus(status.upper())
+        except ValueError:
+            pass
+
+    return repository.list_comments(room_id, variant_id=variant_id, status=filter_status)
+
+
+@router.patch("/comments/{comment_id}/status", response_model=DesignComment)
+def update_comment_status(
+    comment_id: str,
+    req: UpdateCommentStatusRequest,
+):
+    """
+    Fulfills Milestone 5.2:
+    Resolves or reopens a design comment.
+    """
+    cmt = repository.update_comment_status(comment_id, req.status)
+    if not cmt:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    return cmt
+
+
+@router.delete("/comments/{comment_id}")
+def delete_room_comment(comment_id: str):
+    """
+    Fulfills Milestone 5.2:
+    Deletes a design comment.
+    """
+    success = repository.delete_comment(comment_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    return {"status": "success", "message": f"Comment '{comment_id}' deleted"}
+
+
+@router.post("/rooms/{room_id}/approvals", response_model=ApprovalRecord)
+def submit_room_approval(
+    room_id: str,
+    req: CreateApprovalRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Fulfills Milestone 5.2:
+    Submits a formal approval decision or change request for a design variant.
+    """
+    room = repository.get_room(room_id)
+    if not room:
+        db_room = db.query(Room).filter(Room.id == room_id).first()
+        if not db_room:
+            raise HTTPException(status_code=404, detail="Room not found")
+
+    record = repository.record_approval(
+        room_id=room_id,
+        status=req.status,
+        decided_by_name=req.decided_by_name,
+        decided_by_role=req.decided_by_role,
+        notes=req.notes,
+        version_id=req.version_id,
+        variant_id=req.variant_id,
+    )
+    return record
+
+
+@router.get("/rooms/{room_id}/approvals")
+def get_room_approvals(
+    room_id: str,
+    variant_id: Optional[str] = None,
+):
+    """
+    Fulfills Milestone 5.2:
+    Retrieves latest approval status and full decision history for a room.
+    """
+    latest = repository.get_latest_approval(room_id, variant_id=variant_id)
+    history = repository.list_approvals(room_id)
+    return {
+        "room_id": room_id,
+        "current_status": latest.status if latest else ApprovalStatus.PENDING_REVIEW,
+        "latest_approval": latest,
+        "history": sorted(history, key=lambda a: a.created_at, reverse=True),
+    }
+
+
+@router.post("/projects/{project_id}/share-links", response_model=ShareReviewLink)
+def generate_project_share_link(
+    project_id: str,
+    req: CreateShareLinkRequest,
+):
+    """
+    Fulfills Milestone 5.2:
+    Creates a secure, tokenized, expiring review link with scoped permissions.
+    """
+    project = repository.get_project(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    link = repository.create_share_link(
+        project_id=project_id,
+        room_id=req.room_id,
+        created_by=req.created_by,
+        permission=req.permission,
+        allow_comments=req.allow_comments,
+        allow_approvals=req.allow_approvals,
+        expires_in_days=req.expires_in_days,
+    )
+    return link
+
+
+@router.get("/projects/{project_id}/share-links", response_model=List[ShareReviewLink])
+def list_project_share_links(project_id: str):
+    """
+    Fulfills Milestone 5.2:
+    Lists active shareable review links for a project.
+    """
+    return repository.list_project_share_links(project_id)
+
+
+@router.delete("/share-links/{link_id}")
+def revoke_share_link(link_id: str):
+    """
+    Fulfills Milestone 5.2:
+    Revokes an active share link.
+    """
+    success = repository.revoke_share_link(link_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Share link not found")
+    return {"status": "success", "message": f"Share link '{link_id}' revoked"}
+
+
+@router.get("/review/{token}", response_model=ReviewSessionPayload)
+def access_review_session(token: str):
+    """
+    Fulfills Milestone 5.2:
+    Public client review endpoint to access presentation mode using token.
+    """
+    session = repository.get_review_session(token)
+    if not session:
+        raise HTTPException(status_code=404, detail="Invalid, expired, or revoked review link")
+    return session
+
+
+@router.post("/review/{token}/comments", response_model=DesignComment)
+def post_review_session_comment(
+    token: str,
+    req: CreateCommentRequest,
+):
+    """
+    Fulfills Milestone 5.2:
+    Submits a comment via client review link session.
+    """
+    link = repository.get_share_link_by_token(token)
+    if not link:
+        raise HTTPException(status_code=404, detail="Invalid, expired, or revoked review link")
+
+    if not link.allow_comments and link.permission == SharePermissionTier.CAN_VIEW:
+        raise HTTPException(status_code=403, detail="Comments are disabled on this review link")
+
+    session = repository.get_review_session(token)
+    target_room_id = req.element_id or session.room_id if session else "room_review"
+
+    cmt = repository.add_comment(
+        room_id=target_room_id,
+        author_id=req.author_id,
+        author_name=req.author_name,
+        author_role="CLIENT",
+        text=req.text,
+        variant_id=req.variant_id or (session.selected_variant_id if session else None),
+        version_id=req.version_id,
+        pin_x=req.pin_x,
+        pin_y=req.pin_y,
+        element_id=req.element_id,
+        parent_comment_id=req.parent_comment_id,
+    )
+    return cmt
+
+
+@router.post("/review/{token}/decide", response_model=ApprovalRecord)
+def submit_review_session_decision(
+    token: str,
+    req: CreateApprovalRequest,
+):
+    """
+    Fulfills Milestone 5.2:
+    Submits a client approval or changes-requested decision via review link.
+    """
+    link = repository.get_share_link_by_token(token)
+    if not link:
+        raise HTTPException(status_code=404, detail="Invalid, expired, or revoked review link")
+
+    if not link.allow_approvals and link.permission != SharePermissionTier.CAN_APPROVE:
+        raise HTTPException(status_code=403, detail="Approvals are not permitted on this review link")
+
+    session = repository.get_review_session(token)
+    target_room_id = session.room_id if session else "room_review"
+
+    record = repository.record_approval(
+        room_id=target_room_id,
+        status=req.status,
+        decided_by_name=req.decided_by_name or "Client",
+        decided_by_role="CLIENT",
+        notes=req.notes,
+        variant_id=req.variant_id or (session.selected_variant_id if session else None),
+    )
+    return record
+
 

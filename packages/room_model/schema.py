@@ -1425,6 +1425,8 @@ class CanonicalRoomModel(BaseModel):
     material_takeoff: Optional[MaterialTakeoffReport] = None
     product_recommendations: Optional[ProductRecommendationReport] = None
     renovation_plans: List[RenovationPlanVersion] = Field(default_factory=list)
+    comments: List[Any] = Field(default_factory=list)  # List[DesignComment] (forward ref)
+    approvals: List[Any] = Field(default_factory=list)  # List[ApprovalRecord] (forward ref)
     overall_confidence: float = Field(default=0.88, ge=0.0, le=1.0)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -1728,4 +1730,103 @@ class ProjectWorkspaceSummary(BaseModel):
     designer_notes: Optional[str] = None
     target_completion_date: Optional[str] = None
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+# ==========================================
+# Milestone 5.2: Collaboration and Review Models
+# ==========================================
+
+class ApprovalStatus(str, Enum):
+    """Formal client and designer approval states for redesign versions (Milestone 5.2)."""
+    DRAFT = "DRAFT"
+    PENDING_REVIEW = "PENDING_REVIEW"
+    CHANGES_REQUESTED = "CHANGES_REQUESTED"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+
+
+class SharePermissionTier(str, Enum):
+    """Scoped access levels for shareable client review links (Milestone 5.2)."""
+    CAN_VIEW = "CAN_VIEW"
+    CAN_COMMENT = "CAN_COMMENT"
+    CAN_APPROVE = "CAN_APPROVE"
+
+
+class CommentStatus(str, Enum):
+    """Status lifecycle for design annotations and spatial comments (Milestone 5.2)."""
+    OPEN = "OPEN"
+    RESOLVED = "RESOLVED"
+
+
+class DesignComment(BaseModel):
+    """Spatial/canvas pinned or element-referenced comment on room designs (Milestone 5.2)."""
+    comment_id: str = Field(default_factory=lambda: f"cmt_{uuid.uuid4().hex[:8]}")
+    room_id: str
+    variant_id: Optional[str] = None
+    version_id: Optional[str] = None
+    author_id: str
+    author_name: str
+    author_role: str = "CLIENT"  # CLIENT, LEAD_DESIGNER, COLLABORATOR, OWNER
+    text: str
+    pin_x: Optional[float] = None  # Normalized 0.0 - 1.0 coordinate on redesign canvas
+    pin_y: Optional[float] = None  # Normalized 0.0 - 1.0 coordinate on redesign canvas
+    element_id: Optional[str] = None  # Optional link to RoomObject or RoomSurface
+    status: CommentStatus = CommentStatus.OPEN
+    parent_comment_id: Optional[str] = None  # Threading
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: Optional[datetime] = None
+
+
+class ApprovalRecord(BaseModel):
+    """Formal sign-off or change request record for a room design (Milestone 5.2)."""
+    approval_id: str = Field(default_factory=lambda: f"appr_{uuid.uuid4().hex[:8]}")
+    room_id: str
+    version_id: Optional[str] = None
+    variant_id: Optional[str] = None
+    status: ApprovalStatus = ApprovalStatus.PENDING_REVIEW
+    decided_by_name: Optional[str] = None
+    decided_by_role: Optional[str] = None
+    notes: Optional[str] = None
+    decided_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class ShareReviewLink(BaseModel):
+    """Secure, tokenized, expiring review link for client presentations (Milestone 5.2)."""
+    link_id: str = Field(default_factory=lambda: f"shl_{uuid.uuid4().hex[:8]}")
+    token: str = Field(default_factory=lambda: uuid.uuid4().hex)
+    project_id: str
+    room_id: Optional[str] = None
+    created_by: str
+    permission: SharePermissionTier = SharePermissionTier.CAN_COMMENT
+    allow_comments: bool = True
+    allow_approvals: bool = False
+    expires_at: Optional[datetime] = None
+    is_revoked: bool = False
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class ReviewSessionPayload(BaseModel):
+    """Bundled presentation session data accessed by tokenized review link (Milestone 5.2)."""
+    link_id: str
+    token: str
+    permission: SharePermissionTier
+    allow_comments: bool
+    allow_approvals: bool
+    project_id: str
+    project_name: str
+    currency: str = "MYR"
+    property_address: Optional[str] = None
+    room_id: str
+    room_name: str
+    room_type: str
+    original_image_url: Optional[str] = None
+    selected_variant_id: Optional[str] = None
+    selected_variant_image_url: Optional[str] = None
+    selected_variant_style: Optional[str] = None
+    approval_status: ApprovalStatus = ApprovalStatus.PENDING_REVIEW
+    latest_approval: Optional[ApprovalRecord] = None
+    comments: List[DesignComment] = Field(default_factory=list)
+    available_variants: List[Dict[str, Any]] = Field(default_factory=list)
+
 

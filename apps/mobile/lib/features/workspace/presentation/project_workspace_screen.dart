@@ -3,6 +3,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../projects/domain/project.dart';
 import '../../projects/services/project_service.dart';
 import 'client_directory_screen.dart';
+import 'client_presentation_screen.dart';
 
 class ProjectWorkspaceScreen extends StatefulWidget {
   final String projectId;
@@ -721,6 +722,18 @@ class _ProjectWorkspaceScreenState extends State<ProjectWorkspaceScreen> {
             return Card(
               margin: const EdgeInsets.only(bottom: 10),
               child: ListTile(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ClientPresentationScreen(
+                        projectId: widget.projectId,
+                        roomId: room.roomId,
+                        roomName: room.roomName,
+                      ),
+                    ),
+                  );
+                },
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                 leading: Container(
                   padding: const EdgeInsets.all(10),
@@ -752,17 +765,39 @@ class _ProjectWorkspaceScreenState extends State<ProjectWorkspaceScreen> {
                       ),
                   ],
                 ),
-                trailing: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      '${_summary!.currency} ${room.estimatedBudget.toStringAsFixed(0)}',
-                      style: const TextStyle(color: AppTheme.success, fontWeight: FontWeight.bold, fontSize: 13),
+                    Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          '${_summary!.currency} ${room.estimatedBudget.toStringAsFixed(0)}',
+                          style: const TextStyle(color: AppTheme.success, fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                        Text(
+                          '${room.versionCount} designs',
+                          style: const TextStyle(color: AppTheme.textMuted, fontSize: 11),
+                        ),
+                      ],
                     ),
-                    Text(
-                      '${room.versionCount} designs',
-                      style: const TextStyle(color: AppTheme.textMuted, fontSize: 11),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.slideshow_rounded, color: AppTheme.primary, size: 22),
+                      tooltip: 'Client Review & Presentation',
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ClientPresentationScreen(
+                              projectId: widget.projectId,
+                              roomId: room.roomId,
+                              roomName: room.roomName,
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ],
                 ),
