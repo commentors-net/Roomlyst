@@ -313,6 +313,7 @@ class Measurement(BaseModel):
     confidence: float = Field(..., ge=0.0, le=1.0, description="Confidence score between 0.0 and 1.0")
     source: MeasurementSource = Field(..., description="Provenance source")
     verified_by_user: bool = Field(default=False)
+    name: Optional[str] = Field(None, description="Human-friendly measurement label")
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     @property
@@ -1295,6 +1296,101 @@ class ProductRecommendationReport(BaseModel):
     )
 
 
+class ExecutionPhase(BaseModel):
+    """
+    Advisory step in the suggested construction and installation sequence.
+    Fulfills Blueprint Section 41 & Milestone 4.4.
+    """
+    phase_number: int
+    title: str
+    description: str
+    advisory_notes: str = ""
+    is_safety_critical: bool = False
+
+
+class PlanMeasurementItem(BaseModel):
+    """
+    Structured room dimension retaining explicit measurement provenance,
+    confidence score, and confirmation state.
+    Fulfills Milestone 4.4 accuracy & safety demarcation requirements.
+    """
+    label: str
+    value: float
+    unit: str = "m"
+    source: str = "ESTIMATED"
+    confidence: float = 0.85
+    is_confirmed: bool = False
+    requires_manual_verification: bool = False
+
+
+class RenovationPlanVersion(BaseModel):
+    """
+    Immutable, versionable renovation plan output consolidating selected design,
+    room geometry, material takeoff, product specifications, and budget modeling.
+    Fulfills Blueprint Section 41 & Milestone 4.4.
+    """
+    plan_id: str = Field(default_factory=lambda: f"plan_{uuid.uuid4().hex[:8]}")
+    room_id: str
+    project_id: Optional[str] = None
+    version_number: int = 1
+    version_tag: str = "v1"
+    title: str = "Comprehensive Renovation Plan"
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    selected_variant_id: Optional[str] = None
+    selected_variant_title: Optional[str] = None
+    selected_style: str = "Warm Modern Minimalist"
+    selected_tier: RenovationTier = RenovationTier.MODERATE
+    currency: CurrencyCode = CurrencyCode.MYR
+
+    # Section 1: Project Summary
+    project_summary: str = ""
+
+    # Section 2: Room Information
+    room_information: Dict[str, Any] = Field(default_factory=dict)
+
+    # Section 3: Selected Design
+    selected_design: Dict[str, Any] = Field(default_factory=dict)
+
+    # Section 4: Scope of Work
+    scope_of_work: List[str] = Field(default_factory=list)
+
+    # Section 5: Existing Items to Retain
+    items_to_retain: List[Dict[str, Any]] = Field(default_factory=list)
+
+    # Section 6: Items to Remove or Replace
+    items_to_remove: List[Dict[str, Any]] = Field(default_factory=list)
+    items_to_replace: List[Dict[str, Any]] = Field(default_factory=list)
+
+    # Section 7: Materials and Quantities
+    materials_and_quantities: Optional[Dict[str, Any]] = None
+
+    # Section 8: Furniture / Product Recommendations
+    product_recommendations: List[Dict[str, Any]] = Field(default_factory=list)
+
+    # Section 9: Budget Estimate
+    budget_estimate: Optional[Dict[str, Any]] = None
+
+    # Section 10: Measurement Confidence
+    measurement_confidence: Dict[str, Any] = Field(default_factory=dict)
+
+    # Section 11: Assumptions
+    assumptions: List[str] = Field(default_factory=list)
+
+    # Section 12: Warnings / Required Verification
+    warnings_and_verifications: List[str] = Field(default_factory=list)
+    safety_critical_disclaimer: str = (
+        "Statutory Notice: All structural, electrical, gas, plumbing, waterproofing, and load-bearing works "
+        "require formal physical verification and sign-off by a licensed contractor or registered professional engineer "
+        "prior to demolition or construction. AI estimates are advisory only."
+    )
+
+    # Section 13: Suggested Execution Sequence
+    execution_sequence: List[ExecutionPhase] = Field(default_factory=list)
+
+    # Export formats
+    export_markdown: Optional[str] = None
+
+
 class CanonicalRoomModel(BaseModel):
     """
     The Single Canonical Room Model (Section 10).
@@ -1328,6 +1424,7 @@ class CanonicalRoomModel(BaseModel):
     orchestration_evaluation: Optional[ScanOrchestrationEvaluation] = None
     material_takeoff: Optional[MaterialTakeoffReport] = None
     product_recommendations: Optional[ProductRecommendationReport] = None
+    renovation_plans: List[RenovationPlanVersion] = Field(default_factory=list)
     overall_confidence: float = Field(default=0.88, ge=0.0, le=1.0)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

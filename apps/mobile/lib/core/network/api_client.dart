@@ -553,6 +553,34 @@ class ApiClient {
     return get('/rooms/$roomId/recommendations');
   }
 
+  // Milestone 4.4: Renovation Plan API Methods
+  static Future<dynamic> createRenovationPlan(
+    String roomId, {
+    String? selectedVariantId,
+  }) async {
+    final payload = <String, dynamic>{};
+    if (selectedVariantId != null) {
+      payload['selected_variant_id'] = selectedVariantId;
+    }
+    return post('/rooms/$roomId/renovation-plans', payload);
+  }
+
+  static Future<dynamic> getRoomRenovationPlans(String roomId) async {
+    return get('/rooms/$roomId/renovation-plans');
+  }
+
+  static Future<dynamic> getRenovationPlan(String roomId, String planId) async {
+    return get('/rooms/$roomId/renovation-plans/$planId');
+  }
+
+  static Future<dynamic> exportRenovationPlan(
+    String roomId,
+    String planId, {
+    String format = 'markdown',
+  }) async {
+    return get('/rooms/$roomId/renovation-plans/$planId/export?format=$format');
+  }
+
   static dynamic _handleResponse(http.Response response) {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       if (response.body.isEmpty) return null;

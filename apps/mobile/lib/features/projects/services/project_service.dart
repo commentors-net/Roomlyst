@@ -453,6 +453,52 @@ class ProjectService {
     final res = await ApiClient.getRoomRecommendations(roomId);
     return ProductRecommendationReportModel.fromMap(res as Map<String, dynamic>);
   }
+
+  // Milestone 4.4: Renovation Plan Output Services
+  static Future<RenovationPlanVersionModel> generateRenovationPlan({
+    required String roomId,
+    String? selectedVariantId,
+  }) async {
+    final res = await ApiClient.createRenovationPlan(
+      roomId,
+      selectedVariantId: selectedVariantId,
+    );
+    final map = res as Map<String, dynamic>;
+    if (map.containsKey('plan')) {
+      return RenovationPlanVersionModel.fromMap(map['plan'] as Map<String, dynamic>);
+    }
+    return RenovationPlanVersionModel.fromMap(map);
+  }
+
+  static Future<List<RenovationPlanVersionModel>> fetchRoomRenovationPlans(String roomId) async {
+    final res = await ApiClient.getRoomRenovationPlans(roomId);
+    final map = res as Map<String, dynamic>;
+    final rawPlans = (map['plans'] as List<dynamic>?) ?? [];
+    return rawPlans
+        .map((e) => RenovationPlanVersionModel.fromMap(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  static Future<RenovationPlanVersionModel> fetchRenovationPlan({
+    required String roomId,
+    required String planId,
+  }) async {
+    final res = await ApiClient.getRenovationPlan(roomId, planId);
+    final map = res as Map<String, dynamic>;
+    if (map.containsKey('plan')) {
+      return RenovationPlanVersionModel.fromMap(map['plan'] as Map<String, dynamic>);
+    }
+    return RenovationPlanVersionModel.fromMap(map);
+  }
+
+  static Future<Map<String, dynamic>> exportRenovationPlan({
+    required String roomId,
+    required String planId,
+    String format = 'markdown',
+  }) async {
+    final res = await ApiClient.exportRenovationPlan(roomId, planId, format: format);
+    return res as Map<String, dynamic>;
+  }
 }
 
 

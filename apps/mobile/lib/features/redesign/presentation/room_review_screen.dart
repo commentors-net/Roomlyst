@@ -11,6 +11,7 @@ import '../../capture/presentation/lidar_scan_screen.dart';
 import '../../renovation/presentation/material_takeoff_screen.dart';
 import '../../renovation/presentation/renovation_budget_planner_screen.dart';
 import '../../renovation/presentation/product_recommendations_screen.dart';
+import '../../renovation/presentation/renovation_plan_screen.dart';
 
 class RoomReviewScreen extends StatefulWidget {
   final RoomModelData room;
@@ -39,6 +40,7 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
   bool _isReconstructing = false;
   BudgetPlanModel? _budgetPlan;
   ProductRecommendationReportModel? _productRecommendations;
+  RenovationPlanVersionModel? _latestPlan;
 
   final List<String> _styles = [
     'Warm Modern Minimalist',
@@ -65,6 +67,9 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
     _currentRoom = widget.room;
     _budgetPlan = widget.room.budgetPlan;
     _productRecommendations = widget.room.productRecommendations;
+    if (widget.room.renovationPlans.isNotEmpty) {
+      _latestPlan = widget.room.renovationPlans.last;
+    }
     if (_budgetPlan != null) {
       _selectedCurrency = _budgetPlan!.currency;
       _selectedTier = _budgetPlan!.renovationTier;
@@ -1631,6 +1636,112 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
     );
   }
 
+  Widget _buildRenovationPlanSection() {
+    final plan = _latestPlan;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.surfaceBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.assignment_turned_in_outlined, size: 16, color: AppTheme.primary),
+              const SizedBox(width: 8),
+              const Text(
+                'Consolidated Renovation Plan & Brief',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppTheme.textMain),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: plan != null ? AppTheme.primary.withValues(alpha: 0.15) : AppTheme.surfaceBorder,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  plan != null ? plan.version : 'Draft Ready',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: plan != null ? AppTheme.primary : AppTheme.textMuted,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            plan != null
+                ? 'Structured 13-section renovation brief with estimated budget (${plan.formattedGrandTotal}), confirmed measurements, and advisory execution sequence.'
+                : 'Consolidate chosen designs, takeoff quantities, catalog furniture, budget splits, and site verification warnings into a contractor-ready brief.',
+            style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
+          ),
+          if (plan != null) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(Icons.verified, size: 14, color: Colors.greenAccent.shade400),
+                const SizedBox(width: 4),
+                Text(
+                  '${plan.confirmedCount} Confirmed Measurements',
+                  style: const TextStyle(fontSize: 11, color: AppTheme.textMain, fontWeight: FontWeight.w500),
+                ),
+                const Spacer(),
+                if (plan.unverifiedCount > 0)
+                  Text(
+                    '${plan.unverifiedCount} Site Check Required',
+                    style: TextStyle(fontSize: 11, color: Colors.amberAccent.shade400, fontWeight: FontWeight.w500),
+                  ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: AppTheme.primary),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+              ),
+              onPressed: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => RenovationPlanScreen(
+                      roomId: _currentRoom.id,
+                      initialPlan: plan,
+                    ),
+                  ),
+                );
+                try {
+                  final refreshed = await ProjectService.fetchRoomModel(_currentRoom.id);
+                  if (mounted) {
+                    setState(() {
+                      _currentRoom = refreshed;
+                      if (refreshed.renovationPlans.isNotEmpty) {
+                        _latestPlan = refreshed.renovationPlans.last;
+                      }
+                    });
+                  }
+                } catch (_) {}
+              },
+              icon: const Icon(Icons.description_outlined, size: 16, color: AppTheme.primary),
+              label: Text(
+                plan != null ? 'View / Export Renovation Plan (${plan.version})' : 'Generate Renovation Handover Brief',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primary),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1761,6 +1872,15 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
             ),
             const SizedBox(height: 8),
             _buildProductRecommendationsSection(),
+            const SizedBox(height: 16),
+
+            // Renovation Plan Output Section (Milestone 4.4)
+            const Text(
+              'Renovation Plan & Contractor Brief',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppTheme.accent),
+            ),
+            const SizedBox(height: 8),
+            _buildRenovationPlanSection(),
             const SizedBox(height: 24),
 
             const Divider(color: AppTheme.surfaceBorder),

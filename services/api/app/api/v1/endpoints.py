@@ -59,6 +59,9 @@ from packages.room_model import (
     CatalogProduct,
     ProductRecommendation,
     ProductRecommendationReport,
+    ExecutionPhase,
+    PlanMeasurementItem,
+    RenovationPlanVersion,
 )
 from services.ai_worker.pipelines.generation import LocalRedesignGenerator
 from services.ai_worker.pipelines.room_analyzer import RoomAnalyzer
@@ -73,6 +76,7 @@ from services.ai_worker.pipelines.ar_fusion_engine import ARMotionFusionEngine
 from services.ai_worker.pipelines.native_spatial_normalizer import NativeSpatialNormalizer
 from services.ai_worker.pipelines.material_estimator import material_estimator
 from services.ai_worker.pipelines.product_recommender import product_recommender
+from services.ai_worker.pipelines.renovation_plan_builder import renovation_plan_builder
 from ...core.rate_limit import rate_limit_general, rate_limit_generation
 from ...core.sanitizer import sanitize_image
 from ...db.models import Project, Room
@@ -2200,9 +2204,160 @@ def get_room_recommendations(
     return room_model.product_recommendations
 
 
+# =====================================================================
+# Milestone 4.4: Renovation Plan Output & Contractor Handover Brief
+# =====================================================================
+
+class CreateRenovationPlanRequest(BaseModel):
+    selected_variant_id: Optional[str] = None
+    selected_style: Optional[str] = None
+    selected_tier: Optional[str] = "MODERATE"
+    currency: Optional[str] = "MYR"
+    project_name: Optional[str] = None
+    plan_title: Optional[str] = None
 
 
+@router.post("/rooms/{room_id}/renovation-plans", response_model=RenovationPlanVersion)
+def create_renovation_plan(
+    room_id: str,
+    payload: CreateRenovationPlanRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Fulfills Blueprint Section 41 & Milestone 4.4:
+    Synthesizes a new versioned Renovation Plan consolidating room geometry,
+    design variant selections, material takeoff, product recommendations, and budget.
+    """
+    db_room = db.query(Room).filter(Room.id == room_id).first()
+    room_model = None
+    if db_room and db_room.room_model_data:
+        room_model = CanonicalRoomModel.model_validate(db_room.room_model_data)
+    elif room_id in repository.rooms:
+        room_model = repository.rooms[room_id]
+
+    if not room_model:
+        raise HTTPException(status_code=404, detail="Room not found")
+
+    cur = CurrencyCode.MYR
+    if payload.currency:
+        try:
+            cur = CurrencyCode(payload.currency.upper())
+        except ValueError:
+            pass
+
+    t = RenovationTier.MODERATE
+    if payload.selected_tier:
+        try:
+            t = RenovationTier(payload.selected_tier.upper())
+        except ValueError:
+            pass
+
+    plan = renovation_plan_builder.generate_plan(
+        room=room_model,
+        selected_variant_id=payload.selected_variant_id,
+        selected_style=payload.selected_style,
+        selected_tier=t,
+        currency=cur,
+        project_name=payload.project_name,
+        plan_title=payload.plan_title,
+    )
+
+    if db_room:
+        db_room.room_model_data = room_model.model_dump(mode="json")
+        db.commit()
+    repository.save_room(room_model)
+
+    return plan
 
 
+@router.get("/rooms/{room_id}/renovation-plans", response_model=List[RenovationPlanVersion])
+def get_room_renovation_plans(
+    room_id: str,
+    db: Session = Depends(get_db),
+):
+    """
+    Fulfills Blueprint Section 41 & Milestone 4.4:
+    Lists all generated renovation plan versions (v1, v2, v3...) for a room.
+    """
+    db_room = db.query(Room).filter(Room.id == room_id).first()
+    room_model = None
+    if db_room and db_room.room_model_data:
+        room_model = CanonicalRoomModel.model_validate(db_room.room_model_data)
+    elif room_id in repository.rooms:
+        room_model = repository.rooms[room_id]
 
+    if not room_model:
+        raise HTTPException(status_code=404, detail="Room not found")
+
+    return room_model.renovation_plans
+
+
+@router.get("/rooms/{room_id}/renovation-plans/{plan_id}", response_model=RenovationPlanVersion)
+def get_single_renovation_plan(
+    room_id: str,
+    plan_id: str,
+    db: Session = Depends(get_db),
+):
+    """
+    Fulfills Blueprint Section 41 & Milestone 4.4:
+    Retrieves a specific historical renovation plan version by its plan_id.
+    """
+    db_room = db.query(Room).filter(Room.id == room_id).first()
+    room_model = None
+    if db_room and db_room.room_model_data:
+        room_model = CanonicalRoomModel.model_validate(db_room.room_model_data)
+    elif room_id in repository.rooms:
+        room_model = repository.rooms[room_id]
+
+    if not room_model:
+        raise HTTPException(status_code=404, detail="Room not found")
+
+    for p in room_model.renovation_plans:
+        if p.plan_id == plan_id:
+            return p
+
+    raise HTTPException(status_code=404, detail=f"Renovation plan '{plan_id}' not found")
+
+
+@router.get("/rooms/{room_id}/renovation-plans/{plan_id}/export")
+def export_renovation_plan(
+    room_id: str,
+    plan_id: str,
+    format: str = "markdown",
+    db: Session = Depends(get_db),
+):
+    """
+    Fulfills Blueprint Section 41 & Milestone 4.4:
+    Exports structured contractor brief in Markdown or JSON format for printable/PDF rendering.
+    """
+    db_room = db.query(Room).filter(Room.id == room_id).first()
+    room_model = None
+    if db_room and db_room.room_model_data:
+        room_model = CanonicalRoomModel.model_validate(db_room.room_model_data)
+    elif room_id in repository.rooms:
+        room_model = repository.rooms[room_id]
+
+    if not room_model:
+        raise HTTPException(status_code=404, detail="Room not found")
+
+    matched_plan: Optional[RenovationPlanVersion] = None
+    for p in room_model.renovation_plans:
+        if p.plan_id == plan_id:
+            matched_plan = p
+            break
+
+    if not matched_plan:
+        raise HTTPException(status_code=404, detail=f"Renovation plan '{plan_id}' not found")
+
+    if format.lower() == "json":
+        return matched_plan.model_dump(mode="json")
+
+    return {
+        "plan_id": matched_plan.plan_id,
+        "room_id": room_id,
+        "version_tag": matched_plan.version_tag,
+        "format": "markdown",
+        "title": matched_plan.title,
+        "content": matched_plan.export_markdown or renovation_plan_builder.generate_markdown_brief(matched_plan, room_model),
+    }
 

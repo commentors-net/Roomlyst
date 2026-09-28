@@ -1395,6 +1395,7 @@ class RoomModelData {
   final ScanOrchestrationEvaluationModel? orchestrationEvaluation;
   final MaterialTakeoffReportModel? materialTakeoff;
   final ProductRecommendationReportModel? productRecommendations;
+  final List<RenovationPlanVersionModel> renovationPlans;
   final List<DesignVersionModel> versions;
 
   RoomModelData({
@@ -1420,6 +1421,7 @@ class RoomModelData {
     this.orchestrationEvaluation,
     this.materialTakeoff,
     this.productRecommendations,
+    this.renovationPlans = const [],
     this.versions = const [],
   });
 
@@ -1430,6 +1432,7 @@ class RoomModelData {
     final rawMeasurements = (map['measurements'] as List<dynamic>?) ?? [];
     final rawPlanes = (map['spatial_planes'] as List<dynamic>?) ?? [];
     final rawVersions = (map['versions'] as List<dynamic>?) ?? [];
+    final rawPlans = (map['renovation_plans'] as List<dynamic>?) ?? [];
 
     return RoomModelData(
       id: map['id'] as String,
@@ -1478,6 +1481,9 @@ class RoomModelData {
       productRecommendations: (map['product_recommendations'] != null)
           ? ProductRecommendationReportModel.fromMap(map['product_recommendations'] as Map<String, dynamic>)
           : null,
+      renovationPlans: rawPlans
+          .map((e) => RenovationPlanVersionModel.fromMap(e as Map<String, dynamic>))
+          .toList(),
       versions: rawVersions
           .map((e) => DesignVersionModel.fromMap(e as Map<String, dynamic>))
           .toList(),
@@ -2408,5 +2414,249 @@ class ProductRecommendationReportModel {
     };
   }
 }
+
+// ==========================================
+// Milestone 4.4: Renovation Plan Output Models
+// ==========================================
+
+class ExecutionPhaseModel {
+  final int phaseNumber;
+  final String title;
+  final String description;
+  final List<String> tradesInvolved;
+  final int estimatedDays;
+  final bool isSafetyCritical;
+  final String? regulatoryNotice;
+
+  ExecutionPhaseModel({
+    required this.phaseNumber,
+    required this.title,
+    required this.description,
+    this.tradesInvolved = const [],
+    this.estimatedDays = 1,
+    this.isSafetyCritical = false,
+    this.regulatoryNotice,
+  });
+
+  factory ExecutionPhaseModel.fromMap(Map<String, dynamic> map) {
+    return ExecutionPhaseModel(
+      phaseNumber: (map['phase_number'] as num?)?.toInt() ?? 1,
+      title: map['title'] as String? ?? '',
+      description: map['description'] as String? ?? '',
+      tradesInvolved: (map['trades_involved'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      estimatedDays: (map['estimated_days'] as num?)?.toInt() ?? 1,
+      isSafetyCritical: map['is_safety_critical'] as bool? ?? false,
+      regulatoryNotice: map['regulatory_notice'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'phase_number': phaseNumber,
+      'title': title,
+      'description': description,
+      'trades_involved': tradesInvolved,
+      'estimated_days': estimatedDays,
+      'is_safety_critical': isSafetyCritical,
+      'regulatory_notice': regulatoryNotice,
+    };
+  }
+}
+
+class PlanMeasurementItemModel {
+  final String label;
+  final double value;
+  final String unit;
+  final String source;
+  final double confidence;
+  final bool isConfirmed;
+  final bool requiresManualVerification;
+
+  PlanMeasurementItemModel({
+    required this.label,
+    required this.value,
+    this.unit = 'm',
+    this.source = 'ESTIMATED',
+    this.confidence = 0.8,
+    this.isConfirmed = false,
+    this.requiresManualVerification = true,
+  });
+
+  factory PlanMeasurementItemModel.fromMap(Map<String, dynamic> map) {
+    return PlanMeasurementItemModel(
+      label: map['label'] as String? ?? '',
+      value: (map['value'] as num?)?.toDouble() ?? 0.0,
+      unit: map['unit'] as String? ?? 'm',
+      source: map['source'] as String? ?? 'ESTIMATED',
+      confidence: (map['confidence'] as num?)?.toDouble() ?? 0.8,
+      isConfirmed: map['is_confirmed'] as bool? ?? false,
+      requiresManualVerification: map['requires_manual_verification'] as bool? ?? true,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'label': label,
+      'value': value,
+      'unit': unit,
+      'source': source,
+      'confidence': confidence,
+      'is_confirmed': isConfirmed,
+      'requires_manual_verification': requiresManualVerification,
+    };
+  }
+
+  String get displayString => '${value.toStringAsFixed(2)} $unit';
+}
+
+class RenovationPlanVersionModel {
+  final String planId;
+  final String version;
+  final DateTime? createdAt;
+  final String? selectedVariantId;
+  final String? selectedVariantTitle;
+  final String? style;
+  final String currency;
+  final double grandTotal;
+  final double contingencyAmount;
+  final double contingencyPct;
+  final double subtotalMaterials;
+  final double subtotalLabor;
+  final double taxAmount;
+  final String taxName;
+  final double overallConfidence;
+  final int confirmedCount;
+  final int unverifiedCount;
+  final List<ExecutionPhaseModel> executionPhases;
+  final List<PlanMeasurementItemModel> measurements;
+  final List<String> scopeOfWork;
+  final List<Map<String, dynamic>> itemsToRetain;
+  final List<Map<String, dynamic>> itemsToRemove;
+  final List<Map<String, dynamic>> itemsToReplace;
+  final Map<String, dynamic>? materialTakeoffSummary;
+  final List<Map<String, dynamic>> recommendedProducts;
+  final List<String> assumptions;
+  final List<String> warnings;
+  final String exportMarkdown;
+
+  RenovationPlanVersionModel({
+    required this.planId,
+    required this.version,
+    this.createdAt,
+    this.selectedVariantId,
+    this.selectedVariantTitle,
+    this.style,
+    this.currency = 'MYR',
+    this.grandTotal = 0.0,
+    this.contingencyAmount = 0.0,
+    this.contingencyPct = 10.0,
+    this.subtotalMaterials = 0.0,
+    this.subtotalLabor = 0.0,
+    this.taxAmount = 0.0,
+    this.taxName = 'SST',
+    this.overallConfidence = 0.88,
+    this.confirmedCount = 0,
+    this.unverifiedCount = 0,
+    this.executionPhases = const [],
+    this.measurements = const [],
+    this.scopeOfWork = const [],
+    this.itemsToRetain = const [],
+    this.itemsToRemove = const [],
+    this.itemsToReplace = const [],
+    this.materialTakeoffSummary,
+    this.recommendedProducts = const [],
+    this.assumptions = const [],
+    this.warnings = const [],
+    this.exportMarkdown = '',
+  });
+
+  String get formattedGrandTotal {
+    final sym = CatalogProductModel._currencySymbol(currency);
+    return '$sym ${grandTotal.toStringAsFixed(0)}';
+  }
+
+  factory RenovationPlanVersionModel.fromMap(Map<String, dynamic> map) {
+    final projSum = (map['project_summary'] as Map<String, dynamic>?) ?? {};
+    final selDes = (map['selected_design'] as Map<String, dynamic>?) ?? {};
+    final bgt = (map['budget_estimate'] as Map<String, dynamic>?) ?? {};
+    final conf = (map['measurement_confidence'] as Map<String, dynamic>?) ?? {};
+    final rawPhases = (map['suggested_execution_sequence'] as List<dynamic>?) ?? [];
+    final rawMeas = (conf['measurements'] as List<dynamic>?) ?? [];
+
+    return RenovationPlanVersionModel(
+      planId: map['plan_id'] as String? ?? '',
+      version: map['version'] as String? ?? 'v1',
+      createdAt: map['created_at'] != null ? DateTime.tryParse(map['created_at'].toString()) : null,
+      selectedVariantId: selDes['variant_id'] as String?,
+      selectedVariantTitle: selDes['title'] as String?,
+      style: selDes['style'] as String?,
+      currency: bgt['currency'] as String? ?? projSum['budget_currency'] as String? ?? 'MYR',
+      grandTotal: (bgt['grand_total'] as num?)?.toDouble() ?? 0.0,
+      contingencyAmount: (bgt['contingency_amount'] as num?)?.toDouble() ?? 0.0,
+      contingencyPct: (bgt['contingency_pct'] as num?)?.toDouble() ?? 10.0,
+      subtotalMaterials: (bgt['subtotal_materials'] as num?)?.toDouble() ?? 0.0,
+      subtotalLabor: (bgt['subtotal_labor'] as num?)?.toDouble() ?? 0.0,
+      taxAmount: (bgt['tax_amount'] as num?)?.toDouble() ?? 0.0,
+      taxName: bgt['tax_name'] as String? ?? 'SST',
+      overallConfidence: (conf['overall_confidence'] as num?)?.toDouble() ?? 0.88,
+      confirmedCount: (conf['confirmed_measurements_count'] as num?)?.toInt() ?? 0,
+      unverifiedCount: (conf['unverified_measurements_count'] as num?)?.toInt() ?? 0,
+      executionPhases: rawPhases.map((e) => ExecutionPhaseModel.fromMap(e as Map<String, dynamic>)).toList(),
+      measurements: rawMeas.map((e) => PlanMeasurementItemModel.fromMap(e as Map<String, dynamic>)).toList(),
+      scopeOfWork: (map['scope_of_work'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      itemsToRetain: (map['existing_items_to_retain'] as List<dynamic>?)?.map((e) => e as Map<String, dynamic>).toList() ?? [],
+      itemsToRemove: (map['items_to_remove'] as List<dynamic>?)?.map((e) => e as Map<String, dynamic>).toList() ?? [],
+      itemsToReplace: (map['items_to_replace'] as List<dynamic>?)?.map((e) => e as Map<String, dynamic>).toList() ?? [],
+      materialTakeoffSummary: map['materials_and_quantities'] as Map<String, dynamic>?,
+      recommendedProducts: (map['recommended_products'] as List<dynamic>?)?.map((e) => e as Map<String, dynamic>).toList() ?? [],
+      assumptions: (map['assumptions'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      warnings: (map['warnings_and_required_verifications'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      exportMarkdown: map['export_markdown'] as String? ?? '',
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'plan_id': planId,
+      'version': version,
+      'created_at': createdAt?.toIso8601String(),
+      'project_summary': {
+        'budget_currency': currency,
+      },
+      'selected_design': {
+        'variant_id': selectedVariantId,
+        'title': selectedVariantTitle,
+        'style': style,
+      },
+      'budget_estimate': {
+        'grand_total': grandTotal,
+        'currency': currency,
+        'contingency_amount': contingencyAmount,
+        'contingency_pct': contingencyPct,
+        'subtotal_materials': subtotalMaterials,
+        'subtotal_labor': subtotalLabor,
+        'tax_amount': taxAmount,
+        'tax_name': taxName,
+      },
+      'measurement_confidence': {
+        'overall_confidence': overallConfidence,
+        'confirmed_measurements_count': confirmedCount,
+        'unverified_measurements_count': unverifiedCount,
+        'measurements': measurements.map((e) => e.toMap()).toList(),
+      },
+      'suggested_execution_sequence': executionPhases.map((e) => e.toMap()).toList(),
+      'scope_of_work': scopeOfWork,
+      'existing_items_to_retain': itemsToRetain,
+      'items_to_remove': itemsToRemove,
+      'items_to_replace': itemsToReplace,
+      'materials_and_quantities': materialTakeoffSummary,
+      'recommended_products': recommendedProducts,
+      'assumptions': assumptions,
+      'warnings_and_required_verifications': warnings,
+      'export_markdown': exportMarkdown,
+    };
+  }
+}
+
 
 
