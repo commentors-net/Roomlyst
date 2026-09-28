@@ -7,13 +7,23 @@ class ProjectModel {
   final String currency;
   final String status;
   final List<String> roomIds;
+  final String? clientId;
+  final String? propertyAddress;
+  final String? designerNotes;
+  final String? targetCompletionDate;
+  final List<ProjectCollaboratorModel> collaborators;
 
   ProjectModel({
     required this.id,
     required this.name,
     this.currency = 'MYR',
-    this.status = 'ACTIVE',
+    this.status = 'BRIEFING',
     this.roomIds = const [],
+    this.clientId,
+    this.propertyAddress,
+    this.designerNotes,
+    this.targetCompletionDate,
+    this.collaborators = const [],
   });
 
   factory ProjectModel.fromMap(Map<String, dynamic> map) {
@@ -21,9 +31,31 @@ class ProjectModel {
       id: map['id'] as String,
       name: map['name'] as String,
       currency: map['currency'] as String? ?? 'MYR',
-      status: map['status'] as String? ?? 'ACTIVE',
+      status: map['status'] as String? ?? 'BRIEFING',
       roomIds: (map['room_ids'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      clientId: map['client_id'] as String?,
+      propertyAddress: map['property_address'] as String?,
+      designerNotes: map['designer_notes'] as String?,
+      targetCompletionDate: map['target_completion_date'] as String?,
+      collaborators: ((map['collaborators'] as List<dynamic>?) ?? [])
+          .map((e) => ProjectCollaboratorModel.fromMap(e as Map<String, dynamic>))
+          .toList(),
     );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'currency': currency,
+      'status': status,
+      'room_ids': roomIds,
+      'client_id': clientId,
+      'property_address': propertyAddress,
+      'designer_notes': designerNotes,
+      'target_completion_date': targetCompletionDate,
+      'collaborators': collaborators.map((e) => e.toMap()).toList(),
+    };
   }
 }
 
@@ -2657,6 +2689,249 @@ class RenovationPlanVersionModel {
     };
   }
 }
+
+// ==========================================
+// Milestone 5.1: Client & Project Workspace Models
+// ==========================================
+
+class ClientModel {
+  final String clientId;
+  final String name;
+  final String? email;
+  final String? phone;
+  final String? company;
+  final String? address;
+  final String? notes;
+  final double? budgetPreference;
+  final String currency;
+  final List<String> preferredStyles;
+  final List<String> projectIds;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+
+  ClientModel({
+    required this.clientId,
+    required this.name,
+    this.email,
+    this.phone,
+    this.company,
+    this.address,
+    this.notes,
+    this.budgetPreference,
+    this.currency = 'MYR',
+    this.preferredStyles = const [],
+    this.projectIds = const [],
+    this.createdAt,
+    this.updatedAt,
+  });
+
+  String get id => clientId;
+
+  String get formattedBudget {
+    if (budgetPreference == null) return 'Not Specified';
+    final sym = CatalogProductModel._currencySymbol(currency);
+    return '$sym ${budgetPreference!.toStringAsFixed(0)}';
+  }
+
+  factory ClientModel.fromMap(Map<String, dynamic> map) {
+    return ClientModel(
+      clientId: map['client_id'] as String? ?? '',
+      name: map['name'] as String? ?? 'Unnamed Client',
+      email: map['email'] as String?,
+      phone: map['phone'] as String?,
+      company: map['company'] as String?,
+      address: map['address'] as String?,
+      notes: map['notes'] as String?,
+      budgetPreference: (map['budget_preference'] as num?)?.toDouble(),
+      currency: map['currency'] as String? ?? 'MYR',
+      preferredStyles: (map['preferred_styles'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      projectIds: (map['project_ids'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      createdAt: map['created_at'] != null ? DateTime.tryParse(map['created_at'].toString()) : null,
+      updatedAt: map['updated_at'] != null ? DateTime.tryParse(map['updated_at'].toString()) : null,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'client_id': clientId,
+      'name': name,
+      'email': email,
+      'phone': phone,
+      'company': company,
+      'address': address,
+      'notes': notes,
+      'budget_preference': budgetPreference,
+      'currency': currency,
+      'preferred_styles': preferredStyles,
+      'project_ids': projectIds,
+      'created_at': createdAt?.toIso8601String(),
+      'updated_at': updatedAt?.toIso8601String(),
+    };
+  }
+}
+
+class ProjectCollaboratorModel {
+  final String userId;
+  final String? email;
+  final String? name;
+  final String role; // OWNER, LEAD_DESIGNER, COLLABORATOR, VIEWER_CLIENT
+  final DateTime? invitedAt;
+
+  ProjectCollaboratorModel({
+    required this.userId,
+    this.email,
+    this.name,
+    this.role = 'COLLABORATOR',
+    this.invitedAt,
+  });
+
+  factory ProjectCollaboratorModel.fromMap(Map<String, dynamic> map) {
+    return ProjectCollaboratorModel(
+      userId: map['user_id'] as String? ?? '',
+      email: map['email'] as String?,
+      name: map['name'] as String?,
+      role: map['role'] as String? ?? 'COLLABORATOR',
+      invitedAt: map['invited_at'] != null ? DateTime.tryParse(map['invited_at'].toString()) : null,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'user_id': userId,
+      'email': email,
+      'name': name,
+      'role': role,
+      'invited_at': invitedAt?.toIso8601String(),
+    };
+  }
+}
+
+class WorkspaceRoomItemModel {
+  final String roomId;
+  final String roomName;
+  final String roomType;
+  final double? floorAreaSqm;
+  final double estimatedBudget;
+  final int versionCount;
+  final String? latestPlanVersion;
+
+  WorkspaceRoomItemModel({
+    required this.roomId,
+    required this.roomName,
+    this.roomType = 'LIVING_ROOM',
+    this.floorAreaSqm,
+    this.estimatedBudget = 0.0,
+    this.versionCount = 0,
+    this.latestPlanVersion,
+  });
+
+  factory WorkspaceRoomItemModel.fromMap(Map<String, dynamic> map) {
+    return WorkspaceRoomItemModel(
+      roomId: map['room_id'] as String? ?? '',
+      roomName: map['room_name'] as String? ?? 'Unnamed Room',
+      roomType: map['room_type'] as String? ?? 'LIVING_ROOM',
+      floorAreaSqm: (map['floor_area_sqm'] as num?)?.toDouble(),
+      estimatedBudget: (map['estimated_budget'] as num?)?.toDouble() ?? 0.0,
+      versionCount: (map['version_count'] as num?)?.toInt() ?? 0,
+      latestPlanVersion: map['latest_plan_version'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'room_id': roomId,
+      'room_name': roomName,
+      'room_type': roomType,
+      'floor_area_sqm': floorAreaSqm,
+      'estimated_budget': estimatedBudget,
+      'version_count': versionCount,
+      'latest_plan_version': latestPlanVersion,
+    };
+  }
+}
+
+class ProjectWorkspaceSummaryModel {
+  final String projectId;
+  final String name;
+  final ClientModel? client;
+  final String status;
+  final String currency;
+  final String? propertyAddress;
+  final int totalRooms;
+  final double totalFloorAreaSqm;
+  final double totalEstimatedBudget;
+  final List<WorkspaceRoomItemModel> rooms;
+  final List<ProjectCollaboratorModel> collaborators;
+  final String? designerNotes;
+  final String? targetCompletionDate;
+  final DateTime? updatedAt;
+
+  ProjectWorkspaceSummaryModel({
+    required this.projectId,
+    required this.name,
+    this.client,
+    this.status = 'BRIEFING',
+    this.currency = 'MYR',
+    this.propertyAddress,
+    this.totalRooms = 0,
+    this.totalFloorAreaSqm = 0.0,
+    this.totalEstimatedBudget = 0.0,
+    this.rooms = const [],
+    this.collaborators = const [],
+    this.designerNotes,
+    this.targetCompletionDate,
+    this.updatedAt,
+  });
+
+  String get projectName => name;
+
+  String get formattedCumulativeBudget {
+    final sym = CatalogProductModel._currencySymbol(currency);
+    return '$sym ${totalEstimatedBudget.toStringAsFixed(0)}';
+  }
+
+  factory ProjectWorkspaceSummaryModel.fromMap(Map<String, dynamic> map) {
+    final rawRooms = (map['rooms_summary'] as List<dynamic>?) ?? [];
+    final rawCollabs = (map['collaborators'] as List<dynamic>?) ?? [];
+
+    return ProjectWorkspaceSummaryModel(
+      projectId: map['project_id'] as String? ?? '',
+      name: map['name'] as String? ?? 'Unnamed Project',
+      client: map['client'] != null ? ClientModel.fromMap(map['client'] as Map<String, dynamic>) : null,
+      status: map['status'] as String? ?? 'BRIEFING',
+      currency: map['currency'] as String? ?? 'MYR',
+      propertyAddress: map['property_address'] as String?,
+      totalRooms: (map['total_rooms'] as num?)?.toInt() ?? 0,
+      totalFloorAreaSqm: (map['total_floor_area_sqm'] as num?)?.toDouble() ?? 0.0,
+      totalEstimatedBudget: (map['total_estimated_budget'] as num?)?.toDouble() ?? 0.0,
+      rooms: rawRooms.map((e) => WorkspaceRoomItemModel.fromMap(e as Map<String, dynamic>)).toList(),
+      collaborators: rawCollabs.map((e) => ProjectCollaboratorModel.fromMap(e as Map<String, dynamic>)).toList(),
+      designerNotes: map['designer_notes'] as String?,
+      targetCompletionDate: map['target_completion_date'] as String?,
+      updatedAt: map['updated_at'] != null ? DateTime.tryParse(map['updated_at'].toString()) : null,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'project_id': projectId,
+      'name': name,
+      'client': client?.toMap(),
+      'status': status,
+      'currency': currency,
+      'property_address': propertyAddress,
+      'total_rooms': totalRooms,
+      'total_floor_area_sqm': totalFloorAreaSqm,
+      'total_estimated_budget': totalEstimatedBudget,
+      'rooms_summary': rooms.map((e) => e.toMap()).toList(),
+      'collaborators': collaborators.map((e) => e.toMap()).toList(),
+      'designer_notes': designerNotes,
+      'target_completion_date': targetCompletionDate,
+      'updated_at': updatedAt?.toIso8601String(),
+    };
+  }
+}
+
 
 
 

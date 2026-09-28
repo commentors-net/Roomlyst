@@ -55,6 +55,13 @@ class ApiClient {
     return _handleResponse(response);
   }
 
+  static Future<dynamic> put(String endpoint, Map<String, dynamic> data) async {
+    final url = Uri.parse('${AppConfig.fullApiUrl}$endpoint');
+    final headers = await _buildHeaders();
+    final response = await http.put(url, headers: headers, body: jsonEncode(data));
+    return _handleResponse(response);
+  }
+
   static Future<dynamic> delete(String endpoint) async {
     final url = Uri.parse('${AppConfig.fullApiUrl}$endpoint');
     final headers = await _buildHeaders();
@@ -579,6 +586,59 @@ class ApiClient {
     String format = 'markdown',
   }) async {
     return get('/rooms/$roomId/renovation-plans/$planId/export?format=$format');
+  }
+
+  // Milestone 5.1: Client & Workspace API Methods
+  static Future<dynamic> createClient(Map<String, dynamic> data) async {
+    return post('/clients', data);
+  }
+
+  static Future<dynamic> getClients({String? query}) async {
+    final queryStr = (query != null && query.isNotEmpty) ? '?query=${Uri.encodeComponent(query)}' : '';
+    return get('/clients$queryStr');
+  }
+
+  static Future<dynamic> getClient(String clientId) async {
+    return get('/clients/$clientId');
+  }
+
+  static Future<dynamic> updateClient(String clientId, Map<String, dynamic> data) async {
+    return put('/clients/$clientId', data);
+  }
+
+  static Future<dynamic> deleteClient(String clientId) async {
+    return delete('/clients/$clientId');
+  }
+
+  static Future<dynamic> updateProject(String projectId, Map<String, dynamic> data) async {
+    return put('/projects/$projectId', data);
+  }
+
+  static Future<dynamic> getProjectSummary(String projectId) async {
+    return get('/projects/$projectId/summary');
+  }
+
+  static Future<dynamic> addProjectCollaborator(
+    String projectId, {
+    required String userId,
+    required String role,
+    String? email,
+    String? name,
+  }) async {
+    return post('/projects/$projectId/collaborators', {
+      'user_id': userId,
+      'role': role,
+      'email': email,
+      'name': name,
+    });
+  }
+
+  static Future<dynamic> getProjectCollaborators(String projectId) async {
+    return get('/projects/$projectId/collaborators');
+  }
+
+  static Future<dynamic> removeProjectCollaborator(String projectId, String userId) async {
+    return delete('/projects/$projectId/collaborators/$userId');
   }
 
   static dynamic _handleResponse(http.Response response) {

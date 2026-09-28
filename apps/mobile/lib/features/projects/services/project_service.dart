@@ -3,9 +3,10 @@ import '../../../core/network/api_client.dart';
 import '../domain/project.dart';
 
 class ProjectService {
-  static Future<List<ProjectModel>> fetchProjects() async {
+  static Future<List<ProjectModel>> fetchProjects({String? clientId}) async {
     try {
-      final res = await ApiClient.get('/projects');
+      final endpoint = clientId != null ? '/projects?client_id=${Uri.encodeComponent(clientId)}' : '/projects';
+      final res = await ApiClient.get(endpoint);
       if (res is List) {
         return res.map((e) => ProjectModel.fromMap(e as Map<String, dynamic>)).toList();
       }
@@ -21,8 +22,22 @@ class ProjectService {
     ];
   }
 
-  static Future<ProjectModel> createProject(String name, {String currency = 'MYR'}) async {
-    final res = await ApiClient.post('/projects', {'name': name, 'currency': currency});
+  static Future<ProjectModel> createProject(
+    String name, {
+    String currency = 'MYR',
+    String? clientId,
+    String? propertyAddress,
+    String? designerNotes,
+  }) async {
+    final payload = <String, dynamic>{
+      'name': name,
+      'currency': currency,
+    };
+    if (clientId != null) payload['client_id'] = clientId;
+    if (propertyAddress != null) payload['property_address'] = propertyAddress;
+    if (designerNotes != null) payload['designer_notes'] = designerNotes;
+
+    final res = await ApiClient.post('/projects', payload);
     return ProjectModel.fromMap(res as Map<String, dynamic>);
   }
 
@@ -498,6 +513,129 @@ class ProjectService {
   }) async {
     final res = await ApiClient.exportRenovationPlan(roomId, planId, format: format);
     return res as Map<String, dynamic>;
+  }
+
+  // Milestone 5.1: Client and Project Workspace Services
+  static Future<ClientModel> createClient({
+    required String name,
+    String? email,
+    String? phone,
+    String? company,
+    String? notes,
+    double? budgetPreference,
+    String currency = 'MYR',
+    List<String>? preferredStyles,
+  }) async {
+    final payload = <String, dynamic>{
+      'name': name,
+      'currency': currency,
+    };
+    if (email != null) payload['email'] = email;
+    if (phone != null) payload['phone'] = phone;
+    if (company != null) payload['company'] = company;
+    if (notes != null) payload['notes'] = notes;
+    if (budgetPreference != null) payload['budget_preference'] = budgetPreference;
+    if (preferredStyles != null) payload['preferred_styles'] = preferredStyles;
+
+    final res = await ApiClient.createClient(payload);
+    return ClientModel.fromMap(res as Map<String, dynamic>);
+  }
+
+  static Future<List<ClientModel>> fetchClients({String? query}) async {
+    final res = await ApiClient.getClients(query: query);
+    if (res is List) {
+      return res.map((e) => ClientModel.fromMap(e as Map<String, dynamic>)).toList();
+    }
+    return [];
+  }
+
+  static Future<ClientModel> fetchClient(String clientId) async {
+    final res = await ApiClient.getClient(clientId);
+    return ClientModel.fromMap(res as Map<String, dynamic>);
+  }
+
+  static Future<ClientModel> updateClient(
+    String clientId, {
+    String? name,
+    String? email,
+    String? phone,
+    String? company,
+    String? notes,
+    double? budgetPreference,
+    String? currency,
+    List<String>? preferredStyles,
+  }) async {
+    final payload = <String, dynamic>{};
+    if (name != null) payload['name'] = name;
+    if (email != null) payload['email'] = email;
+    if (phone != null) payload['phone'] = phone;
+    if (company != null) payload['company'] = company;
+    if (notes != null) payload['notes'] = notes;
+    if (budgetPreference != null) payload['budget_preference'] = budgetPreference;
+    if (currency != null) payload['currency'] = currency;
+    if (preferredStyles != null) payload['preferred_styles'] = preferredStyles;
+
+    final res = await ApiClient.updateClient(clientId, payload);
+    return ClientModel.fromMap(res as Map<String, dynamic>);
+  }
+
+  static Future<void> deleteClient(String clientId) async {
+    await ApiClient.deleteClient(clientId);
+  }
+
+  static Future<ProjectModel> updateProjectDetails(
+    String projectId, {
+    String? name,
+    String? clientId,
+    String? status,
+    String? propertyAddress,
+    String? designerNotes,
+    String? targetCompletionDate,
+  }) async {
+    final payload = <String, dynamic>{};
+    if (name != null) payload['name'] = name;
+    if (clientId != null) payload['client_id'] = clientId;
+    if (status != null) payload['status'] = status;
+    if (propertyAddress != null) payload['property_address'] = propertyAddress;
+    if (designerNotes != null) payload['designer_notes'] = designerNotes;
+    if (targetCompletionDate != null) payload['target_completion_date'] = targetCompletionDate;
+
+    final res = await ApiClient.updateProject(projectId, payload);
+    return ProjectModel.fromMap(res as Map<String, dynamic>);
+  }
+
+  static Future<ProjectWorkspaceSummaryModel> fetchProjectSummary(String projectId) async {
+    final res = await ApiClient.getProjectSummary(projectId);
+    return ProjectWorkspaceSummaryModel.fromMap(res as Map<String, dynamic>);
+  }
+
+  static Future<ProjectCollaboratorModel> addProjectCollaborator(
+    String projectId, {
+    required String userId,
+    required String role,
+    String? email,
+    String? name,
+  }) async {
+    final res = await ApiClient.addProjectCollaborator(
+      projectId,
+      userId: userId,
+      role: role,
+      email: email,
+      name: name,
+    );
+    return ProjectCollaboratorModel.fromMap(res as Map<String, dynamic>);
+  }
+
+  static Future<List<ProjectCollaboratorModel>> fetchProjectCollaborators(String projectId) async {
+    final res = await ApiClient.getProjectCollaborators(projectId);
+    if (res is List) {
+      return res.map((e) => ProjectCollaboratorModel.fromMap(e as Map<String, dynamic>)).toList();
+    }
+    return [];
+  }
+
+  static Future<void> removeProjectCollaborator(String projectId, String userId) async {
+    await ApiClient.removeProjectCollaborator(projectId, userId);
   }
 }
 

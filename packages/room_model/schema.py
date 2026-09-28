@@ -1660,3 +1660,72 @@ class CanonicalRoomModel(BaseModel):
             goals=goals or [],
             free_text_prompt=free_text,
         )
+
+
+# ==========================================
+# Milestone 5.1: Client and Project Workspace
+# ==========================================
+
+class ProjectRole(str, Enum):
+    """Access control roles for interior design projects (Milestone 5.1)."""
+    OWNER = "OWNER"
+    LEAD_DESIGNER = "LEAD_DESIGNER"
+    COLLABORATOR = "COLLABORATOR"
+    VIEWER_CLIENT = "VIEWER_CLIENT"
+
+
+class ProjectStatus(str, Enum):
+    """Lifecycle stages for multi-room interior design projects (Milestone 5.1)."""
+    DRAFT = "DRAFT"
+    BRIEFING = "BRIEFING"
+    CONCEPT_DESIGN = "CONCEPT_DESIGN"
+    CLIENT_REVIEW = "CLIENT_REVIEW"
+    TENDER_READY = "TENDER_READY"
+    IN_CONSTRUCTION = "IN_CONSTRUCTION"
+    COMPLETED = "COMPLETED"
+    ARCHIVED = "ARCHIVED"
+
+
+class ClientRecord(BaseModel):
+    """Client profile and contact records managed by interior designers (Milestone 5.1)."""
+    client_id: str = Field(default_factory=lambda: f"cli_{uuid.uuid4().hex[:8]}")
+    name: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    company: Optional[str] = None
+    address: Optional[str] = None
+    notes: Optional[str] = None
+    budget_preference: Optional[float] = None
+    currency: str = "MYR"
+    preferred_styles: List[str] = Field(default_factory=list)
+    project_ids: List[str] = Field(default_factory=list)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class ProjectCollaborator(BaseModel):
+    """Team member or client collaborator assigned to a project workspace (Milestone 5.1)."""
+    user_id: str
+    email: str
+    name: str
+    role: ProjectRole = ProjectRole.COLLABORATOR
+    invited_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class ProjectWorkspaceSummary(BaseModel):
+    """Aggregated multi-room metrics and client workspace roll-up (Milestone 5.1)."""
+    project_id: str
+    name: str
+    client: Optional[ClientRecord] = None
+    status: ProjectStatus = ProjectStatus.BRIEFING
+    currency: str = "MYR"
+    property_address: Optional[str] = None
+    total_rooms: int = 0
+    total_floor_area_sqm: float = 0.0
+    total_estimated_budget: float = 0.0
+    rooms_summary: List[Dict[str, Any]] = Field(default_factory=list)
+    collaborators: List[ProjectCollaborator] = Field(default_factory=list)
+    designer_notes: Optional[str] = None
+    target_completion_date: Optional[str] = None
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+

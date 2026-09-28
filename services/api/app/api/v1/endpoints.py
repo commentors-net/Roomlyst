@@ -62,6 +62,11 @@ from packages.room_model import (
     ExecutionPhase,
     PlanMeasurementItem,
     RenovationPlanVersion,
+    ClientRecord,
+    ProjectCollaborator,
+    ProjectRole,
+    ProjectStatus,
+    ProjectWorkspaceSummary,
 )
 from services.ai_worker.pipelines.generation import LocalRedesignGenerator
 from services.ai_worker.pipelines.room_analyzer import RoomAnalyzer
@@ -113,6 +118,51 @@ class DeviceCapabilityRequest(BaseModel):
 class ProjectCreateRequest(BaseModel):
     name: str = Field(..., json_schema_extra={"example": "My Penthouse Renovation"})
     currency: str = Field(default="MYR", json_schema_extra={"example": "MYR"})
+    client_id: Optional[str] = None
+    property_address: Optional[str] = None
+    status: Optional[ProjectStatus] = ProjectStatus.BRIEFING
+    designer_notes: Optional[str] = None
+
+
+class ProjectUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    currency: Optional[str] = None
+    client_id: Optional[str] = None
+    status: Optional[ProjectStatus] = None
+    property_address: Optional[str] = None
+    designer_notes: Optional[str] = None
+    target_completion_date: Optional[str] = None
+
+
+class AddCollaboratorRequest(BaseModel):
+    user_id: str
+    email: str
+    name: str
+    role: ProjectRole = ProjectRole.COLLABORATOR
+
+
+class ClientCreateRequest(BaseModel):
+    name: str = Field(..., json_schema_extra={"example": "Datin Sarah Tan"})
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    company: Optional[str] = None
+    address: Optional[str] = None
+    notes: Optional[str] = None
+    budget_preference: Optional[float] = None
+    currency: str = "MYR"
+    preferred_styles: List[str] = Field(default_factory=list)
+
+
+class ClientUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    company: Optional[str] = None
+    address: Optional[str] = None
+    notes: Optional[str] = None
+    budget_preference: Optional[float] = None
+    currency: Optional[str] = None
+    preferred_styles: Optional[List[str]] = None
 
 
 class ElementUpdateRequest(BaseModel):
@@ -237,7 +287,14 @@ def get_device_capabilities(
 
 @router.post("/projects", response_model=ProjectRecord)
 def create_project(req: ProjectCreateRequest, db: Session = Depends(get_db)):
-    proj_rec = repository.create_project(name=req.name, currency=req.currency)
+    proj_rec = repository.create_project(
+        name=req.name,
+        currency=req.currency,
+        client_id=req.client_id,
+        property_address=req.property_address,
+        status=req.status or ProjectStatus.BRIEFING,
+        designer_notes=req.designer_notes,
+    )
     db_proj = Project(id=proj_rec.id, name=proj_rec.name, currency=proj_rec.currency, user_id="usr_default")
     db.add(db_proj)
     db.commit()
@@ -245,8 +302,8 @@ def create_project(req: ProjectCreateRequest, db: Session = Depends(get_db)):
 
 
 @router.get("/projects", response_model=List[ProjectRecord])
-def list_projects():
-    return repository.list_projects()
+def list_projects(client_id: Optional[str] = None):
+    return repository.list_projects(client_id=client_id)
 
 
 @router.get("/projects/{project_id}", response_model=ProjectRecord)
@@ -255,6 +312,129 @@ def get_project(project_id: str):
     if not proj:
         raise HTTPException(status_code=404, detail="Project not found")
     return proj
+
+
+@router.put("/projects/{project_id}", response_model=ProjectRecord)
+def update_project(project_id: str, req: ProjectUpdateRequest, db: Session = Depends(get_db)):
+    proj = repository.update_project(
+        project_id=project_id,
+        name=req.name,
+        currency=req.currency,
+        client_id=req.client_id,
+        status=req.status,
+        property_address=req.property_address,
+        designer_notes=req.designer_notes,
+        target_completion_date=req.target_completion_date,
+    )
+    if not proj:
+        raise HTTPException(status_code=404, detail="Project not found")
+    db_proj = db.query(Project).filter(Project.id == project_id).first()
+    if db_proj:
+        if req.name is not None:
+            db_proj.name = req.name
+        if req.currency is not None:
+            db_proj.currency = req.currency
+        if req.status is not None:
+            db_proj.status = req.status.value
+        db.commit()
+    return proj
+
+
+@router.get("/projects/{project_id}/summary", response_model=ProjectWorkspaceSummary)
+def get_project_summary(project_id: str):
+    summary = repository.get_project_summary(project_id)
+    if not summary:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return summary
+
+
+@router.post("/projects/{project_id}/collaborators", response_model=ProjectCollaborator)
+def add_project_collaborator(project_id: str, req: AddCollaboratorRequest):
+    collab = repository.add_project_collaborator(
+        project_id=project_id,
+        user_id=req.user_id,
+        email=req.email,
+        name=req.name,
+        role=req.role,
+    )
+    if not collab:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return collab
+
+
+@router.get("/projects/{project_id}/collaborators", response_model=List[ProjectCollaborator])
+def list_project_collaborators(project_id: str):
+    proj = repository.get_project(project_id)
+    if not proj:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return proj.collaborators
+
+
+@router.delete("/projects/{project_id}/collaborators/{user_id}")
+def remove_project_collaborator(project_id: str, user_id: str):
+    success = repository.remove_project_collaborator(project_id=project_id, user_id=user_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Collaborator or project not found")
+    return {"deleted": True, "project_id": project_id, "user_id": user_id}
+
+
+# ==========================================
+# Milestone 5.1: Client Management Endpoints
+# ==========================================
+
+@router.post("/clients", response_model=ClientRecord)
+def create_client(req: ClientCreateRequest):
+    return repository.create_client(
+        name=req.name,
+        email=req.email,
+        phone=req.phone,
+        company=req.company,
+        address=req.address,
+        notes=req.notes,
+        budget_preference=req.budget_preference,
+        currency=req.currency,
+        preferred_styles=req.preferred_styles,
+    )
+
+
+@router.get("/clients", response_model=List[ClientRecord])
+def list_clients():
+    return repository.list_clients()
+
+
+@router.get("/clients/{client_id}", response_model=ClientRecord)
+def get_client(client_id: str):
+    client = repository.get_client(client_id)
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+    return client
+
+
+@router.put("/clients/{client_id}", response_model=ClientRecord)
+def update_client(client_id: str, req: ClientUpdateRequest):
+    client = repository.update_client(
+        client_id=client_id,
+        name=req.name,
+        email=req.email,
+        phone=req.phone,
+        company=req.company,
+        address=req.address,
+        notes=req.notes,
+        budget_preference=req.budget_preference,
+        currency=req.currency,
+        preferred_styles=req.preferred_styles,
+    )
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+    return client
+
+
+@router.delete("/clients/{client_id}")
+def delete_client(client_id: str):
+    success = repository.delete_client(client_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Client not found")
+    return {"deleted": True, "client_id": client_id}
 
 
 @router.delete("/projects/{project_id}")

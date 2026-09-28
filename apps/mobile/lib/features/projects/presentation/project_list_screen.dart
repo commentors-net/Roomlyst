@@ -5,6 +5,8 @@ import '../../auth/presentation/login_screen.dart';
 import '../../capability/domain/device_capability.dart';
 import '../../capability/services/capability_service.dart';
 import '../../capture/presentation/capture_screen.dart';
+import '../../workspace/presentation/client_directory_screen.dart';
+import '../../workspace/presentation/project_workspace_screen.dart';
 import '../domain/project.dart';
 import '../services/project_service.dart';
 
@@ -182,6 +184,16 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
         title: const Text('My Projects'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.people_outline, color: AppTheme.textMuted),
+            tooltip: 'Client Directory',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ClientDirectoryScreen()),
+              );
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.logout, color: AppTheme.textMuted),
             onPressed: () async {
               await ApiClient.clearToken();
@@ -339,6 +351,21 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
+                            IconButton(
+                              icon: const Icon(Icons.dashboard_customize_outlined, size: 20, color: AppTheme.accent),
+                              tooltip: 'Workspace Hub',
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => ProjectWorkspaceScreen(
+                                      projectId: p.id,
+                                      projectName: p.name,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
                             IconButton(
                               icon: const Icon(Icons.delete_outline, size: 20, color: AppTheme.danger),
                               tooltip: 'Delete Project',
