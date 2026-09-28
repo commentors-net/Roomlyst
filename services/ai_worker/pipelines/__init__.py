@@ -24,6 +24,7 @@ from .video_scan_analyzer import VideoScanAnalyzer
 from .reconstruction_pipeline import MultiViewReconstructor
 from .ar_fusion_engine import ARMotionFusionEngine
 from .native_spatial_normalizer import NativeSpatialNormalizer
+from .material_estimator import MaterialEstimatorEngine, material_estimator
 
 __all__ = [
     "DepthProviderBase",
@@ -48,4 +49,6 @@ __all__ = [
     "MultiViewReconstructor",
     "ARMotionFusionEngine",
     "NativeSpatialNormalizer",
+    "MaterialEstimatorEngine",
+    "material_estimator",
 ]

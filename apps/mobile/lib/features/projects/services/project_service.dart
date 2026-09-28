@@ -143,6 +143,9 @@ class ProjectService {
     required double totalBudget,
     String currency = 'MYR',
     String renovationTier = 'MODERATE',
+    double contingencyPct = 10.0,
+    bool includeTax = false,
+    double? customTaxRate,
     Map<String, String>? actions,
   }) async {
     final res = await ApiClient.calculateRoomBudget(
@@ -150,6 +153,9 @@ class ProjectService {
       totalBudget: totalBudget,
       currency: currency,
       renovationTier: renovationTier,
+      contingencyPct: contingencyPct,
+      includeTax: includeTax,
+      customTaxRate: customTaxRate,
       actions: actions,
     );
     return BudgetPlanModel.fromMap(res as Map<String, dynamic>);
@@ -158,6 +164,26 @@ class ProjectService {
   static Future<BudgetPlanModel> fetchRoomBudget(String roomId) async {
     final res = await ApiClient.getRoomBudget(roomId);
     return BudgetPlanModel.fromMap(res as Map<String, dynamic>);
+  }
+
+  static Future<List<BudgetScenarioComparisonModel>> fetchBudgetScenarios({
+    required String roomId,
+    double totalBudget = 15000.0,
+    String currency = 'MYR',
+    double contingencyPct = 10.0,
+    bool includeTax = false,
+    double? customTaxRate,
+  }) async {
+    final res = await ApiClient.getBudgetScenarios(
+      roomId: roomId,
+      totalBudget: totalBudget,
+      currency: currency,
+      contingencyPct: contingencyPct,
+      includeTax: includeTax,
+      customTaxRate: customTaxRate,
+    );
+    final rawList = (res as List<dynamic>?) ?? [];
+    return rawList.map((e) => BudgetScenarioComparisonModel.fromMap(e as Map<String, dynamic>)).toList();
   }
 
   static Future<bool> deleteProject(String projectId) async {
@@ -339,5 +365,43 @@ class ProjectService {
     final res = await ApiClient.attachScanOrchestration(roomId, deviceProfile);
     return RoomModelData.fromMap(res as Map<String, dynamic>);
   }
+
+  static Future<MaterialTakeoffReportModel> fetchMaterialTakeoff(String roomId) async {
+    final res = await ApiClient.getMaterialTakeoff(roomId);
+    return MaterialTakeoffReportModel.fromMap(res as Map<String, dynamic>);
+  }
+
+  static Future<MaterialTakeoffReportModel> calculateMaterialTakeoff({
+    required String roomId,
+    Map<String, double>? customWasteFactors,
+  }) async {
+    final res = await ApiClient.generateMaterialTakeoff(
+      roomId: roomId,
+      customWasteFactors: customWasteFactors,
+    );
+    return MaterialTakeoffReportModel.fromMap(res as Map<String, dynamic>);
+  }
+
+  static Future<MaterialTakeoffReportModel> verifyTakeoffDimension({
+    required String roomId,
+    required String dimensionId,
+    required double verifiedValue,
+    String verifiedBy = 'Contractor',
+    String? notes,
+  }) async {
+    final res = await ApiClient.verifyCriticalDimension(
+      roomId: roomId,
+      dimensionId: dimensionId,
+      verifiedValue: verifiedValue,
+      verifiedBy: verifiedBy,
+      notes: notes,
+    );
+    final map = res as Map<String, dynamic>;
+    if (map.containsKey('takeoff_report')) {
+      return MaterialTakeoffReportModel.fromMap(map['takeoff_report'] as Map<String, dynamic>);
+    }
+    return MaterialTakeoffReportModel.fromMap(map);
+  }
 }
+
 

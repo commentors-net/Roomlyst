@@ -8,6 +8,8 @@ import 'element_correction_screen.dart';
 import '../../capture/presentation/reconstruction_viewer_screen.dart';
 import '../../capture/presentation/ar_session_screen.dart';
 import '../../capture/presentation/lidar_scan_screen.dart';
+import '../../renovation/presentation/material_takeoff_screen.dart';
+import '../../renovation/presentation/renovation_budget_planner_screen.dart';
 
 class RoomReviewScreen extends StatefulWidget {
   final RoomModelData room;
@@ -1372,7 +1374,139 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
                 ],
               ),
             ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.calculate_outlined, size: 16),
+                label: const Text('Open Detailed Renovation Planner', style: TextStyle(fontSize: 12)),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => RenovationBudgetPlannerScreen(
+                        roomId: widget.room.id,
+                        initialBudgetPlan: _budgetPlan,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMaterialTakeoffSection() {
+    final takeoff = _currentRoom.materialTakeoff;
+    final isExact = takeoff?.accuracyTier == 'EXACT';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.surfaceBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.inventory_2_outlined, color: AppTheme.accent, size: 20),
+                  SizedBox(width: 8),
+                  Text(
+                    'Material & Quantity Takeoff',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppTheme.textMain),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                decoration: BoxDecoration(
+                  color: (isExact ? AppTheme.success : AppTheme.warning).withAlpha(25),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  isExact ? 'EXACT (±3-8%)' : 'APPROXIMATE (±12-18%)',
+                  style: TextStyle(
+                    color: isExact ? AppTheme.success : AppTheme.warning,
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            takeoff != null
+                ? 'Surface-area bill of materials: ${takeoff.items.length} categories computed with packaging allowances.'
+                : 'Automated surface quantities for flooring, wall paint, baseboards, and tiles with configurable waste factors.',
+            style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
+          ),
+          if (takeoff != null) ...[
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Floor: ${takeoff.grossFloorAreaSqm.toStringAsFixed(1)} m²',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textMain),
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    'Walls: ${takeoff.netWallAreaSqm.toStringAsFixed(1)} m²',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textMain),
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    'Trim: ${takeoff.baseboardPerimeterM.toStringAsFixed(1)} m',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textMain),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: AppTheme.accent),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+              ),
+              onPressed: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => MaterialTakeoffScreen(
+                      roomId: _currentRoom.id,
+                      roomName: _currentRoom.name,
+                      initialReport: _currentRoom.materialTakeoff,
+                    ),
+                  ),
+                );
+                try {
+                  final refreshed = await ProjectService.fetchRoomModel(_currentRoom.id);
+                  if (mounted) setState(() => _currentRoom = refreshed);
+                } catch (_) {}
+              },
+              icon: const Icon(Icons.calculate_outlined, size: 16, color: AppTheme.accent),
+              label: const Text(
+                'Open Material Takeoff & Waste Allowances',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.accent),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -1464,13 +1598,41 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
             ..._currentRoom.objects.map(_buildElementRow),
             const SizedBox(height: 24),
 
-            // Renovation Budget & Trade-Offs Section (Milestone 2.4)
-            const Text(
-              'Renovation Budget & Trade-Offs',
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppTheme.accent),
+            // Renovation Budget & Trade-Offs Section (Milestone 2.4 & 4.2)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Renovation Budget & Trade-Offs',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppTheme.accent),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => RenovationBudgetPlannerScreen(
+                          roomId: widget.room.id,
+                          initialBudgetPlan: _budgetPlan,
+                        ),
+                      ),
+                    );
+                  },
+                  child: const Text('Detailed Planner', style: TextStyle(fontSize: 12)),
+                ),
+              ],
             ),
             const SizedBox(height: 8),
             _buildBudgetSection(),
+            const SizedBox(height: 16),
+
+            // Material and Quantity Estimation Section (Milestone 4.1)
+            const Text(
+              'Material & Quantity Estimation',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppTheme.accent),
+            ),
+            const SizedBox(height: 8),
+            _buildMaterialTakeoffSection(),
             const SizedBox(height: 24),
 
             const Divider(color: AppTheme.surfaceBorder),

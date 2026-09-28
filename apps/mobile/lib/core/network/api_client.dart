@@ -108,18 +108,45 @@ class ApiClient {
     required double totalBudget,
     String currency = 'MYR',
     String renovationTier = 'MODERATE',
+    double contingencyPct = 10.0,
+    bool includeTax = false,
+    double? customTaxRate,
     Map<String, String>? actions,
   }) async {
     return post('/rooms/$roomId/budget', {
       'total_budget': totalBudget,
       'currency': currency,
       'renovation_tier': renovationTier,
+      'contingency_pct': contingencyPct,
+      'include_tax': includeTax,
+      'custom_tax_rate': ?customTaxRate,
       'actions': ?actions,
     });
   }
 
   static Future<dynamic> getRoomBudget(String roomId) async {
     return get('/rooms/$roomId/budget');
+  }
+
+  static Future<dynamic> getBudgetScenarios({
+    required String roomId,
+    double totalBudget = 15000.0,
+    String currency = 'MYR',
+    double contingencyPct = 10.0,
+    bool includeTax = false,
+    double? customTaxRate,
+  }) async {
+    final queryParams = <String, String>{
+      'total_budget': totalBudget.toString(),
+      'currency': currency,
+      'contingency_pct': contingencyPct.toString(),
+      'include_tax': includeTax.toString(),
+    };
+    if (customTaxRate != null) {
+      queryParams['custom_tax_rate'] = customTaxRate.toString();
+    }
+    final uri = Uri(path: '/rooms/$roomId/budget/scenarios', queryParameters: queryParams);
+    return get(uri.toString());
   }
 
   static Future<dynamic> getRoomVersions(String roomId) async {
@@ -446,6 +473,39 @@ class ApiClient {
 
   static Future<dynamic> attachScanOrchestration(String roomId, Map<String, dynamic> deviceProfile) async {
     return post('/rooms/$roomId/scan-orchestration', deviceProfile);
+  }
+
+  static Future<dynamic> generateMaterialTakeoff({
+    required String roomId,
+    Map<String, double>? customWasteFactors,
+  }) async {
+    final payload = <String, dynamic>{};
+    if (customWasteFactors != null) {
+      payload['custom_waste_factors'] = customWasteFactors;
+    }
+    return post('/rooms/$roomId/material-takeoff', payload);
+  }
+
+  static Future<dynamic> getMaterialTakeoff(String roomId) async {
+    return get('/rooms/$roomId/material-takeoff');
+  }
+
+  static Future<dynamic> verifyCriticalDimension({
+    required String roomId,
+    required String dimensionId,
+    required double verifiedValue,
+    String verifiedBy = 'Contractor',
+    String? notes,
+  }) async {
+    final payload = <String, dynamic>{
+      'dimension_id': dimensionId,
+      'verified_value': verifiedValue,
+      'verified_by': verifiedBy,
+    };
+    if (notes != null) {
+      payload['notes'] = notes;
+    }
+    return post('/rooms/$roomId/material-takeoff/verify-dimension', payload);
   }
 
   static dynamic _handleResponse(http.Response response) {

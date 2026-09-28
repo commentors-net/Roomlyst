@@ -19,6 +19,7 @@ class MeasurementSource(str, Enum):
     HARDWARE_DEPTH = "HARDWARE_DEPTH"
     AR_DEPTH_FROM_MOTION = "AR_DEPTH_FROM_MOTION"
     AR_MOTION_VERIFIED = "AR_MOTION_VERIFIED"
+    AR_ASSISTED_VIO = "AR_ASSISTED_VIO"
     MULTIVIEW_RECONSTRUCTION = "MULTIVIEW_RECONSTRUCTION"
     MONOCULAR_DEPTH = "MONOCULAR_DEPTH"
     REFERENCE_SCALED = "REFERENCE_SCALED"
@@ -77,6 +78,7 @@ class RoomShapeType(str, Enum):
     T_SHAPED = "T_SHAPED"
     ALCOVE = "ALCOVE"
     POLYGONAL = "POLYGONAL"
+    IRREGULAR = "IRREGULAR"
 
 
 class LoopClosureStatus(str, Enum):
@@ -187,6 +189,8 @@ class BudgetCategory(str, Enum):
     LIGHTING_ELECTRICAL = "LIGHTING_ELECTRICAL"
     FURNITURE_DECOR = "FURNITURE_DECOR"
     LABOR_DEMOLITION = "LABOR_DEMOLITION"
+    WET_WORKS_TILING = "WET_WORKS_TILING"
+    SITE_MANAGEMENT = "SITE_MANAGEMENT"
     CONTINGENCY = "CONTINGENCY"
 
 
@@ -199,6 +203,11 @@ class CategoryCostItem(BaseModel):
     unit: str = "sqm"  # e.g., sqm, unit, linear_m, lump_sum
     quantity: float = 1.0
     unit_rate: float = 0.0
+    material_cost: float = 0.0
+    labor_cost: float = 0.0
+    material_unit_rate: float = 0.0
+    labor_unit_rate: float = 0.0
+    trade_name: Optional[str] = None
     notes: Optional[str] = None
     is_over_budget: bool = False
 
@@ -214,10 +223,25 @@ class KeepReplaceTradeoff(BaseModel):
     notes: Optional[str] = None
 
 
+class BudgetScenarioComparison(BaseModel):
+    """Comparative cost scenario across different renovation finish tiers (Milestone 4.2)."""
+    tier: RenovationTier
+    tier_name: str
+    description: str
+    subtotal_materials: float
+    subtotal_labor: float
+    contingency_amount: float
+    tax_amount: float
+    grand_total_estimated: float
+    cost_delta_vs_budget: float
+    is_within_budget: bool
+    savings_if_kept: float = 0.0
+
+
 class BudgetPlan(BaseModel):
     """
     Renovation budget plan and indicative cost estimation.
-    Fulfills Blueprint Section 34 & Milestone 2.4.
+    Fulfills Blueprint Section 34 & Milestones 2.4 and 4.2.
     """
     plan_id: str = Field(default_factory=lambda: f"bgt_{uuid.uuid4().hex[:8]}")
     total_budget: float
@@ -230,6 +254,19 @@ class BudgetPlan(BaseModel):
     savings_from_kept_items: float = 0.0
     remaining_budget: float = 0.0
     is_within_budget: bool = True
+    # Material vs Labor Breakdown (Milestone 4.2)
+    subtotal_materials: float = 0.0
+    subtotal_labor: float = 0.0
+    # Configurable Contingency (Milestone 4.2)
+    contingency_pct: float = 10.0
+    contingency_amount: float = 0.0
+    # Regional Tax & Regulatory Surcharges (Milestone 4.2)
+    tax_name: str = "SST"
+    tax_rate_pct: float = 0.0
+    tax_amount: float = 0.0
+    grand_total: float = 0.0
+    # Multi-Tier Scenarios (Milestone 4.2)
+    scenarios: List[BudgetScenarioComparison] = Field(default_factory=list)
     disclaimer: str = (
         "Indicative renovation estimate only based on regional material and work benchmarks. "
         "Does not constitute a formal contractor quote, structural engineering sign-off, or commercial guarantee."
@@ -376,6 +413,8 @@ class RoomOpening(BaseModel):
     opening_type: OpeningType
     name: str = Field(..., description="e.g. 'Double Bay Window', 'Balcony Sliding Door'")
     wall_id: Optional[str] = None
+    width_m: Optional[float] = None
+    height_m: Optional[float] = None
     bounding_box: Optional[BoundingBox2D] = None
     confidence: float = Field(default=0.92, ge=0.0, le=1.0)
     action: ObjectAction = Field(default=ObjectAction.KEEP)
@@ -400,6 +439,59 @@ class Geometry(BaseModel):
     @property
     def is_closed(self) -> bool:
         return self.loop_closure_status in (LoopClosureStatus.CLOSED, LoopClosureStatus.SNAPPED)
+
+    @property
+    def shape_type(self) -> RoomShapeType:
+        return self.room_shape
+
+    @shape_type.setter
+    def shape_type(self, val: RoomShapeType) -> None:
+        self.room_shape = val
+
+    @property
+    def wall_length_m(self) -> Optional[float]:
+        return self.estimated_length_m
+
+    @wall_length_m.setter
+    def wall_length_m(self, val: Optional[float]) -> None:
+        self.estimated_length_m = val
+
+    @property
+    def wall_width_m(self) -> Optional[float]:
+        return self.estimated_width_m
+
+    @wall_width_m.setter
+    def wall_width_m(self, val: Optional[float]) -> None:
+        self.estimated_width_m = val
+
+    @property
+    def wall_height_m(self) -> Optional[float]:
+        return self.ceiling_height_m
+
+    @wall_height_m.setter
+    def wall_height_m(self, val: Optional[float]) -> None:
+        self.ceiling_height_m = val
+
+    @property
+    def wall_perimeter_m(self) -> Optional[float]:
+        return self.perimeter_m
+
+    @wall_perimeter_m.setter
+    def wall_perimeter_m(self, val: Optional[float]) -> None:
+        self.perimeter_m = val
+
+    def __init__(self, **data: Any):
+        if "shape_type" in data and "room_shape" not in data:
+            data["room_shape"] = data.pop("shape_type")
+        if "wall_length_m" in data and "estimated_length_m" not in data:
+            data["estimated_length_m"] = data.pop("wall_length_m")
+        if "wall_width_m" in data and "estimated_width_m" not in data:
+            data["estimated_width_m"] = data.pop("wall_width_m")
+        if "wall_height_m" in data and "ceiling_height_m" not in data:
+            data["ceiling_height_m"] = data.pop("wall_height_m")
+        if "wall_perimeter_m" in data and "perimeter_m" not in data:
+            data["perimeter_m"] = data.pop("wall_perimeter_m")
+        super().__init__(**data)
 
 
 class CaptureMetadata(BaseModel):
@@ -1012,6 +1104,88 @@ def evaluate_scan_orchestration(profile: Any) -> ScanOrchestrationEvaluation:
     )
 
 
+class MaterialCategory(str, Enum):
+    FLOORING = "FLOORING"
+    WALL_PAINT = "WALL_PAINT"
+    WALLPAPER = "WALLPAPER"
+    WALL_TILING = "WALL_TILING"
+    CEILING_PAINT = "CEILING_PAINT"
+    SKIRTING_BASEBOARD = "SKIRTING_BASEBOARD"
+    DRYWALL_PLASTER = "DRYWALL_PLASTER"
+
+
+class DimensionVerificationStatus(str, Enum):
+    UNVERIFIED = "UNVERIFIED"
+    USER_CONFIRMED = "USER_CONFIRMED"
+    CONTRACTOR_VERIFIED = "CONTRACTOR_VERIFIED"
+    OVERRIDDEN = "OVERRIDDEN"
+
+
+class CriticalDimensionType(str, Enum):
+    FLOOR_AREA = "FLOOR_AREA"
+    LONGEST_WALL = "LONGEST_WALL"
+    CEILING_HEIGHT = "CEILING_HEIGHT"
+    DOORWAY_CLEARANCE = "DOORWAY_CLEARANCE"
+    WINDOW_ROUGH_OPENING = "WINDOW_ROUGH_OPENING"
+
+
+class CriticalDimensionVerification(BaseModel):
+    dimension_id: str
+    dimension_type: CriticalDimensionType
+    label: str
+    target_element_id: Optional[str] = None
+    estimated_value: float
+    unit: str = "m"
+    confidence: float = 0.85
+    uncertainty_margin_pct: float = 10.0
+    verification_status: DimensionVerificationStatus = DimensionVerificationStatus.UNVERIFIED
+    verified_value: Optional[float] = None
+    verified_by: Optional[str] = None
+    verified_at: Optional[datetime] = None
+    recommended_tool: str = "Laser distance meter or steel measuring tape"
+    warning_note: str = "Contractor verification required prior to trade ordering or cutting"
+
+
+class MaterialTakeoffItem(BaseModel):
+    item_id: str
+    category: MaterialCategory
+    name: str
+    description: str
+    net_quantity: float
+    unit: str
+    waste_factor_pct: float
+    waste_quantity: float
+    gross_quantity: float
+    confidence_score: float = 0.85
+    uncertainty_pct: float = 10.0
+    min_recommended_quantity: float
+    max_recommended_quantity: float
+    packaging_spec: Optional[str] = None
+    estimated_packages: Optional[int] = None
+    requires_contractor_verification: bool = False
+
+
+class MaterialTakeoffReport(BaseModel):
+    """
+    Comprehensive material and quantity takeoff with waste factors, confidence bounds,
+    and contractor critical dimension verifications (Milestone 4.1).
+    """
+    report_id: str = Field(default_factory=lambda: f"takeoff_{uuid.uuid4().hex[:8]}")
+    room_id: str
+    gross_floor_area_sqm: float
+    net_wall_area_sqm: float
+    ceiling_area_sqm: float
+    baseboard_perimeter_m: float
+    openings_deducted_area_sqm: float
+    default_waste_factors: Dict[str, float] = Field(default_factory=dict)
+    items: List[MaterialTakeoffItem] = Field(default_factory=list)
+    critical_dimensions: List[CriticalDimensionVerification] = Field(default_factory=list)
+    overall_confidence: float = 0.88
+    accuracy_tier: str = "APPROXIMATE"
+    generated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    notes: List[str] = Field(default_factory=list)
+
+
 class CanonicalRoomModel(BaseModel):
     """
     The Single Canonical Room Model (Section 10).
@@ -1043,6 +1217,7 @@ class CanonicalRoomModel(BaseModel):
     ar_assisted_report: Optional[ARAssistedScanReport] = None
     native_spatial_report: Optional[NativeSpatialScanReport] = None
     orchestration_evaluation: Optional[ScanOrchestrationEvaluation] = None
+    material_takeoff: Optional[MaterialTakeoffReport] = None
     overall_confidence: float = Field(default=0.88, ge=0.0, le=1.0)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

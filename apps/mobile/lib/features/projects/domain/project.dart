@@ -353,6 +353,11 @@ class CategoryCostItemModel {
   final String unit;
   final double quantity;
   final double unitRate;
+  final double materialCost;
+  final double laborCost;
+  final double materialUnitRate;
+  final double laborUnitRate;
+  final String? tradeName;
   final String? notes;
   final bool isOverBudget;
 
@@ -364,6 +369,11 @@ class CategoryCostItemModel {
     this.unit = 'sqm',
     this.quantity = 1.0,
     this.unitRate = 0.0,
+    this.materialCost = 0.0,
+    this.laborCost = 0.0,
+    this.materialUnitRate = 0.0,
+    this.laborUnitRate = 0.0,
+    this.tradeName,
     this.notes,
     this.isOverBudget = false,
   });
@@ -377,6 +387,11 @@ class CategoryCostItemModel {
       unit: map['unit'] as String? ?? 'sqm',
       quantity: (map['quantity'] as num?)?.toDouble() ?? 1.0,
       unitRate: (map['unit_rate'] as num?)?.toDouble() ?? 0.0,
+      materialCost: (map['material_cost'] as num?)?.toDouble() ?? 0.0,
+      laborCost: (map['labor_cost'] as num?)?.toDouble() ?? 0.0,
+      materialUnitRate: (map['material_unit_rate'] as num?)?.toDouble() ?? 0.0,
+      laborUnitRate: (map['labor_unit_rate'] as num?)?.toDouble() ?? 0.0,
+      tradeName: map['trade_name'] as String?,
       notes: map['notes'] as String?,
       isOverBudget: map['is_over_budget'] as bool? ?? false,
     );
@@ -415,6 +430,50 @@ class KeepReplaceTradeoffModel {
   }
 }
 
+class BudgetScenarioComparisonModel {
+  final String tier;
+  final String tierName;
+  final String description;
+  final double subtotalMaterials;
+  final double subtotalLabor;
+  final double contingencyAmount;
+  final double taxAmount;
+  final double grandTotalEstimated;
+  final double costDeltaVsBudget;
+  final bool isWithinBudget;
+  final double savingsIfKept;
+
+  BudgetScenarioComparisonModel({
+    required this.tier,
+    required this.tierName,
+    required this.description,
+    required this.subtotalMaterials,
+    required this.subtotalLabor,
+    required this.contingencyAmount,
+    required this.taxAmount,
+    required this.grandTotalEstimated,
+    required this.costDeltaVsBudget,
+    required this.isWithinBudget,
+    this.savingsIfKept = 0.0,
+  });
+
+  factory BudgetScenarioComparisonModel.fromMap(Map<String, dynamic> map) {
+    return BudgetScenarioComparisonModel(
+      tier: map['tier'] as String? ?? 'MODERATE',
+      tierName: map['tier_name'] as String? ?? 'Moderate',
+      description: map['description'] as String? ?? '',
+      subtotalMaterials: (map['subtotal_materials'] as num?)?.toDouble() ?? 0.0,
+      subtotalLabor: (map['subtotal_labor'] as num?)?.toDouble() ?? 0.0,
+      contingencyAmount: (map['contingency_amount'] as num?)?.toDouble() ?? 0.0,
+      taxAmount: (map['tax_amount'] as num?)?.toDouble() ?? 0.0,
+      grandTotalEstimated: (map['grand_total_estimated'] as num?)?.toDouble() ?? 0.0,
+      costDeltaVsBudget: (map['cost_delta_vs_budget'] as num?)?.toDouble() ?? 0.0,
+      isWithinBudget: map['is_within_budget'] as bool? ?? true,
+      savingsIfKept: (map['savings_if_kept'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
+}
+
 class BudgetPlanModel {
   final String planId;
   final double totalBudget;
@@ -427,6 +486,15 @@ class BudgetPlanModel {
   final double savingsFromKeptItems;
   final double remainingBudget;
   final bool isWithinBudget;
+  final double subtotalMaterials;
+  final double subtotalLabor;
+  final double contingencyPct;
+  final double contingencyAmount;
+  final String taxName;
+  final double taxRatePct;
+  final double taxAmount;
+  final double grandTotal;
+  final List<BudgetScenarioComparisonModel> scenarios;
   final String disclaimer;
 
   BudgetPlanModel({
@@ -441,12 +509,22 @@ class BudgetPlanModel {
     this.savingsFromKeptItems = 0.0,
     this.remainingBudget = 0.0,
     this.isWithinBudget = true,
+    this.subtotalMaterials = 0.0,
+    this.subtotalLabor = 0.0,
+    this.contingencyPct = 10.0,
+    this.contingencyAmount = 0.0,
+    this.taxName = 'SST',
+    this.taxRatePct = 0.0,
+    this.taxAmount = 0.0,
+    this.grandTotal = 0.0,
+    this.scenarios = const [],
     required this.disclaimer,
   });
 
   factory BudgetPlanModel.fromMap(Map<String, dynamic> map) {
     final rawItems = (map['allocated_items'] as List<dynamic>?) ?? [];
     final rawTradeoffs = (map['tradeoffs'] as List<dynamic>?) ?? [];
+    final rawScenarios = (map['scenarios'] as List<dynamic>?) ?? [];
 
     return BudgetPlanModel(
       planId: map['plan_id'] as String? ?? '',
@@ -460,6 +538,15 @@ class BudgetPlanModel {
       savingsFromKeptItems: (map['savings_from_kept_items'] as num?)?.toDouble() ?? 0.0,
       remainingBudget: (map['remaining_budget'] as num?)?.toDouble() ?? 0.0,
       isWithinBudget: map['is_within_budget'] as bool? ?? true,
+      subtotalMaterials: (map['subtotal_materials'] as num?)?.toDouble() ?? 0.0,
+      subtotalLabor: (map['subtotal_labor'] as num?)?.toDouble() ?? 0.0,
+      contingencyPct: (map['contingency_pct'] as num?)?.toDouble() ?? 10.0,
+      contingencyAmount: (map['contingency_amount'] as num?)?.toDouble() ?? 0.0,
+      taxName: map['tax_name'] as String? ?? 'SST',
+      taxRatePct: (map['tax_rate_pct'] as num?)?.toDouble() ?? 0.0,
+      taxAmount: (map['tax_amount'] as num?)?.toDouble() ?? 0.0,
+      grandTotal: (map['grand_total'] as num?)?.toDouble() ?? ((map['total_estimated_cost'] as num?)?.toDouble() ?? 0.0),
+      scenarios: rawScenarios.map((e) => BudgetScenarioComparisonModel.fromMap(e as Map<String, dynamic>)).toList(),
       disclaimer: map['disclaimer'] as String? ??
           'Indicative renovation estimate only based on regional material and work benchmarks. Does not constitute a formal contractor quote.',
     );
@@ -1306,6 +1393,7 @@ class RoomModelData {
   final ARAssistedScanReportModel? arAssistedReport;
   final NativeSpatialScanReportModel? nativeSpatialReport;
   final ScanOrchestrationEvaluationModel? orchestrationEvaluation;
+  final MaterialTakeoffReportModel? materialTakeoff;
   final List<DesignVersionModel> versions;
 
   RoomModelData({
@@ -1329,6 +1417,7 @@ class RoomModelData {
     this.arAssistedReport,
     this.nativeSpatialReport,
     this.orchestrationEvaluation,
+    this.materialTakeoff,
     this.versions = const [],
   });
 
@@ -1380,6 +1469,9 @@ class RoomModelData {
           : null,
       orchestrationEvaluation: map['orchestration_evaluation'] != null
           ? ScanOrchestrationEvaluationModel.fromMap(map['orchestration_evaluation'] as Map<String, dynamic>)
+          : null,
+      materialTakeoff: (map['material_takeoff'] != null)
+          ? MaterialTakeoffReportModel.fromMap(map['material_takeoff'] as Map<String, dynamic>)
           : null,
       versions: rawVersions
           .map((e) => DesignVersionModel.fromMap(e as Map<String, dynamic>))
@@ -1702,4 +1794,295 @@ class ScanOrchestrationEvaluationModel {
     };
   }
 }
+
+class CriticalDimensionVerificationModel {
+  final String dimensionId;
+  final String dimensionType;
+  final String label;
+  final double estimatedValue;
+  double? verifiedValue;
+  final String unit;
+  double confidence;
+  double uncertaintyMarginPct;
+  String verificationStatus;
+  String? verifiedBy;
+  DateTime? verifiedAt;
+  String? notes;
+  final String? recommendedTool;
+  final String? warningNote;
+
+  CriticalDimensionVerificationModel({
+    required this.dimensionId,
+    required this.dimensionType,
+    required this.label,
+    required this.estimatedValue,
+    this.verifiedValue,
+    this.unit = 'm',
+    this.confidence = 0.90,
+    this.uncertaintyMarginPct = 5.0,
+    this.verificationStatus = 'UNVERIFIED',
+    this.verifiedBy,
+    this.verifiedAt,
+    this.notes,
+    this.recommendedTool,
+    this.warningNote,
+  });
+
+  bool get isVerified =>
+      verificationStatus == 'CONTRACTOR_VERIFIED' ||
+      verificationStatus == 'HOMEOWNER_CONFIRMED' ||
+      verifiedValue != null;
+
+  String get statusLabel {
+    switch (verificationStatus) {
+      case 'CONTRACTOR_VERIFIED':
+        return 'Contractor Verified';
+      case 'HOMEOWNER_CONFIRMED':
+        return 'Homeowner Confirmed';
+      case 'DISCREPANCY_FLAGGED':
+        return 'Discrepancy Flagged';
+      default:
+        return 'Unverified (Estimated)';
+    }
+  }
+
+  String get displayValue {
+    if (verifiedValue != null) {
+      return '${verifiedValue!.toStringAsFixed(2)} $unit (Verified)';
+    }
+    return '${estimatedValue.toStringAsFixed(2)} $unit (±${uncertaintyMarginPct.toStringAsFixed(0)}%)';
+  }
+
+  factory CriticalDimensionVerificationModel.fromMap(Map<String, dynamic> map) {
+    return CriticalDimensionVerificationModel(
+      dimensionId: map['dimension_id'] as String? ?? '',
+      dimensionType: map['dimension_type'] as String? ?? 'FLOOR_AREA',
+      label: map['label'] as String? ?? 'Dimension',
+      estimatedValue: (map['estimated_value'] as num?)?.toDouble() ?? 0.0,
+      verifiedValue: (map['verified_value'] as num?)?.toDouble(),
+      unit: map['unit'] as String? ?? 'm',
+      confidence: (map['confidence'] as num?)?.toDouble() ?? 0.90,
+      uncertaintyMarginPct: (map['uncertainty_margin_pct'] as num?)?.toDouble() ?? 5.0,
+      verificationStatus: map['verification_status'] as String? ?? 'UNVERIFIED',
+      verifiedBy: map['verified_by'] as String?,
+      verifiedAt: map['verified_at'] != null ? DateTime.tryParse(map['verified_at'].toString()) : null,
+      notes: map['notes'] as String?,
+      recommendedTool: map['recommended_tool'] as String?,
+      warningNote: map['warning_note'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'dimension_id': dimensionId,
+      'dimension_type': dimensionType,
+      'label': label,
+      'estimated_value': estimatedValue,
+      'verified_value': verifiedValue,
+      'unit': unit,
+      'confidence': confidence,
+      'uncertainty_margin_pct': uncertaintyMarginPct,
+      'verification_status': verificationStatus,
+      'verified_by': verifiedBy,
+      'verified_at': verifiedAt?.toIso8601String(),
+      'notes': notes,
+      'recommended_tool': recommendedTool,
+      'warning_note': warningNote,
+    };
+  }
+}
+
+class MaterialTakeoffItemModel {
+  final String itemId;
+  final String category;
+  final String name;
+  final String? description;
+  double netQuantity;
+  final String unit;
+  double wasteFactorPct;
+  double wasteQuantity;
+  double grossQuantity;
+  double confidenceScore;
+  double uncertaintyPct;
+  double minRecommendedQuantity;
+  double maxRecommendedQuantity;
+  final String? packagingSpec;
+  int? estimatedPackages;
+  bool requiresContractorVerification;
+
+  MaterialTakeoffItemModel({
+    required this.itemId,
+    required this.category,
+    required this.name,
+    this.description,
+    required this.netQuantity,
+    this.unit = 'sqm',
+    this.wasteFactorPct = 10.0,
+    required this.wasteQuantity,
+    required this.grossQuantity,
+    this.confidenceScore = 0.90,
+    this.uncertaintyPct = 5.0,
+    required this.minRecommendedQuantity,
+    required this.maxRecommendedQuantity,
+    this.packagingSpec,
+    this.estimatedPackages,
+    this.requiresContractorVerification = false,
+  });
+
+  String get categoryDisplayName {
+    switch (category.toUpperCase()) {
+      case 'FLOORING':
+        return 'Flooring';
+      case 'WALL_PAINT':
+        return 'Wall Paint';
+      case 'CEILING_PAINT':
+        return 'Ceiling Paint';
+      case 'SKIRTING_BASEBOARD':
+        return 'Baseboards / Skirting';
+      case 'WALLPAPER':
+        return 'Wallpaper';
+      case 'WALL_TILING':
+        return 'Wall Tiling';
+      case 'DRYWALL_PLASTER':
+        return 'Drywall / Plaster';
+      default:
+        return category;
+    }
+  }
+
+  String get formattedGrossQuantity => '${grossQuantity.toStringAsFixed(1)} $unit';
+
+  String get formattedRange =>
+      '${minRecommendedQuantity.toStringAsFixed(1)} – ${maxRecommendedQuantity.toStringAsFixed(1)} $unit';
+
+  factory MaterialTakeoffItemModel.fromMap(Map<String, dynamic> map) {
+    return MaterialTakeoffItemModel(
+      itemId: map['item_id'] as String? ?? '',
+      category: map['category'] as String? ?? 'FLOORING',
+      name: map['name'] as String? ?? 'Material',
+      description: map['description'] as String?,
+      netQuantity: (map['net_quantity'] as num?)?.toDouble() ?? 0.0,
+      unit: map['unit'] as String? ?? 'sqm',
+      wasteFactorPct: (map['waste_factor_pct'] as num?)?.toDouble() ?? 10.0,
+      wasteQuantity: (map['waste_quantity'] as num?)?.toDouble() ?? 0.0,
+      grossQuantity: (map['gross_quantity'] as num?)?.toDouble() ?? 0.0,
+      confidenceScore: (map['confidence_score'] as num?)?.toDouble() ?? 0.90,
+      uncertaintyPct: (map['uncertainty_pct'] as num?)?.toDouble() ?? 5.0,
+      minRecommendedQuantity: (map['min_recommended_quantity'] as num?)?.toDouble() ?? 0.0,
+      maxRecommendedQuantity: (map['max_recommended_quantity'] as num?)?.toDouble() ?? 0.0,
+      packagingSpec: map['packaging_spec'] as String?,
+      estimatedPackages: (map['estimated_packages'] as num?)?.toInt(),
+      requiresContractorVerification: map['requires_contractor_verification'] as bool? ?? false,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'item_id': itemId,
+      'category': category,
+      'name': name,
+      'description': description,
+      'net_quantity': netQuantity,
+      'unit': unit,
+      'waste_factor_pct': wasteFactorPct,
+      'waste_quantity': wasteQuantity,
+      'gross_quantity': grossQuantity,
+      'confidence_score': confidenceScore,
+      'uncertainty_pct': uncertaintyPct,
+      'min_recommended_quantity': minRecommendedQuantity,
+      'max_recommended_quantity': maxRecommendedQuantity,
+      'packaging_spec': packagingSpec,
+      'estimated_packages': estimatedPackages,
+      'requires_contractor_verification': requiresContractorVerification,
+    };
+  }
+}
+
+class MaterialTakeoffReportModel {
+  final String reportId;
+  final String roomId;
+  final double grossFloorAreaSqm;
+  final double netWallAreaSqm;
+  final double ceilingAreaSqm;
+  final double baseboardPerimeterM;
+  final double openingsDeductedAreaSqm;
+  final Map<String, double> defaultWasteFactors;
+  final List<MaterialTakeoffItemModel> items;
+  final List<CriticalDimensionVerificationModel> criticalDimensions;
+  final double overallConfidence;
+  final String accuracyTier;
+  final DateTime? generatedAt;
+  final List<String> notes;
+
+  MaterialTakeoffReportModel({
+    required this.reportId,
+    required this.roomId,
+    required this.grossFloorAreaSqm,
+    required this.netWallAreaSqm,
+    required this.ceilingAreaSqm,
+    required this.baseboardPerimeterM,
+    required this.openingsDeductedAreaSqm,
+    this.defaultWasteFactors = const {},
+    this.items = const [],
+    this.criticalDimensions = const [],
+    this.overallConfidence = 0.90,
+    this.accuracyTier = 'APPROXIMATE',
+    this.generatedAt,
+    this.notes = const [],
+  });
+
+  int get unverifiedDimensionsCount =>
+      criticalDimensions.where((d) => !d.isVerified).length;
+
+  int get verifiedDimensionsCount =>
+      criticalDimensions.where((d) => d.isVerified).length;
+
+  bool get allDimensionsVerified =>
+      criticalDimensions.isNotEmpty && unverifiedDimensionsCount == 0;
+
+  factory MaterialTakeoffReportModel.fromMap(Map<String, dynamic> map) {
+    final rawWaste = (map['default_waste_factors'] as Map<String, dynamic>?) ?? {};
+    final wasteMap = rawWaste.map((k, v) => MapEntry(k, (v as num).toDouble()));
+    final rawItems = (map['items'] as List<dynamic>?) ?? [];
+    final rawDims = (map['critical_dimensions'] as List<dynamic>?) ?? [];
+    final rawNotes = (map['notes'] as List<dynamic>?) ?? [];
+
+    return MaterialTakeoffReportModel(
+      reportId: map['report_id'] as String? ?? '',
+      roomId: map['room_id'] as String? ?? '',
+      grossFloorAreaSqm: (map['gross_floor_area_sqm'] as num?)?.toDouble() ?? 0.0,
+      netWallAreaSqm: (map['net_wall_area_sqm'] as num?)?.toDouble() ?? 0.0,
+      ceilingAreaSqm: (map['ceiling_area_sqm'] as num?)?.toDouble() ?? 0.0,
+      baseboardPerimeterM: (map['baseboard_perimeter_m'] as num?)?.toDouble() ?? 0.0,
+      openingsDeductedAreaSqm: (map['openings_deducted_area_sqm'] as num?)?.toDouble() ?? 0.0,
+      defaultWasteFactors: wasteMap,
+      items: rawItems.map((e) => MaterialTakeoffItemModel.fromMap(e as Map<String, dynamic>)).toList(),
+      criticalDimensions: rawDims.map((e) => CriticalDimensionVerificationModel.fromMap(e as Map<String, dynamic>)).toList(),
+      overallConfidence: (map['overall_confidence'] as num?)?.toDouble() ?? 0.90,
+      accuracyTier: map['accuracy_tier'] as String? ?? 'APPROXIMATE',
+      generatedAt: map['generated_at'] != null ? DateTime.tryParse(map['generated_at'].toString()) : null,
+      notes: rawNotes.map((e) => e.toString()).toList(),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'report_id': reportId,
+      'room_id': roomId,
+      'gross_floor_area_sqm': grossFloorAreaSqm,
+      'net_wall_area_sqm': netWallAreaSqm,
+      'ceiling_area_sqm': ceilingAreaSqm,
+      'baseboard_perimeter_m': baseboardPerimeterM,
+      'openings_deducted_area_sqm': openingsDeductedAreaSqm,
+      'default_waste_factors': defaultWasteFactors,
+      'items': items.map((e) => e.toMap()).toList(),
+      'critical_dimensions': criticalDimensions.map((e) => e.toMap()).toList(),
+      'overall_confidence': overallConfidence,
+      'accuracy_tier': accuracyTier,
+      'generated_at': generatedAt?.toIso8601String(),
+      'notes': notes,
+    };
+  }
+}
+
 

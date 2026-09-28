@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from packages.room_model import (
     BudgetPlan,
+    BudgetScenarioComparison,
     CanonicalRoomModel,
     CaptureMetadata,
     CurrencyCode,
@@ -45,6 +46,12 @@ from packages.room_model import (
     TierBenchmarkMetrics,
     evaluate_scan_orchestration,
     get_standard_tier_benchmarks,
+    CriticalDimensionType,
+    CriticalDimensionVerification,
+    DimensionVerificationStatus,
+    MaterialCategory,
+    MaterialTakeoffItem,
+    MaterialTakeoffReport,
 )
 from services.ai_worker.pipelines.generation import LocalRedesignGenerator
 from services.ai_worker.pipelines.room_analyzer import RoomAnalyzer
@@ -57,6 +64,7 @@ from services.ai_worker.pipelines.video_scan_analyzer import VideoScanAnalyzer
 from services.ai_worker.pipelines.reconstruction_pipeline import MultiViewReconstructor
 from services.ai_worker.pipelines.ar_fusion_engine import ARMotionFusionEngine
 from services.ai_worker.pipelines.native_spatial_normalizer import NativeSpatialNormalizer
+from services.ai_worker.pipelines.material_estimator import material_estimator
 from ...core.rate_limit import rate_limit_general, rate_limit_generation
 from ...core.sanitizer import sanitize_image
 from ...db.models import Project, Room
@@ -1170,13 +1178,16 @@ class CreateBudgetPlanRequest(BaseModel):
     total_budget: float = Field(default=15000.0, gt=0.0)
     currency: str = Field(default="MYR")
     renovation_tier: str = Field(default="MODERATE")
+    contingency_pct: float = Field(default=10.0, ge=0.0, le=50.0)
+    include_tax: bool = Field(default=False)
+    custom_tax_rate: Optional[float] = Field(default=None, ge=0.0, le=50.0)
     actions: Optional[Dict[str, str]] = None  # element_id -> "keep"|"replace"|"remove"|"restyle"
 
 
 @router.get("/rooms/budget-benchmarks")
 def get_budget_benchmarks():
     """
-    Fulfills Blueprint Section 34 & Milestone 2.4:
+    Fulfills Blueprint Section 34 & Milestone 2.4 / 4.2:
     Returns supported regional currencies, pricing benchmark overviews,
     renovation finish tiers, and indicative estimation disclaimers.
     """
@@ -1184,16 +1195,18 @@ def get_budget_benchmarks():
 
 
 @router.post("/rooms/{room_id}/budget", response_model=BudgetPlan)
+@router.post("/rooms/{room_id}/renovation-budget", response_model=BudgetPlan)
 def calculate_room_budget(
     room_id: str,
     req: CreateBudgetPlanRequest,
     db: Session = Depends(get_db),
 ):
     """
-    Fulfills Blueprint Section 34 & Milestone 2.4:
+    Fulfills Blueprint Section 34 & Milestone 2.4 & 4.2:
     Synthesizes a category-by-category renovation budget plan,
-    calculating keep-vs-replace trade-offs, material & work estimations,
-    and contingency reserve based on physical room geometry and user choices.
+    calculating keep-vs-replace trade-offs, material & labor estimations,
+    contingency reserve (5-25%), regional tax (SST/GST/VAT), and multi-tier scenarios
+    based on physical room geometry and material takeoff ground truth.
     """
     room = db.query(Room).filter(Room.id == room_id).first()
     room_model = None
@@ -1230,6 +1243,9 @@ def calculate_room_budget(
         total_budget=req.total_budget,
         currency=currency,
         tier=tier,
+        contingency_pct=req.contingency_pct,
+        include_tax=req.include_tax,
+        custom_tax_rate=req.custom_tax_rate,
     )
 
     if room:
@@ -1238,6 +1254,49 @@ def calculate_room_budget(
 
     repository.save_room(room_model)
     return plan
+
+
+@router.get("/rooms/{room_id}/budget/scenarios", response_model=List[BudgetScenarioComparison])
+@router.get("/rooms/{room_id}/renovation-budget/scenarios", response_model=List[BudgetScenarioComparison])
+def get_budget_scenarios(
+    room_id: str,
+    total_budget: float = 15000.0,
+    currency: str = "MYR",
+    contingency_pct: float = 10.0,
+    include_tax: bool = False,
+    custom_tax_rate: Optional[float] = None,
+    db: Session = Depends(get_db),
+):
+    """
+    Fulfills Milestone 4.2 & Blueprint Section 34 / 41:
+    Returns side-by-side multi-tier renovation budget comparisons
+    (Economy, Moderate, Premium, Luxury) using physical takeoff and room geometry.
+    """
+    room = db.query(Room).filter(Room.id == room_id).first()
+    room_model = None
+
+    if room and room.room_model_data:
+        room_model = CanonicalRoomModel.model_validate(room.room_model_data)
+    elif room_id in repository.rooms:
+        room_model = repository.rooms[room_id]
+
+    if not room_model:
+        raise HTTPException(status_code=404, detail="Room model data not found")
+
+    try:
+        cur = CurrencyCode(currency.upper())
+    except ValueError:
+        cur = CurrencyCode.MYR
+
+    scenarios = budget_engine.generate_tier_scenarios(
+        room=room_model,
+        total_budget=total_budget,
+        currency=cur,
+        contingency_pct=contingency_pct,
+        include_tax=include_tax,
+        custom_tax_rate=custom_tax_rate,
+    )
+    return scenarios
 
 
 @router.get("/rooms/{room_id}/budget", response_model=BudgetPlan)
@@ -1882,6 +1941,124 @@ def attach_scan_orchestration(
     repository.save_room(room_model)
 
     return room_model
+
+
+class ComputeMaterialTakeoffRequest(BaseModel):
+    custom_waste_factors: Dict[str, float] = Field(default_factory=dict)
+
+
+class VerifyCriticalDimensionRequest(BaseModel):
+    dimension_id: str
+    verified_value: float
+    verified_by: str = "Contractor"
+    status: DimensionVerificationStatus = DimensionVerificationStatus.CONTRACTOR_VERIFIED
+
+
+@router.post("/rooms/{room_id}/material-takeoff", response_model=MaterialTakeoffReport)
+def generate_material_takeoff(
+    room_id: str,
+    payload: ComputeMaterialTakeoffRequest = ComputeMaterialTakeoffRequest(),
+    db: Session = Depends(get_db),
+):
+    """
+    Fulfills Milestone 4.1.
+    Computes surface-area-derived approximate quantities, configurable waste factors,
+    confidence-aware bounds, and contractor critical-dimension verification checklist.
+    """
+    db_room = db.query(Room).filter(Room.id == room_id).first()
+    room_model = None
+    if db_room and db_room.room_model_data:
+        room_model = CanonicalRoomModel.model_validate(db_room.room_model_data)
+    elif room_id in repository.rooms:
+        room_model = repository.rooms[room_id]
+
+    if not room_model:
+        raise HTTPException(status_code=404, detail="Room not found")
+
+    report = material_estimator.compute_material_takeoff(
+        room=room_model,
+        custom_waste_factors=payload.custom_waste_factors,
+    )
+    room_model.material_takeoff = report
+
+    if db_room:
+        db_room.room_model_data = room_model.model_dump(mode="json")
+        db.commit()
+    repository.save_room(room_model)
+
+    return report
+
+
+@router.get("/rooms/{room_id}/material-takeoff", response_model=MaterialTakeoffReport)
+def get_material_takeoff(
+    room_id: str,
+    db: Session = Depends(get_db),
+):
+    """
+    Retrieves or generates the material takeoff report for a room.
+    """
+    db_room = db.query(Room).filter(Room.id == room_id).first()
+    room_model = None
+    if db_room and db_room.room_model_data:
+        room_model = CanonicalRoomModel.model_validate(db_room.room_model_data)
+    elif room_id in repository.rooms:
+        room_model = repository.rooms[room_id]
+
+    if not room_model:
+        raise HTTPException(status_code=404, detail="Room not found")
+
+    if room_model.material_takeoff:
+        return room_model.material_takeoff
+
+    report = material_estimator.compute_material_takeoff(room_model)
+    room_model.material_takeoff = report
+
+    if db_room:
+        db_room.room_model_data = room_model.model_dump(mode="json")
+        db.commit()
+    repository.save_room(room_model)
+
+    return report
+
+
+@router.post("/rooms/{room_id}/material-takeoff/verify-dimension", response_model=MaterialTakeoffReport)
+def verify_takeoff_critical_dimension(
+    room_id: str,
+    payload: VerifyCriticalDimensionRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Updates on-site contractor verification for a critical dimension and recalculates affected quantities.
+    """
+    db_room = db.query(Room).filter(Room.id == room_id).first()
+    room_model = None
+    if db_room and db_room.room_model_data:
+        room_model = CanonicalRoomModel.model_validate(db_room.room_model_data)
+    elif room_id in repository.rooms:
+        room_model = repository.rooms[room_id]
+
+    if not room_model:
+        raise HTTPException(status_code=404, detail="Room not found")
+
+    if not room_model.material_takeoff:
+        room_model.material_takeoff = material_estimator.compute_material_takeoff(room_model)
+
+    updated_report = material_estimator.verify_critical_dimension(
+        report=room_model.material_takeoff,
+        dimension_id=payload.dimension_id,
+        verified_value=payload.verified_value,
+        verified_by=payload.verified_by,
+        status=payload.status,
+    )
+    room_model.material_takeoff = updated_report
+
+    if db_room:
+        db_room.room_model_data = room_model.model_dump(mode="json")
+        db.commit()
+    repository.save_room(room_model)
+
+    return updated_report
+
 
 
 

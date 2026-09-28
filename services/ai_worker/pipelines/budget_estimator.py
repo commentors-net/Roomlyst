@@ -14,6 +14,7 @@ from typing import Dict, List, Optional, Tuple, Any
 from packages.room_model import (
     BudgetCategory,
     BudgetPlan,
+    BudgetScenarioComparison,
     CanonicalRoomModel,
     CategoryCostItem,
     CurrencyCode,
@@ -111,6 +112,30 @@ class BudgetIntelligenceEngine:
         CurrencyCode.CAD: 0.60,
     }
 
+    # Empirical material vs labor cost share splits (material_pct, labor_pct, primary_trade_name)
+    MATERIAL_LABOR_SPLITS: Dict[BudgetCategory, Tuple[float, float, str]] = {
+        BudgetCategory.PAINTING_WALLS: (0.35, 0.65, "Finishing Painter"),
+        BudgetCategory.FLOORING: (0.60, 0.40, "Flooring Specialist"),
+        BudgetCategory.MILLWORK_CABINETRY: (0.50, 0.50, "Master Joiner / Carpenter"),
+        BudgetCategory.LIGHTING_ELECTRICAL: (0.55, 0.45, "Licensed Electrician"),
+        BudgetCategory.FURNITURE_DECOR: (0.90, 0.10, "Furniture Assembler & Stylist"),
+        BudgetCategory.LABOR_DEMOLITION: (0.15, 0.85, "Demolition Crew"),
+        BudgetCategory.WET_WORKS_TILING: (0.50, 0.50, "Wet Works Mason / Tiler"),
+        BudgetCategory.SITE_MANAGEMENT: (0.10, 0.90, "Site Supervisor"),
+        BudgetCategory.CONTINGENCY: (0.50, 0.50, "Contingency Reserve"),
+    }
+
+    # Regional tax names and standard percentages
+    REGIONAL_TAX_RATES: Dict[CurrencyCode, Tuple[str, float]] = {
+        CurrencyCode.MYR: ("SST", 8.0),
+        CurrencyCode.SGD: ("GST", 9.0),
+        CurrencyCode.USD: ("Sales Tax", 8.25),
+        CurrencyCode.EUR: ("VAT", 21.0),
+        CurrencyCode.GBP: ("VAT", 20.0),
+        CurrencyCode.AUD: ("GST", 10.0),
+        CurrencyCode.CAD: ("HST", 13.0),
+    }
+
     @classmethod
     def get_benchmarks_overview(cls) -> Dict[str, Any]:
         """Returns regional pricing benchmarks, supported currencies, and tier descriptions."""
@@ -150,6 +175,22 @@ class BudgetIntelligenceEngine:
         Derives physical renovation work quantities (sqm, linear meters) from room geometry.
         Fulfills Blueprint Section 4 & 34.
         """
+        # When Milestone 4.1 MaterialTakeoffReport is present, use exact ground-truth takeoff
+        if room.material_takeoff and room.material_takeoff.gross_floor_area_sqm > 0:
+            floor_area = room.material_takeoff.gross_floor_area_sqm
+            net_wall_area = room.material_takeoff.net_wall_area_sqm
+            perimeter = room.material_takeoff.baseboard_perimeter_m
+            ceiling_h = room.geometry.wall_height_m or room.geometry.ceiling_height_m or 2.80
+            cabinet_objects = [o for o in room.objects if any(k in o.category.lower() for k in ["tv", "cabinet", "shelf", "storage"])]
+            millwork_lm = max(2.4, round(len(cabinet_objects) * 1.8, 1))
+            return {
+                "floor_area_sqm": round(floor_area, 2),
+                "net_wall_area_sqm": round(net_wall_area, 2),
+                "perimeter_m": round(perimeter, 2),
+                "ceiling_height_m": round(ceiling_h, 2),
+                "millwork_linear_m": millwork_lm,
+            }
+
         # 1. Floor Area (sqm)
         if room.geometry.floor_area_sqm and room.geometry.floor_area_sqm > 0:
             floor_area = room.geometry.floor_area_sqm
@@ -320,16 +361,140 @@ class BudgetIntelligenceEngine:
 
         return tradeoffs, round(total_savings, 2)
 
+    def generate_tier_scenarios(
+        self,
+        room: CanonicalRoomModel,
+        total_budget: float = 15000.0,
+        currency: CurrencyCode = CurrencyCode.MYR,
+        contingency_pct: float = 10.0,
+        include_tax: bool = False,
+        custom_tax_rate: Optional[float] = None,
+    ) -> List[BudgetScenarioComparison]:
+        """
+        Generates comparative cost scenarios across all 4 renovation tiers.
+        Fulfills Milestone 4.2: Option comparison.
+        """
+        tier_descriptions = {
+            RenovationTier.ECONOMY: (
+                "Economy Refresh",
+                "Cost-effective refresh, standard retail finishes, direct DIY or entry labor.",
+            ),
+            RenovationTier.MODERATE: (
+                "Moderate Standard (Recommended)",
+                "Quality standard materials, durable finishes, modular millwork, licensed trades.",
+            ),
+            RenovationTier.PREMIUM: (
+                "Premium Designer",
+                "Designer-grade engineered surfaces, bespoke cabinetry, smart lighting, master trades.",
+            ),
+            RenovationTier.LUXURY: (
+                "Luxury Bespoke",
+                "Architectural bespoke joinery, imported finishes, automated lighting, specialist craftsmen.",
+            ),
+        }
+
+        quantities = self.extract_room_quantities(room)
+        wall_sqm = quantities["net_wall_area_sqm"]
+        floor_sqm = quantities["floor_area_sqm"]
+        millwork_lm = quantities["millwork_linear_m"]
+        ppr = self.CURRENCY_PURCHASING_POWER_RATIO.get(currency, 1.0)
+        floor_surface = next((s for s in room.surfaces if "floor" in s.surface_type.value.lower() or "floor" in s.name.lower()), None)
+        is_floor_kept = floor_surface and floor_surface.action == ObjectAction.KEEP
+
+        tax_name, default_tax_pct = self.REGIONAL_TAX_RATES.get(currency, ("Tax", 0.0))
+        tax_rate_pct = custom_tax_rate if custom_tax_rate is not None else (default_tax_pct if include_tax else 0.0)
+
+        scenarios: List[BudgetScenarioComparison] = []
+
+        for target_tier in [RenovationTier.ECONOMY, RenovationTier.MODERATE, RenovationTier.PREMIUM, RenovationTier.LUXURY]:
+            tier_name, desc = tier_descriptions[target_tier]
+            tradeoffs, savings = self.evaluate_keep_replace_tradeoffs(room, currency=currency, tier=target_tier)
+
+            # 1. Painting
+            paint_rate = self.RATES_PAINTING.get(currency, self.RATES_PAINTING[CurrencyCode.MYR])[target_tier]
+            c_paint = round(wall_sqm * paint_rate, 2)
+
+            # 2. Flooring
+            floor_rate = self.RATES_FLOORING.get(currency, self.RATES_FLOORING[CurrencyCode.MYR])[target_tier]
+            c_floor = 0.0 if is_floor_kept else round(floor_sqm * floor_rate, 2)
+
+            # 3. Millwork
+            mill_rate = self.RATES_MILLWORK.get(currency, self.RATES_MILLWORK[CurrencyCode.MYR])[target_tier]
+            c_mill = round(millwork_lm * mill_rate, 2)
+
+            # 4. Lighting
+            base_light = self.RATES_LIGHTING_BASE.get(currency, self.RATES_LIGHTING_BASE[CurrencyCode.MYR])[target_tier]
+            c_light = round(base_light + (floor_sqm * 12.0 * ppr), 2)
+
+            # 5. Furniture
+            c_furn = sum(t.replacement_cost_estimate for t in tradeoffs if t.category == BudgetCategory.FURNITURE_DECOR)
+            if c_furn == 0.0:
+                c_furn = round(base_light * 0.8, 2)
+
+            # 6. Demolition
+            c_demo = round((floor_sqm * 10.0 + wall_sqm * 5.0) * ppr, 2)
+            if is_floor_kept:
+                c_demo = round(c_demo * 0.4, 2)
+
+            # Material vs Labor subtotal calculation
+            cat_costs = [
+                (BudgetCategory.PAINTING_WALLS, c_paint),
+                (BudgetCategory.FLOORING, c_floor),
+                (BudgetCategory.MILLWORK_CABINETRY, c_mill),
+                (BudgetCategory.LIGHTING_ELECTRICAL, c_light),
+                (BudgetCategory.FURNITURE_DECOR, c_furn),
+                (BudgetCategory.LABOR_DEMOLITION, c_demo),
+            ]
+
+            mat_subtotal = 0.0
+            lab_subtotal = 0.0
+            for cat, cost in cat_costs:
+                m_share, l_share, _ = self.MATERIAL_LABOR_SPLITS.get(cat, (0.5, 0.5, "Contractor"))
+                m_amt = round(cost * m_share, 2)
+                l_amt = round(cost - m_amt, 2)
+                mat_subtotal += m_amt
+                lab_subtotal += l_amt
+
+            subtotal_pre_tax = round(mat_subtotal + lab_subtotal, 2)
+            contingency_amt = round(subtotal_pre_tax * (contingency_pct / 100.0), 2)
+            tax_amt = round((subtotal_pre_tax + contingency_amt) * (tax_rate_pct / 100.0), 2) if tax_rate_pct > 0 else 0.0
+            grand_total = round(subtotal_pre_tax + contingency_amt + tax_amt, 2)
+
+            delta = round(grand_total - total_budget, 2)
+            within_bgt = grand_total <= total_budget
+
+            scenarios.append(
+                BudgetScenarioComparison(
+                    tier=target_tier,
+                    tier_name=tier_name,
+                    description=desc,
+                    subtotal_materials=round(mat_subtotal, 2),
+                    subtotal_labor=round(lab_subtotal, 2),
+                    contingency_amount=contingency_amt,
+                    tax_amount=tax_amt,
+                    grand_total_estimated=grand_total,
+                    cost_delta_vs_budget=delta,
+                    is_within_budget=within_bgt,
+                    savings_if_kept=savings,
+                )
+            )
+
+        return scenarios
+
     def create_budget_plan(
         self,
         room: CanonicalRoomModel,
         total_budget: float,
         currency: CurrencyCode = CurrencyCode.MYR,
         tier: RenovationTier = RenovationTier.MODERATE,
+        contingency_pct: float = 10.0,
+        include_tax: bool = False,
+        custom_tax_rate: Optional[float] = None,
     ) -> BudgetPlan:
         """
-        Synthesizes a complete renovation budget allocation plan with keep-vs-replace trade-offs.
-        Fulfills Milestone 2.4 & Blueprint Section 34.
+        Synthesizes a complete renovation budget allocation plan with material vs labor breakdown,
+        configurable contingency buffer, regional tax, and multi-tier option comparisons.
+        Fulfills Milestones 2.4 & 4.2 & Blueprint Section 34.
         """
         quantities = self.extract_room_quantities(room)
         tradeoffs, total_savings = self.evaluate_keep_replace_tradeoffs(room, currency=currency, tier=tier)
@@ -362,7 +527,6 @@ class BudgetIntelligenceEngine:
         # 5. Estimate Furniture / Decor Costs from Trade-offs
         furniture_cost = sum(t.replacement_cost_estimate for t in tradeoffs if t.category == BudgetCategory.FURNITURE_DECOR)
         if furniture_cost == 0.0:
-            # If all furniture kept or empty room, allocate minimal decor styling
             furniture_cost = round(base_lighting * 0.8, 2)
 
         # 6. Demolition / Preparation
@@ -370,13 +534,19 @@ class BudgetIntelligenceEngine:
         if floor_surface and floor_surface.action == ObjectAction.KEEP:
             demo_cost = round(demo_cost * 0.4, 2)
 
-        # 7. Subtotal & Contingency (10% of subtotal)
+        # 7. Subtotal pre-contingency and pre-tax
         subtotal = painting_cost + flooring_cost + millwork_cost + lighting_cost + furniture_cost + demo_cost
-        contingency_cost = round(subtotal * 0.10, 2)
+        contingency_cost = round(subtotal * (contingency_pct / 100.0), 2)
+
+        # 8. Regional Tax Calculation
+        tax_name, default_tax_pct = self.REGIONAL_TAX_RATES.get(currency, ("Tax", 0.0))
+        tax_rate_pct = custom_tax_rate if custom_tax_rate is not None else (default_tax_pct if include_tax else 0.0)
+        tax_amount = round((subtotal + contingency_cost) * (tax_rate_pct / 100.0), 2) if tax_rate_pct > 0 else 0.0
+
         total_estimated = round(subtotal + contingency_cost, 2)
+        grand_total = round(total_estimated + tax_amount, 2)
 
         # Target allocation distribution of user's budget across categories
-        # Adjusted dynamically if flooring is kept
         if flooring_cost == 0.0:
             target_pcts = {
                 BudgetCategory.PAINTING_WALLS: 0.15,
@@ -405,7 +575,7 @@ class BudgetIntelligenceEngine:
             BudgetCategory.LIGHTING_ELECTRICAL: (lighting_cost, "room", 1.0, lighting_cost, "Ambient, task & accent fixtures"),
             BudgetCategory.FURNITURE_DECOR: (furniture_cost, "lump_sum", 1.0, furniture_cost, f"Derived from {len(tradeoffs)} elements"),
             BudgetCategory.LABOR_DEMOLITION: (demo_cost, "room", 1.0, demo_cost, "Site prep, masking, disposal"),
-            BudgetCategory.CONTINGENCY: (contingency_cost, "buffer", 1.0, contingency_cost, "10% unforeseen reserve buffer"),
+            BudgetCategory.CONTINGENCY: (contingency_cost, "buffer", 1.0, contingency_cost, f"{contingency_pct:.0f}% unforeseen reserve buffer"),
         }
 
         category_names = {
@@ -415,16 +585,34 @@ class BudgetIntelligenceEngine:
             BudgetCategory.LIGHTING_ELECTRICAL: "Lighting & Electrical Fixtures",
             BudgetCategory.FURNITURE_DECOR: "Loose Furniture & Soft Decor",
             BudgetCategory.LABOR_DEMOLITION: "Site Prep & Demolition",
-            BudgetCategory.CONTINGENCY: "Contingency Buffer (10%)",
+            BudgetCategory.CONTINGENCY: f"Contingency Buffer ({contingency_pct:.0f}%)",
         }
 
         allocated_items: List[CategoryCostItem] = []
         total_allocated = 0.0
+        subtotal_materials = 0.0
+        subtotal_labor = 0.0
 
         for cat, pct in target_pcts.items():
             alloc = round(total_budget * pct, 2)
             est, unit, qty, rate, notes = cost_map[cat]
             total_allocated += alloc
+
+            if cat == BudgetCategory.CONTINGENCY:
+                mat_cost = 0.0
+                lab_cost = 0.0
+                mat_rate = 0.0
+                lab_rate = 0.0
+                trade = "Risk Reserve"
+            else:
+                mat_pct, lab_pct, trade = self.MATERIAL_LABOR_SPLITS.get(cat, (0.5, 0.5, "Contractor"))
+                mat_cost = round(est * mat_pct, 2)
+                lab_cost = round(est - mat_cost, 2)
+                mat_rate = round(mat_cost / max(0.01, qty), 2)
+                lab_rate = round(lab_cost / max(0.01, qty), 2)
+                subtotal_materials += mat_cost
+                subtotal_labor += lab_cost
+
             allocated_items.append(
                 CategoryCostItem(
                     category=cat,
@@ -434,6 +622,11 @@ class BudgetIntelligenceEngine:
                     unit=unit,
                     quantity=qty,
                     unit_rate=rate,
+                    material_cost=mat_cost,
+                    labor_cost=lab_cost,
+                    material_unit_rate=mat_rate,
+                    labor_unit_rate=lab_rate,
+                    trade_name=trade,
                     notes=notes,
                     is_over_budget=(est > alloc),
                 )
@@ -441,6 +634,16 @@ class BudgetIntelligenceEngine:
 
         remaining_budget = round(total_budget - total_estimated, 2)
         is_within_budget = total_estimated <= total_budget
+
+        # Multi-tier scenario options
+        scenarios = self.generate_tier_scenarios(
+            room,
+            total_budget=total_budget,
+            currency=currency,
+            contingency_pct=contingency_pct,
+            include_tax=include_tax,
+            custom_tax_rate=custom_tax_rate,
+        )
 
         plan = BudgetPlan(
             total_budget=round(total_budget, 2),
@@ -453,6 +656,15 @@ class BudgetIntelligenceEngine:
             savings_from_kept_items=total_savings,
             remaining_budget=remaining_budget,
             is_within_budget=is_within_budget,
+            subtotal_materials=round(subtotal_materials, 2),
+            subtotal_labor=round(subtotal_labor, 2),
+            contingency_pct=contingency_pct,
+            contingency_amount=contingency_cost,
+            tax_name=tax_name,
+            tax_rate_pct=tax_rate_pct,
+            tax_amount=tax_amount,
+            grand_total=grand_total,
+            scenarios=scenarios,
         )
 
         room.budget_plan = plan
