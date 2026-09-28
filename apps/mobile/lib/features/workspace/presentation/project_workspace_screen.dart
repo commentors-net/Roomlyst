@@ -4,6 +4,7 @@ import '../../projects/domain/project.dart';
 import '../../projects/services/project_service.dart';
 import 'client_directory_screen.dart';
 import 'client_presentation_screen.dart';
+import 'project_export_dossier_screen.dart';
 
 class ProjectWorkspaceScreen extends StatefulWidget {
   final String projectId;
@@ -370,6 +371,21 @@ class _ProjectWorkspaceScreenState extends State<ProjectWorkspaceScreen> {
       appBar: AppBar(
         title: Text(widget.projectName),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf_outlined),
+            tooltip: 'Export Handover Dossier',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ProjectExportDossierScreen(
+                    projectId: widget.projectId,
+                    projectName: widget.projectName,
+                  ),
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.people_outline),
             tooltip: 'Client Directory',

@@ -1830,3 +1830,89 @@ class ReviewSessionPayload(BaseModel):
     available_variants: List[Dict[str, Any]] = Field(default_factory=list)
 
 
+class StudioBranding(BaseModel):
+    """
+    Studio / Practice branding profile for client-facing presentation deliverables (Milestone 5.3).
+    """
+    firm_name: str = "Roomlyst Studio Design"
+    tagline: str = "Architecture & Interior Design Practice"
+    logo_url: Optional[str] = None
+    contact_email: Optional[str] = "studio@roomlyst.com"
+    contact_phone: Optional[str] = "+60 3-2181 8888"
+    website: Optional[str] = "https://roomlyst.com"
+    license_number: Optional[str] = "MIID / LAM-2026-88"
+    primary_color_hex: str = "#2563EB"
+    secondary_color_hex: str = "#0F172A"
+    custom_disclaimer: Optional[str] = (
+        "This design handover dossier is prepared for client visualization and tender coordination. "
+        "All structural, electrical, and plumbing works must be verified on-site by licensed trade contractors."
+    )
+
+
+class MeasurementScheduleItem(BaseModel):
+    """Item in tabular schedule of room measurements (Milestone 5.3)."""
+    room_id: str
+    room_name: str
+    entity_label: str
+    dimension_type: str  # Width, Length, Ceiling Height, Floor Area, Perimeter
+    value: float
+    unit: str = "m"
+    confidence: float = 0.95
+    source: str = "ESTIMATED"  # LIDAR_NATIVE, MULTIVIEW_RECONSTRUCTION, USER_CONFIRMED, ESTIMATED
+    verified_by_user: bool = False
+    requires_site_verification: bool = True
+    notes: Optional[str] = None
+
+
+class AssumptionScheduleItem(BaseModel):
+    """Item in professional architectural & construction assumptions schedule (Milestone 5.3)."""
+    category: str  # STRUCTURAL, MEP_ELECTRICAL, MEP_PLUMBING, WATERPROOFING, SUBSTRATE, PERMITTING
+    scope: str
+    assumption_description: str
+    risk_level: str = "MEDIUM"  # LOW, MEDIUM, HIGH
+    recommendation: str
+
+
+class RoomSheetSummary(BaseModel):
+    """Consolidated room summary card for professional project dossier (Milestone 5.3)."""
+    room_id: str
+    room_name: str
+    room_type: str
+    floor_area_sqm: float = 0.0
+    ceiling_height_m: float = 2.8
+    selected_variant_id: Optional[str] = None
+    selected_variant_title: Optional[str] = None
+    selected_variant_style: Optional[str] = None
+    selected_variant_image_url: Optional[str] = None
+    estimated_budget: float = 0.0
+    material_takeoff_item_count: int = 0
+    curated_product_count: int = 0
+    approval_status: str = "PENDING_REVIEW"
+    execution_sequence_steps: List[str] = Field(default_factory=list)
+
+
+class ProfessionalExportDossier(BaseModel):
+    """Complete branded multi-room project export dossier (Milestone 5.3)."""
+    dossier_id: str = Field(default_factory=lambda: f"dos_{uuid.uuid4().hex[:8]}")
+    project_id: str
+    project_name: str
+    status: str = "CONCEPT_DESIGN"
+    property_address: Optional[str] = None
+    client_name: Optional[str] = None
+    client_company: Optional[str] = None
+    client_email: Optional[str] = None
+    branding: StudioBranding = Field(default_factory=StudioBranding)
+    dossier_version: str = "v1.0"
+    generated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    total_rooms: int = 0
+    total_floor_area_sqm: float = 0.0
+    total_estimated_budget: float = 0.0
+    currency: str = "MYR"
+    room_sheets: List[RoomSheetSummary] = Field(default_factory=list)
+    measurement_schedules: List[MeasurementScheduleItem] = Field(default_factory=list)
+    assumption_schedules: List[AssumptionScheduleItem] = Field(default_factory=list)
+    printable_html: Optional[str] = None
+    download_bundle_url: Optional[str] = None
+
+
+

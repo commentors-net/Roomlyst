@@ -3272,6 +3272,377 @@ class ReviewSessionModel {
   }
 }
 
+// ==============================================================================
+// Milestone 5.3: Professional Output & Branded Handover Models
+// ==============================================================================
+
+class StudioBrandingModel {
+  final String firmName;
+  final String tagline;
+  final String? logoUrl;
+  final String contactEmail;
+  final String? contactPhone;
+  final String? website;
+  final String? licenseNumber;
+  final String primaryColorHex;
+  final String secondaryColorHex;
+  final String? customDisclaimer;
+
+  const StudioBrandingModel({
+    this.firmName = 'Roomlyst Studio Design',
+    this.tagline = 'AI-Assisted Architectural Interior Solutions',
+    this.logoUrl,
+    this.contactEmail = 'studio@roomlyst.internal',
+    this.contactPhone,
+    this.website,
+    this.licenseNumber = 'PAM-ID-2026-088',
+    this.primaryColorHex = '#2563EB',
+    this.secondaryColorHex = '#0F172A',
+    this.customDisclaimer,
+  });
+
+  StudioBrandingModel copyWith({
+    String? firmName,
+    String? tagline,
+    String? logoUrl,
+    String? contactEmail,
+    String? contactPhone,
+    String? website,
+    String? licenseNumber,
+    String? primaryColorHex,
+    String? secondaryColorHex,
+    String? customDisclaimer,
+  }) {
+    return StudioBrandingModel(
+      firmName: firmName ?? this.firmName,
+      tagline: tagline ?? this.tagline,
+      logoUrl: logoUrl ?? this.logoUrl,
+      contactEmail: contactEmail ?? this.contactEmail,
+      contactPhone: contactPhone ?? this.contactPhone,
+      website: website ?? this.website,
+      licenseNumber: licenseNumber ?? this.licenseNumber,
+      primaryColorHex: primaryColorHex ?? this.primaryColorHex,
+      secondaryColorHex: secondaryColorHex ?? this.secondaryColorHex,
+      customDisclaimer: customDisclaimer ?? this.customDisclaimer,
+    );
+  }
+
+  factory StudioBrandingModel.fromMap(Map<String, dynamic> map) {
+    return StudioBrandingModel(
+      firmName: map['firm_name'] as String? ?? 'Roomlyst Studio Design',
+      tagline: map['tagline'] as String? ?? 'AI-Assisted Architectural Interior Solutions',
+      logoUrl: map['logo_url'] as String?,
+      contactEmail: map['contact_email'] as String? ?? 'studio@roomlyst.internal',
+      contactPhone: map['contact_phone'] as String?,
+      website: map['website'] as String?,
+      licenseNumber: map['license_number'] as String?,
+      primaryColorHex: map['primary_color_hex'] as String? ?? '#2563EB',
+      secondaryColorHex: map['secondary_color_hex'] as String? ?? '#0F172A',
+      customDisclaimer: map['custom_disclaimer'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'firm_name': firmName,
+      'tagline': tagline,
+      'logo_url': logoUrl,
+      'contact_email': contactEmail,
+      'contact_phone': contactPhone,
+      'website': website,
+      'license_number': licenseNumber,
+      'primary_color_hex': primaryColorHex,
+      'secondary_color_hex': secondaryColorHex,
+      'custom_disclaimer': customDisclaimer,
+    };
+  }
+}
+
+class MeasurementScheduleItemModel {
+  final String roomId;
+  final String roomName;
+  final String entityLabel;
+  final String dimensionType;
+  final double value;
+  final String unit;
+  final double confidence;
+  final String source;
+  final bool verifiedByUser;
+  final bool requiresSiteVerification;
+  final String? notes;
+
+  const MeasurementScheduleItemModel({
+    required this.roomId,
+    required this.roomName,
+    required this.entityLabel,
+    required this.dimensionType,
+    required this.value,
+    this.unit = 'm',
+    this.confidence = 0.95,
+    this.source = 'ESTIMATED',
+    this.verifiedByUser = false,
+    this.requiresSiteVerification = true,
+    this.notes,
+  });
+
+  factory MeasurementScheduleItemModel.fromMap(Map<String, dynamic> map) {
+    return MeasurementScheduleItemModel(
+      roomId: map['room_id'] as String? ?? '',
+      roomName: map['room_name'] as String? ?? 'Room',
+      entityLabel: map['entity_label'] as String? ?? 'Dimension',
+      dimensionType: map['dimension_type'] as String? ?? 'Dimension',
+      value: (map['value'] as num?)?.toDouble() ?? 0.0,
+      unit: map['unit'] as String? ?? 'm',
+      confidence: (map['confidence'] as num?)?.toDouble() ?? 0.95,
+      source: map['source'] as String? ?? 'ESTIMATED',
+      verifiedByUser: map['verified_by_user'] as bool? ?? false,
+      requiresSiteVerification: map['requires_site_verification'] as bool? ?? true,
+      notes: map['notes'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'room_id': roomId,
+      'room_name': roomName,
+      'entity_label': entityLabel,
+      'dimension_type': dimensionType,
+      'value': value,
+      'unit': unit,
+      'confidence': confidence,
+      'source': source,
+      'verified_by_user': verifiedByUser,
+      'requires_site_verification': requiresSiteVerification,
+      'notes': notes,
+    };
+  }
+}
+
+class AssumptionScheduleItemModel {
+  final String category;
+  final String scope;
+  final String assumptionDescription;
+  final String riskLevel;
+  final String recommendation;
+
+  const AssumptionScheduleItemModel({
+    required this.category,
+    required this.scope,
+    required this.assumptionDescription,
+    this.riskLevel = 'MEDIUM',
+    required this.recommendation,
+  });
+
+  factory AssumptionScheduleItemModel.fromMap(Map<String, dynamic> map) {
+    return AssumptionScheduleItemModel(
+      category: map['category'] as String? ?? 'GENERAL',
+      scope: map['scope'] as String? ?? 'Work Scope',
+      assumptionDescription: map['assumption_description'] as String? ?? '',
+      riskLevel: map['risk_level'] as String? ?? 'MEDIUM',
+      recommendation: map['recommendation'] as String? ?? '',
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'category': category,
+      'scope': scope,
+      'assumption_description': assumptionDescription,
+      'risk_level': riskLevel,
+      'recommendation': recommendation,
+    };
+  }
+}
+
+class RoomSheetSummaryModel {
+  final String roomId;
+  final String roomName;
+  final String roomType;
+  final double floorAreaSqm;
+  final double ceilingHeightM;
+  final String? selectedVariantId;
+  final String? selectedVariantTitle;
+  final String? selectedVariantStyle;
+  final String? selectedVariantImageUrl;
+  final double estimatedBudget;
+  final int materialTakeoffItemCount;
+  final int curatedProductCount;
+  final String approvalStatus;
+  final List<String> executionSequenceSteps;
+
+  const RoomSheetSummaryModel({
+    required this.roomId,
+    required this.roomName,
+    this.roomType = 'living_room',
+    this.floorAreaSqm = 0.0,
+    this.ceilingHeightM = 2.8,
+    this.selectedVariantId,
+    this.selectedVariantTitle,
+    this.selectedVariantStyle,
+    this.selectedVariantImageUrl,
+    this.estimatedBudget = 0.0,
+    this.materialTakeoffItemCount = 0,
+    this.curatedProductCount = 0,
+    this.approvalStatus = 'PENDING_REVIEW',
+    this.executionSequenceSteps = const [],
+  });
+
+  factory RoomSheetSummaryModel.fromMap(Map<String, dynamic> map) {
+    return RoomSheetSummaryModel(
+      roomId: map['room_id'] as String? ?? '',
+      roomName: map['room_name'] as String? ?? 'Room',
+      roomType: map['room_type'] as String? ?? 'living_room',
+      floorAreaSqm: (map['floor_area_sqm'] as num?)?.toDouble() ?? 0.0,
+      ceilingHeightM: (map['ceiling_height_m'] as num?)?.toDouble() ?? 2.8,
+      selectedVariantId: map['selected_variant_id'] as String?,
+      selectedVariantTitle: map['selected_variant_title'] as String?,
+      selectedVariantStyle: map['selected_variant_style'] as String?,
+      selectedVariantImageUrl: map['selected_variant_image_url'] as String?,
+      estimatedBudget: (map['estimated_budget'] as num?)?.toDouble() ?? 0.0,
+      materialTakeoffItemCount: map['material_takeoff_item_count'] as int? ?? 0,
+      curatedProductCount: map['curated_product_count'] as int? ?? 0,
+      approvalStatus: map['approval_status'] as String? ?? 'PENDING_REVIEW',
+      executionSequenceSteps: (map['execution_sequence_steps'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [],
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'room_id': roomId,
+      'room_name': roomName,
+      'room_type': roomType,
+      'floor_area_sqm': floorAreaSqm,
+      'ceiling_height_m': ceilingHeightM,
+      'selected_variant_id': selectedVariantId,
+      'selected_variant_title': selectedVariantTitle,
+      'selected_variant_style': selectedVariantStyle,
+      'selected_variant_image_url': selectedVariantImageUrl,
+      'estimated_budget': estimatedBudget,
+      'material_takeoff_item_count': materialTakeoffItemCount,
+      'curated_product_count': curatedProductCount,
+      'approval_status': approvalStatus,
+      'execution_sequence_steps': executionSequenceSteps,
+    };
+  }
+}
+
+class ProfessionalExportDossierModel {
+  final String dossierId;
+  final String projectId;
+  final String projectName;
+  final String status;
+  final String? propertyAddress;
+  final String? clientName;
+  final String? clientCompany;
+  final String? clientEmail;
+  final StudioBrandingModel branding;
+  final String dossierVersion;
+  final DateTime generatedAt;
+  final int totalRooms;
+  final double totalFloorAreaSqm;
+  final double totalEstimatedBudget;
+  final String currency;
+  final List<RoomSheetSummaryModel> roomSheets;
+  final List<MeasurementScheduleItemModel> measurementSchedules;
+  final List<AssumptionScheduleItemModel> assumptionSchedules;
+  final String? printableHtml;
+  final String? downloadBundleUrl;
+
+  const ProfessionalExportDossierModel({
+    required this.dossierId,
+    required this.projectId,
+    required this.projectName,
+    this.status = 'CONCEPT_DESIGN',
+    this.propertyAddress,
+    this.clientName,
+    this.clientCompany,
+    this.clientEmail,
+    this.branding = const StudioBrandingModel(),
+    this.dossierVersion = 'v1.0',
+    required this.generatedAt,
+    this.totalRooms = 0,
+    this.totalFloorAreaSqm = 0.0,
+    this.totalEstimatedBudget = 0.0,
+    this.currency = 'MYR',
+    this.roomSheets = const [],
+    this.measurementSchedules = const [],
+    this.assumptionSchedules = const [],
+    this.printableHtml,
+    this.downloadBundleUrl,
+  });
+
+  factory ProfessionalExportDossierModel.fromMap(Map<String, dynamic> map) {
+    final rawSheets = (map['room_sheets'] as List<dynamic>?) ?? [];
+    final rawMeas = (map['measurement_schedules'] as List<dynamic>?) ?? [];
+    final rawAssump = (map['assumption_schedules'] as List<dynamic>?) ?? [];
+
+    DateTime genAt = DateTime.now();
+    if (map['generated_at'] != null) {
+      genAt = DateTime.tryParse(map['generated_at'].toString()) ?? DateTime.now();
+    }
+
+    return ProfessionalExportDossierModel(
+      dossierId: map['dossier_id'] as String? ?? '',
+      projectId: map['project_id'] as String? ?? '',
+      projectName: map['project_name'] as String? ?? 'Handover Dossier',
+      status: map['status'] as String? ?? 'CONCEPT_DESIGN',
+      propertyAddress: map['property_address'] as String?,
+      clientName: map['client_name'] as String?,
+      clientCompany: map['client_company'] as String?,
+      clientEmail: map['client_email'] as String?,
+      branding: map['branding'] != null
+          ? StudioBrandingModel.fromMap(map['branding'] as Map<String, dynamic>)
+          : const StudioBrandingModel(),
+      dossierVersion: map['dossier_version'] as String? ?? 'v1.0',
+      generatedAt: genAt,
+      totalRooms: map['total_rooms'] as int? ?? 0,
+      totalFloorAreaSqm: (map['total_floor_area_sqm'] as num?)?.toDouble() ?? 0.0,
+      totalEstimatedBudget: (map['total_estimated_budget'] as num?)?.toDouble() ?? 0.0,
+      currency: map['currency'] as String? ?? 'MYR',
+      roomSheets: rawSheets
+          .map((e) => RoomSheetSummaryModel.fromMap(e as Map<String, dynamic>))
+          .toList(),
+      measurementSchedules: rawMeas
+          .map((e) => MeasurementScheduleItemModel.fromMap(e as Map<String, dynamic>))
+          .toList(),
+      assumptionSchedules: rawAssump
+          .map((e) => AssumptionScheduleItemModel.fromMap(e as Map<String, dynamic>))
+          .toList(),
+      printableHtml: map['printable_html'] as String?,
+      downloadBundleUrl: map['download_bundle_url'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'dossier_id': dossierId,
+      'project_id': projectId,
+      'project_name': projectName,
+      'status': status,
+      'property_address': propertyAddress,
+      'client_name': clientName,
+      'client_company': clientCompany,
+      'client_email': clientEmail,
+      'branding': branding.toMap(),
+      'dossier_version': dossierVersion,
+      'generated_at': generatedAt.toIso8601String(),
+      'total_rooms': totalRooms,
+      'total_floor_area_sqm': totalFloorAreaSqm,
+      'total_estimated_budget': totalEstimatedBudget,
+      'currency': currency,
+      'room_sheets': roomSheets.map((e) => e.toMap()).toList(),
+      'measurement_schedules': measurementSchedules.map((e) => e.toMap()).toList(),
+      'assumption_schedules': assumptionSchedules.map((e) => e.toMap()).toList(),
+      'printable_html': printableHtml,
+      'download_bundle_url': downloadBundleUrl,
+    };
+  }
+}
+
+
 
 
 

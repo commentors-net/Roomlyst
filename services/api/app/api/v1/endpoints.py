@@ -8,6 +8,7 @@ import os
 import uuid
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi.responses import HTMLResponse
 from PIL import Image
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -74,6 +75,11 @@ from packages.room_model import (
     ReviewSessionPayload,
     SharePermissionTier,
     ShareReviewLink,
+    StudioBranding,
+    MeasurementScheduleItem,
+    AssumptionScheduleItem,
+    RoomSheetSummary,
+    ProfessionalExportDossier,
 )
 from services.ai_worker.pipelines.generation import LocalRedesignGenerator
 from services.ai_worker.pipelines.room_analyzer import RoomAnalyzer
@@ -2837,5 +2843,114 @@ def submit_review_session_decision(
         variant_id=req.variant_id or (session.selected_variant_id if session else None),
     )
     return record
+
+
+# ==============================================================================
+# Professional Output & Branded Handover Endpoints (Milestone 5.3)
+# ==============================================================================
+
+class UpdateBrandingRequest(BaseModel):
+    firm_name: Optional[str] = None
+    tagline: Optional[str] = None
+    logo_url: Optional[str] = None
+    contact_email: Optional[str] = None
+    contact_phone: Optional[str] = None
+    website: Optional[str] = None
+    license_number: Optional[str] = None
+    primary_color_hex: Optional[str] = None
+    secondary_color_hex: Optional[str] = None
+    custom_disclaimer: Optional[str] = None
+
+
+@router.post("/projects/{project_id}/branding", response_model=StudioBranding)
+def update_project_branding(
+    project_id: str,
+    req: UpdateBrandingRequest,
+):
+    """
+    Fulfills Milestone 5.3:
+    Configures studio branding profiles (firm name, logo, colors, license, custom disclaimer)
+    for professional client-facing presentations and handover dossiers.
+    """
+    try:
+        return repository.update_project_branding(project_id, req.model_dump(exclude_unset=True))
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/projects/{project_id}/branding", response_model=StudioBranding)
+def get_project_branding(
+    project_id: str,
+):
+    """
+    Fulfills Milestone 5.3:
+    Retrieves the studio branding profile for a project.
+    """
+    try:
+        return repository.get_project_branding(project_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/projects/{project_id}/export-dossier", response_model=ProfessionalExportDossier)
+def get_professional_export_dossier(
+    project_id: str,
+):
+    """
+    Fulfills Milestone 5.3:
+    Generates a structured, presentation-ready multi-room handover dossier containing
+    branding, room visual sheets, tabular measurement schedules, and construction assumptions.
+    """
+    try:
+        return repository.generate_export_dossier(project_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/projects/{project_id}/export-package")
+def get_professional_export_package(
+    project_id: str,
+):
+    """
+    Fulfills Milestone 5.3:
+    Exports high-resolution handover package metadata including measurement schedules,
+    procurement bill of quantities, and execution sequence.
+    """
+    try:
+        dossier = repository.generate_export_dossier(project_id)
+        return {
+            "dossier_id": dossier.dossier_id,
+            "project_id": dossier.project_id,
+            "project_name": dossier.project_name,
+            "dossier_version": dossier.dossier_version,
+            "total_rooms": dossier.total_rooms,
+            "total_floor_area_sqm": dossier.total_floor_area_sqm,
+            "total_estimated_budget": dossier.total_estimated_budget,
+            "currency": dossier.currency,
+            "branding": dossier.branding.model_dump(),
+            "room_sheets": [r.model_dump() for r in dossier.room_sheets],
+            "measurement_schedules": [m.model_dump() for m in dossier.measurement_schedules],
+            "assumption_schedules": [a.model_dump() for a in dossier.assumption_schedules],
+            "download_bundle_url": f"/api/v1/projects/{project_id}/branded-report",
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/projects/{project_id}/branded-report", response_class=HTMLResponse)
+def get_printable_branded_report(
+    project_id: str,
+):
+    """
+    Fulfills Milestone 5.3:
+    Generates and returns standalone, print-ready, styled HTML handover document
+    for client presentation and contractor onboarding.
+    """
+    try:
+        dossier = repository.generate_export_dossier(project_id)
+        return HTMLResponse(content=dossier.printable_html or "<h1>No report content</h1>")
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
 
 

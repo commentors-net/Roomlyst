@@ -789,6 +789,38 @@ class ApiClient {
     return post('/review/$token/decide', payload);
   }
 
+  // Milestone 5.3: Professional Output & Branded Handover API Methods
+  static Future<dynamic> getProjectBranding(String projectId) async {
+    return get('/projects/$projectId/branding');
+  }
+
+  static Future<dynamic> updateProjectBranding(String projectId, Map<String, dynamic> data) async {
+    return post('/projects/$projectId/branding', data);
+  }
+
+  static Future<dynamic> getExportDossier(String projectId) async {
+    return get('/projects/$projectId/export-dossier');
+  }
+
+  static Future<dynamic> getExportPackage(String projectId) async {
+    return get('/projects/$projectId/export-package');
+  }
+
+  static Future<String> getBrandedReportHtml(String projectId) async {
+    try {
+      final url = Uri.parse('${AppConfig.fullApiUrl}/projects/$projectId/branded-report');
+      final headers = await _buildHeaders();
+      final response = await http.get(url, headers: headers);
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return response.body;
+      } else {
+        throw Exception('Failed to load branded report: status ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Network error while fetching branded report: $e');
+    }
+  }
+
   static dynamic _handleResponse(http.Response response) {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       if (response.body.isEmpty) return null;

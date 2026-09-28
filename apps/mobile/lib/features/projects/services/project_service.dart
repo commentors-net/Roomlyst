@@ -790,6 +790,42 @@ class ProjectService {
     );
     return ApprovalRecordModel.fromMap(res as Map<String, dynamic>);
   }
+
+  // ============================================================================
+  // Milestone 5.3: Professional Output & Branded Handover Dossiers
+  // ============================================================================
+
+  static Future<StudioBrandingModel> getProjectBranding(String projectId) async {
+    try {
+      final res = await ApiClient.getProjectBranding(projectId);
+      if (res is Map<String, dynamic>) {
+        return StudioBrandingModel.fromMap(res);
+      }
+    } catch (_) {}
+    return const StudioBrandingModel();
+  }
+
+  static Future<StudioBrandingModel> updateProjectBranding(
+    String projectId,
+    StudioBrandingModel branding,
+  ) async {
+    final res = await ApiClient.updateProjectBranding(projectId, branding.toMap());
+    return StudioBrandingModel.fromMap(res as Map<String, dynamic>);
+  }
+
+  static Future<ProfessionalExportDossierModel> getExportDossier(String projectId) async {
+    final res = await ApiClient.getExportDossier(projectId);
+    return ProfessionalExportDossierModel.fromMap(res as Map<String, dynamic>);
+  }
+
+  static Future<Map<String, dynamic>> getExportPackage(String projectId) async {
+    final res = await ApiClient.getExportPackage(projectId);
+    return res as Map<String, dynamic>;
+  }
+
+  static Future<String> getBrandedReportHtml(String projectId) async {
+    return ApiClient.getBrandedReportHtml(projectId);
+  }
 }
 
 

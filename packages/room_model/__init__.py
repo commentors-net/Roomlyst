@@ -91,6 +91,11 @@ from .schema import (
     VideoScanMetadata,
     VideoScanReport,
     WallSegment,
+    StudioBranding,
+    MeasurementScheduleItem,
+    AssumptionScheduleItem,
+    RoomSheetSummary,
+    ProfessionalExportDossier,
     evaluate_scan_orchestration,
     get_standard_tier_benchmarks,
 )
@@ -180,6 +185,11 @@ __all__ = [
     "VideoScanMetadata",
     "VideoScanReport",
     "WallSegment",
+    "StudioBranding",
+    "MeasurementScheduleItem",
+    "AssumptionScheduleItem",
+    "RoomSheetSummary",
+    "ProfessionalExportDossier",
     "evaluate_scan_orchestration",
     "get_standard_tier_benchmarks",
 ]
