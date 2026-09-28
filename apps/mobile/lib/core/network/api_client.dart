@@ -508,6 +508,51 @@ class ApiClient {
     return post('/rooms/$roomId/material-takeoff/verify-dimension', payload);
   }
 
+  static Future<dynamic> queryCatalogProducts({
+    String? category,
+    String? style,
+    String? tier,
+    String? currency,
+    double? maxPrice,
+    String? query,
+    int limit = 50,
+  }) async {
+    final params = <String, String>{};
+    if (category != null) params['category'] = category;
+    if (style != null) params['style'] = style;
+    if (tier != null) params['tier'] = tier;
+    if (currency != null) params['currency'] = currency;
+    if (maxPrice != null) params['max_price'] = maxPrice.toString();
+    if (query != null && query.isNotEmpty) params['query'] = query;
+    params['limit'] = limit.toString();
+
+    final queryString = Uri(queryParameters: params).query;
+    return get('/catalog/products?$queryString');
+  }
+
+  static Future<dynamic> getCatalogProduct(String productId) async {
+    return get('/catalog/products/$productId');
+  }
+
+  static Future<dynamic> generateRoomRecommendations({
+    required String roomId,
+    String? preferredStyle,
+    String? preferredTier,
+    String? preferredCurrency,
+    double? maxBudget,
+  }) async {
+    final payload = <String, dynamic>{};
+    if (preferredStyle != null) payload['preferred_style'] = preferredStyle;
+    if (preferredTier != null) payload['preferred_tier'] = preferredTier;
+    if (preferredCurrency != null) payload['preferred_currency'] = preferredCurrency;
+    if (maxBudget != null) payload['max_budget'] = maxBudget;
+    return post('/rooms/$roomId/recommendations', payload);
+  }
+
+  static Future<dynamic> getRoomRecommendations(String roomId) async {
+    return get('/rooms/$roomId/recommendations');
+  }
+
   static dynamic _handleResponse(http.Response response) {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       if (response.body.isEmpty) return null;

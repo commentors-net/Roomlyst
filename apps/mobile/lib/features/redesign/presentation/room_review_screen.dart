@@ -10,6 +10,7 @@ import '../../capture/presentation/ar_session_screen.dart';
 import '../../capture/presentation/lidar_scan_screen.dart';
 import '../../renovation/presentation/material_takeoff_screen.dart';
 import '../../renovation/presentation/renovation_budget_planner_screen.dart';
+import '../../renovation/presentation/product_recommendations_screen.dart';
 
 class RoomReviewScreen extends StatefulWidget {
   final RoomModelData room;
@@ -37,6 +38,7 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
   bool _isCalculatingBudget = false;
   bool _isReconstructing = false;
   BudgetPlanModel? _budgetPlan;
+  ProductRecommendationReportModel? _productRecommendations;
 
   final List<String> _styles = [
     'Warm Modern Minimalist',
@@ -62,6 +64,7 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
     super.initState();
     _currentRoom = widget.room;
     _budgetPlan = widget.room.budgetPlan;
+    _productRecommendations = widget.room.productRecommendations;
     if (_budgetPlan != null) {
       _selectedCurrency = _budgetPlan!.currency;
       _selectedTier = _budgetPlan!.renovationTier;
@@ -1512,6 +1515,122 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
     );
   }
 
+  Widget _buildProductRecommendationsSection() {
+    final recs = _productRecommendations ?? _currentRoom.productRecommendations;
+    final totalRecs = recs?.recommendations.length ?? 0;
+    final perfectRecs = recs?.recommendations.where((r) => r.fitStatus == 'PERFECT_FIT').length ?? 0;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.surfaceBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.chair_outlined, color: AppTheme.primary, size: 20),
+                  SizedBox(width: 8),
+                  Text(
+                    'Curated Product Catalogue',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppTheme.textMain),
+                  ),
+                ],
+              ),
+              if (recs != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppTheme.success.withAlpha(30),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: AppTheme.success.withAlpha(90), width: 0.8),
+                  ),
+                  child: Text(
+                    '$perfectRecs PERFECT FIT',
+                    style: const TextStyle(
+                      color: AppTheme.success,
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            recs != null
+                ? 'Curated items: $totalRecs verified products across ${_selectedTier.toLowerCase()} tier with physical clearance validation.'
+                : 'Automated furniture & decor recommendations matching replaced elements, budget tier, and room geometry.',
+            style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
+          ),
+          if (recs != null && recs.recommendations.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Catalogue Spend: ${recs.formattedSpend}',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textMain),
+                  ),
+                ),
+                Text(
+                  'Style: ${recs.appliedStyle}',
+                  style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: AppTheme.primary),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+              ),
+              onPressed: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ProductRecommendationsScreen(
+                      roomId: _currentRoom.id,
+                      roomName: _currentRoom.name,
+                      initialReport: recs,
+                      initialStyle: _selectedStyle,
+                      initialTier: _selectedTier,
+                      initialCurrency: _selectedCurrency,
+                    ),
+                  ),
+                );
+                try {
+                  final refreshed = await ProjectService.fetchRoomModel(_currentRoom.id);
+                  if (mounted) {
+                    setState(() {
+                      _currentRoom = refreshed;
+                      _productRecommendations = refreshed.productRecommendations;
+                    });
+                  }
+                } catch (_) {}
+              },
+              icon: const Icon(Icons.shopping_bag_outlined, size: 16, color: AppTheme.primary),
+              label: const Text(
+                'Open Product Catalogue & Spatial Fit',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primary),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1633,6 +1752,15 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
             ),
             const SizedBox(height: 8),
             _buildMaterialTakeoffSection(),
+            const SizedBox(height: 16),
+
+            // Product & Catalogue Recommendations Section (Milestone 4.3)
+            const Text(
+              'Curated Products & Spatial Fit',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppTheme.accent),
+            ),
+            const SizedBox(height: 8),
+            _buildProductRecommendationsSection(),
             const SizedBox(height: 24),
 
             const Divider(color: AppTheme.surfaceBorder),

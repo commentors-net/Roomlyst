@@ -402,6 +402,57 @@ class ProjectService {
     }
     return MaterialTakeoffReportModel.fromMap(map);
   }
+
+  static Future<List<CatalogProductModel>> fetchCatalogProducts({
+    String? category,
+    String? style,
+    String? tier,
+    String? currency,
+    double? maxPrice,
+    String? query,
+    int limit = 50,
+  }) async {
+    final res = await ApiClient.queryCatalogProducts(
+      category: category,
+      style: style,
+      tier: tier,
+      currency: currency,
+      maxPrice: maxPrice,
+      query: query,
+      limit: limit,
+    );
+    if (res is List) {
+      return res.map((e) => CatalogProductModel.fromMap(e as Map<String, dynamic>)).toList();
+    }
+    return [];
+  }
+
+  static Future<CatalogProductModel> fetchCatalogProduct(String productId) async {
+    final res = await ApiClient.getCatalogProduct(productId);
+    return CatalogProductModel.fromMap(res as Map<String, dynamic>);
+  }
+
+  static Future<ProductRecommendationReportModel> generateRoomRecommendations({
+    required String roomId,
+    String? preferredStyle,
+    String? preferredTier,
+    String? preferredCurrency,
+    double? maxBudget,
+  }) async {
+    final res = await ApiClient.generateRoomRecommendations(
+      roomId: roomId,
+      preferredStyle: preferredStyle,
+      preferredTier: preferredTier,
+      preferredCurrency: preferredCurrency,
+      maxBudget: maxBudget,
+    );
+    return ProductRecommendationReportModel.fromMap(res as Map<String, dynamic>);
+  }
+
+  static Future<ProductRecommendationReportModel> fetchRoomRecommendations(String roomId) async {
+    final res = await ApiClient.getRoomRecommendations(roomId);
+    return ProductRecommendationReportModel.fromMap(res as Map<String, dynamic>);
+  }
 }
 
 

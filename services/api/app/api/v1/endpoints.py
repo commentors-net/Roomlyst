@@ -52,6 +52,13 @@ from packages.room_model import (
     MaterialCategory,
     MaterialTakeoffItem,
     MaterialTakeoffReport,
+    ProductCategory,
+    ProductAvailability,
+    ProductFitStatus,
+    ProductDimensions,
+    CatalogProduct,
+    ProductRecommendation,
+    ProductRecommendationReport,
 )
 from services.ai_worker.pipelines.generation import LocalRedesignGenerator
 from services.ai_worker.pipelines.room_analyzer import RoomAnalyzer
@@ -65,6 +72,7 @@ from services.ai_worker.pipelines.reconstruction_pipeline import MultiViewRecons
 from services.ai_worker.pipelines.ar_fusion_engine import ARMotionFusionEngine
 from services.ai_worker.pipelines.native_spatial_normalizer import NativeSpatialNormalizer
 from services.ai_worker.pipelines.material_estimator import material_estimator
+from services.ai_worker.pipelines.product_recommender import product_recommender
 from ...core.rate_limit import rate_limit_general, rate_limit_generation
 from ...core.sanitizer import sanitize_image
 from ...db.models import Project, Room
@@ -2055,9 +2063,141 @@ def verify_takeoff_critical_dimension(
     if db_room:
         db_room.room_model_data = room_model.model_dump(mode="json")
         db.commit()
+    return updated_report
+
+
+# =====================================================================
+# Milestone 4.3: Product Catalogue & Contextual Recommendations
+# =====================================================================
+
+class GenerateRecommendationsRequest(BaseModel):
+    preferred_style: Optional[str] = None
+    preferred_tier: Optional[str] = None
+    preferred_currency: Optional[str] = None
+    max_items_per_category: int = Field(default=2, ge=1, le=10)
+
+
+@router.get("/catalog/products", response_model=List[CatalogProduct])
+def query_catalog_products(
+    category: Optional[ProductCategory] = None,
+    style: Optional[str] = None,
+    tier: Optional[RenovationTier] = None,
+    currency: Optional[CurrencyCode] = None,
+    min_price: Optional[float] = None,
+    max_price: Optional[float] = None,
+    availability: Optional[ProductAvailability] = None,
+    search: Optional[str] = None,
+):
+    """
+    Fulfills Blueprint Section 35 & Milestone 4.3:
+    Queries normalized product catalogue with category, style, tier, price, and availability filters.
+    """
+    return product_recommender.query_catalog(
+        category=category,
+        style=style,
+        tier=tier,
+        currency=currency,
+        min_price=min_price,
+        max_price=max_price,
+        availability=availability,
+        search_query=search,
+    )
+
+
+@router.get("/catalog/products/{product_id}", response_model=CatalogProduct)
+def get_catalog_product_by_id(product_id: str):
+    """
+    Fulfills Blueprint Section 35 & Milestone 4.3:
+    Retrieves full product specifications and inventory metadata by product ID or SKU.
+    """
+    prod = product_recommender.get_product_by_id(product_id)
+    if not prod:
+        raise HTTPException(status_code=404, detail=f"Product '{product_id}' not found in catalog")
+    return prod
+
+
+@router.post("/rooms/{room_id}/recommendations", response_model=ProductRecommendationReport)
+def generate_room_recommendations(
+    room_id: str,
+    payload: GenerateRecommendationsRequest = GenerateRecommendationsRequest(),
+    db: Session = Depends(get_db),
+):
+    """
+    Fulfills Blueprint Section 35 & Milestone 4.3:
+    Generates contextual product recommendations tailored to the room's detected objects,
+    footprint dimensions, design style, and budget tier.
+    """
+    db_room = db.query(Room).filter(Room.id == room_id).first()
+    room_model = None
+    if db_room and db_room.room_model_data:
+        room_model = CanonicalRoomModel.model_validate(db_room.room_model_data)
+    elif room_id in repository.rooms:
+        room_model = repository.rooms[room_id]
+
+    if not room_model:
+        raise HTTPException(status_code=404, detail="Room not found")
+
+    cur = None
+    if payload.preferred_currency:
+        try:
+            cur = CurrencyCode(payload.preferred_currency.upper())
+        except ValueError:
+            pass
+
+    t = None
+    if payload.preferred_tier:
+        try:
+            t = RenovationTier(payload.preferred_tier.upper())
+        except ValueError:
+            pass
+
+    report = product_recommender.recommend_for_room(
+        room=room_model,
+        preferred_style=payload.preferred_style,
+        preferred_tier=t,
+        preferred_currency=cur,
+        max_items_per_category=payload.max_items_per_category,
+    )
+
+    room_model.product_recommendations = report
+
+    if db_room:
+        db_room.room_model_data = room_model.model_dump(mode="json")
+        db.commit()
     repository.save_room(room_model)
 
-    return updated_report
+    return report
+
+
+@router.get("/rooms/{room_id}/recommendations", response_model=ProductRecommendationReport)
+def get_room_recommendations(
+    room_id: str,
+    db: Session = Depends(get_db),
+):
+    """
+    Fulfills Blueprint Section 35 & Milestone 4.3:
+    Retrieves the current product recommendation report for a room, or generates baseline recommendations.
+    """
+    db_room = db.query(Room).filter(Room.id == room_id).first()
+    room_model = None
+    if db_room and db_room.room_model_data:
+        room_model = CanonicalRoomModel.model_validate(db_room.room_model_data)
+    elif room_id in repository.rooms:
+        room_model = repository.rooms[room_id]
+
+    if not room_model:
+        raise HTTPException(status_code=404, detail="Room not found")
+
+    if not room_model.product_recommendations:
+        report = product_recommender.recommend_for_room(room_model)
+        room_model.product_recommendations = report
+        if db_room:
+            db_room.room_model_data = room_model.model_dump(mode="json")
+            db.commit()
+        repository.save_room(room_model)
+        return report
+
+    return room_model.product_recommendations
 
 
 

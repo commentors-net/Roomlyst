@@ -1186,6 +1186,115 @@ class MaterialTakeoffReport(BaseModel):
     notes: List[str] = Field(default_factory=list)
 
 
+# =====================================================================
+# Milestone 4.3: Product / Catalogue Recommendations Models
+# =====================================================================
+
+class ProductCategory(str, Enum):
+    SOFA = "SOFA"
+    COFFEE_TABLE = "COFFEE_TABLE"
+    TV_CONSOLE = "TV_CONSOLE"
+    DINING_TABLE = "DINING_TABLE"
+    DINING_CHAIR = "DINING_CHAIR"
+    BED = "BED"
+    NIGHTSTAND = "NIGHTSTAND"
+    WARDROBE = "WARDROBE"
+    LIGHTING = "LIGHTING"
+    RUG = "RUG"
+    ARMCHAIR = "ARMCHAIR"
+    DESK = "DESK"
+    STORAGE_SHELF = "STORAGE_SHELF"
+    WALL_ART = "WALL_ART"
+
+
+class ProductAvailability(str, Enum):
+    IN_STOCK = "IN_STOCK"
+    LOW_STOCK = "LOW_STOCK"
+    BACKORDER = "BACKORDER"
+    DISCONTINUED = "DISCONTINUED"
+
+
+class ProductFitStatus(str, Enum):
+    PERFECT_FIT = "PERFECT_FIT"
+    TIGHT_FIT = "TIGHT_FIT"
+    OVERSIZED = "OVERSIZED"
+    CLEARANCE_WARNING = "CLEARANCE_WARNING"
+
+
+class ProductDimensions(BaseModel):
+    """Real-world bounding dimensions in meters."""
+    width_m: float = Field(..., gt=0.0)
+    depth_m: float = Field(..., gt=0.0)
+    height_m: float = Field(..., gt=0.0)
+
+
+class CatalogProduct(BaseModel):
+    """
+    Normalized Product Catalogue Entry.
+    Fulfills Blueprint Section 35 & Milestone 4.3.
+    """
+    id: str = Field(default_factory=lambda: f"prod_{uuid.uuid4().hex[:8]}")
+    sku: str
+    name: str
+    brand: str
+    category: ProductCategory
+    styles: List[str] = Field(default_factory=list)
+    tier: RenovationTier = RenovationTier.MODERATE
+    dimensions: ProductDimensions
+    required_clearance_m: float = 0.5
+    materials: List[str] = Field(default_factory=list)
+    colors: List[str] = Field(default_factory=list)
+    price: float = Field(..., gt=0.0)
+    currency: CurrencyCode = CurrencyCode.MYR
+    retailer: str
+    retailer_url: Optional[str] = None
+    image_url: Optional[str] = None
+    availability: ProductAvailability = ProductAvailability.IN_STOCK
+    lead_time_days: int = 5
+    price_updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    confidence_score: float = 0.95
+    description: Optional[str] = None
+
+
+class ProductRecommendation(BaseModel):
+    """
+    Contextual recommendation of a catalog product mapped to a room element or space.
+    Fulfills Blueprint Section 35 & Milestone 4.3.
+    """
+    recommendation_id: str = Field(default_factory=lambda: f"rec_{uuid.uuid4().hex[:8]}")
+    target_element_id: Optional[str] = None
+    target_element_label: Optional[str] = None
+    product: CatalogProduct
+    match_score: float = Field(default=0.85, ge=0.0, le=1.0)
+    fit_status: ProductFitStatus = ProductFitStatus.PERFECT_FIT
+    fit_notes: str = "Fits designated footprint with required clearance"
+    target_width_m: Optional[float] = None
+    target_depth_m: Optional[float] = None
+    target_height_m: Optional[float] = None
+    dimension_variance_pct: float = 0.0
+    budget_status: str = "Within Category Allocation"
+    is_assigned: bool = False
+
+
+class ProductRecommendationReport(BaseModel):
+    """
+    Collection of contextual product recommendations tailored to the room.
+    Fulfills Blueprint Section 35 & Milestone 4.3.
+    """
+    report_id: str = Field(default_factory=lambda: f"recs_{uuid.uuid4().hex[:8]}")
+    room_id: str
+    generated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    recommendations: List[ProductRecommendation] = Field(default_factory=list)
+    applied_style: str = "Warm Modern Minimalist"
+    applied_tier: RenovationTier = RenovationTier.MODERATE
+    applied_currency: CurrencyCode = CurrencyCode.MYR
+    total_recommended_spend: float = 0.0
+    disclaimer: str = (
+        "Product specifications, availability and prices are subject to retailer updates. "
+        "Physical room measurement verification recommended prior to placing orders."
+    )
+
+
 class CanonicalRoomModel(BaseModel):
     """
     The Single Canonical Room Model (Section 10).
@@ -1218,6 +1327,7 @@ class CanonicalRoomModel(BaseModel):
     native_spatial_report: Optional[NativeSpatialScanReport] = None
     orchestration_evaluation: Optional[ScanOrchestrationEvaluation] = None
     material_takeoff: Optional[MaterialTakeoffReport] = None
+    product_recommendations: Optional[ProductRecommendationReport] = None
     overall_confidence: float = Field(default=0.88, ge=0.0, le=1.0)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

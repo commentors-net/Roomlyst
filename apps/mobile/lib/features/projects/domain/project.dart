@@ -1394,6 +1394,7 @@ class RoomModelData {
   final NativeSpatialScanReportModel? nativeSpatialReport;
   final ScanOrchestrationEvaluationModel? orchestrationEvaluation;
   final MaterialTakeoffReportModel? materialTakeoff;
+  final ProductRecommendationReportModel? productRecommendations;
   final List<DesignVersionModel> versions;
 
   RoomModelData({
@@ -1418,6 +1419,7 @@ class RoomModelData {
     this.nativeSpatialReport,
     this.orchestrationEvaluation,
     this.materialTakeoff,
+    this.productRecommendations,
     this.versions = const [],
   });
 
@@ -1472,6 +1474,9 @@ class RoomModelData {
           : null,
       materialTakeoff: (map['material_takeoff'] != null)
           ? MaterialTakeoffReportModel.fromMap(map['material_takeoff'] as Map<String, dynamic>)
+          : null,
+      productRecommendations: (map['product_recommendations'] != null)
+          ? ProductRecommendationReportModel.fromMap(map['product_recommendations'] as Map<String, dynamic>)
           : null,
       versions: rawVersions
           .map((e) => DesignVersionModel.fromMap(e as Map<String, dynamic>))
@@ -2081,6 +2086,325 @@ class MaterialTakeoffReportModel {
       'accuracy_tier': accuracyTier,
       'generated_at': generatedAt?.toIso8601String(),
       'notes': notes,
+    };
+  }
+}
+
+class ProductDimensionsModel {
+  final double widthM;
+  final double depthM;
+  final double heightM;
+
+  ProductDimensionsModel({
+    required this.widthM,
+    required this.depthM,
+    required this.heightM,
+  });
+
+  String get formattedDimensions =>
+      '${widthM.toStringAsFixed(2)}m (W) × ${depthM.toStringAsFixed(2)}m (D) × ${heightM.toStringAsFixed(2)}m (H)';
+
+  double get footprintAreaSqm => widthM * depthM;
+
+  factory ProductDimensionsModel.fromMap(Map<String, dynamic> map) {
+    return ProductDimensionsModel(
+      widthM: (map['width_m'] as num?)?.toDouble() ?? 0.0,
+      depthM: (map['depth_m'] as num?)?.toDouble() ?? 0.0,
+      heightM: (map['height_m'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'width_m': widthM,
+      'depth_m': depthM,
+      'height_m': heightM,
+    };
+  }
+}
+
+class CatalogProductModel {
+  final String id;
+  final String sku;
+  final String name;
+  final String brand;
+  final String category;
+  final List<String> styles;
+  final String tier;
+  final ProductDimensionsModel dimensions;
+  final double requiredClearanceM;
+  final List<String> materials;
+  final List<String> colors;
+  final double price;
+  final String currency;
+  final String retailer;
+  final String? retailerUrl;
+  final String? imageUrl;
+  final String availability;
+  final int leadTimeDays;
+  final String description;
+
+  CatalogProductModel({
+    required this.id,
+    required this.sku,
+    required this.name,
+    required this.brand,
+    required this.category,
+    this.styles = const [],
+    this.tier = 'MODERATE',
+    required this.dimensions,
+    this.requiredClearanceM = 0.3,
+    this.materials = const [],
+    this.colors = const [],
+    required this.price,
+    this.currency = 'MYR',
+    required this.retailer,
+    this.retailerUrl,
+    this.imageUrl,
+    this.availability = 'IN_STOCK',
+    this.leadTimeDays = 7,
+    this.description = '',
+  });
+
+  String get formattedPrice {
+    final sym = _currencySymbol(currency);
+    return '$sym ${price.toStringAsFixed(0)}';
+  }
+
+  static String _currencySymbol(String curr) {
+    switch (curr.toUpperCase()) {
+      case 'SGD':
+        return 'S\$';
+      case 'USD':
+        return '\$';
+      case 'EUR':
+        return '€';
+      case 'GBP':
+        return '£';
+      case 'AUD':
+        return 'A\$';
+      case 'CAD':
+        return 'C\$';
+      case 'MYR':
+      default:
+        return 'RM';
+    }
+  }
+
+  factory CatalogProductModel.fromMap(Map<String, dynamic> map) {
+    final rawStyles = (map['styles'] as List<dynamic>?) ?? [];
+    final rawMaterials = (map['materials'] as List<dynamic>?) ?? [];
+    final rawColors = (map['colors'] as List<dynamic>?) ?? [];
+
+    return CatalogProductModel(
+      id: map['id'] as String? ?? '',
+      sku: map['sku'] as String? ?? '',
+      name: map['name'] as String? ?? '',
+      brand: map['brand'] as String? ?? '',
+      category: map['category'] as String? ?? 'SOFA',
+      styles: rawStyles.map((e) => e.toString()).toList(),
+      tier: map['tier'] as String? ?? 'MODERATE',
+      dimensions: map['dimensions'] != null
+          ? ProductDimensionsModel.fromMap(map['dimensions'] as Map<String, dynamic>)
+          : ProductDimensionsModel(widthM: 1.0, depthM: 1.0, heightM: 1.0),
+      requiredClearanceM: (map['required_clearance_m'] as num?)?.toDouble() ?? 0.3,
+      materials: rawMaterials.map((e) => e.toString()).toList(),
+      colors: rawColors.map((e) => e.toString()).toList(),
+      price: (map['price'] as num?)?.toDouble() ?? 0.0,
+      currency: map['currency'] as String? ?? 'MYR',
+      retailer: map['retailer'] as String? ?? '',
+      retailerUrl: map['retailer_url'] as String?,
+      imageUrl: map['image_url'] as String?,
+      availability: map['availability'] as String? ?? 'IN_STOCK',
+      leadTimeDays: (map['lead_time_days'] as num?)?.toInt() ?? 7,
+      description: map['description'] as String? ?? '',
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'sku': sku,
+      'name': name,
+      'brand': brand,
+      'category': category,
+      'styles': styles,
+      'tier': tier,
+      'dimensions': dimensions.toMap(),
+      'required_clearance_m': requiredClearanceM,
+      'materials': materials,
+      'colors': colors,
+      'price': price,
+      'currency': currency,
+      'retailer': retailer,
+      'retailer_url': retailerUrl,
+      'image_url': imageUrl,
+      'availability': availability,
+      'lead_time_days': leadTimeDays,
+      'description': description,
+    };
+  }
+}
+
+class ProductRecommendationModel {
+  final String? targetElementId;
+  final String? targetElementLabel;
+  final CatalogProductModel product;
+  final double matchScore;
+  final String fitStatus;
+  final String fitNotes;
+  final double? targetWidthM;
+  final double? targetDepthM;
+  final double? targetHeightM;
+  final double dimensionVariancePct;
+  final String budgetStatus;
+  final bool isAssigned;
+
+  ProductRecommendationModel({
+    this.targetElementId,
+    this.targetElementLabel,
+    required this.product,
+    required this.matchScore,
+    this.fitStatus = 'PERFECT_FIT',
+    this.fitNotes = '',
+    this.targetWidthM,
+    this.targetDepthM,
+    this.targetHeightM,
+    this.dimensionVariancePct = 0.0,
+    this.budgetStatus = 'Within Category Allocation',
+    this.isAssigned = false,
+  });
+
+  String get fitStatusLabel {
+    switch (fitStatus.toUpperCase()) {
+      case 'PERFECT_FIT':
+        return 'Perfect Fit';
+      case 'TIGHT_FIT':
+        return 'Tight Clearance';
+      case 'CLEARANCE_WARNING':
+        return 'Height Clearance Warning';
+      case 'OVERSIZED':
+        return 'Oversized';
+      default:
+        return fitStatus;
+    }
+  }
+
+  int get matchPercentage => (matchScore * 100).round();
+
+  ProductRecommendationModel copyWith({
+    String? targetElementId,
+    String? targetElementLabel,
+    CatalogProductModel? product,
+    double? matchScore,
+    String? fitStatus,
+    String? fitNotes,
+    double? targetWidthM,
+    double? targetDepthM,
+    double? targetHeightM,
+    double? dimensionVariancePct,
+    String? budgetStatus,
+    bool? isAssigned,
+  }) {
+    return ProductRecommendationModel(
+      targetElementId: targetElementId ?? this.targetElementId,
+      targetElementLabel: targetElementLabel ?? this.targetElementLabel,
+      product: product ?? this.product,
+      matchScore: matchScore ?? this.matchScore,
+      fitStatus: fitStatus ?? this.fitStatus,
+      fitNotes: fitNotes ?? this.fitNotes,
+      targetWidthM: targetWidthM ?? this.targetWidthM,
+      targetDepthM: targetDepthM ?? this.targetDepthM,
+      targetHeightM: targetHeightM ?? this.targetHeightM,
+      dimensionVariancePct: dimensionVariancePct ?? this.dimensionVariancePct,
+      budgetStatus: budgetStatus ?? this.budgetStatus,
+      isAssigned: isAssigned ?? this.isAssigned,
+    );
+  }
+
+  factory ProductRecommendationModel.fromMap(Map<String, dynamic> map) {
+    return ProductRecommendationModel(
+      targetElementId: map['target_element_id'] as String?,
+      targetElementLabel: map['target_element_label'] as String?,
+      product: CatalogProductModel.fromMap(map['product'] as Map<String, dynamic>),
+      matchScore: (map['match_score'] as num?)?.toDouble() ?? 0.0,
+      fitStatus: map['fit_status'] as String? ?? 'PERFECT_FIT',
+      fitNotes: map['fit_notes'] as String? ?? '',
+      targetWidthM: (map['target_width_m'] as num?)?.toDouble(),
+      targetDepthM: (map['target_depth_m'] as num?)?.toDouble(),
+      targetHeightM: (map['target_height_m'] as num?)?.toDouble(),
+      dimensionVariancePct: (map['dimension_variance_pct'] as num?)?.toDouble() ?? 0.0,
+      budgetStatus: map['budget_status'] as String? ?? 'Within Category Allocation',
+      isAssigned: map['is_assigned'] as bool? ?? false,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'target_element_id': targetElementId,
+      'target_element_label': targetElementLabel,
+      'product': product.toMap(),
+      'match_score': matchScore,
+      'fit_status': fitStatus,
+      'fit_notes': fitNotes,
+      'target_width_m': targetWidthM,
+      'target_depth_m': targetDepthM,
+      'target_height_m': targetHeightM,
+      'dimension_variance_pct': dimensionVariancePct,
+      'budget_status': budgetStatus,
+      'is_assigned': isAssigned,
+    };
+  }
+}
+
+class ProductRecommendationReportModel {
+  final String roomId;
+  final List<ProductRecommendationModel> recommendations;
+  final String appliedStyle;
+  final String appliedTier;
+  final String appliedCurrency;
+  final double totalRecommendedSpend;
+  final DateTime? generatedAt;
+
+  ProductRecommendationReportModel({
+    required this.roomId,
+    this.recommendations = const [],
+    this.appliedStyle = '',
+    this.appliedTier = 'MODERATE',
+    this.appliedCurrency = 'MYR',
+    this.totalRecommendedSpend = 0.0,
+    this.generatedAt,
+  });
+
+  String get formattedSpend {
+    final sym = CatalogProductModel._currencySymbol(appliedCurrency);
+    return '$sym ${totalRecommendedSpend.toStringAsFixed(0)}';
+  }
+
+  factory ProductRecommendationReportModel.fromMap(Map<String, dynamic> map) {
+    final rawRecs = (map['recommendations'] as List<dynamic>?) ?? [];
+    return ProductRecommendationReportModel(
+      roomId: map['room_id'] as String? ?? '',
+      recommendations: rawRecs
+          .map((e) => ProductRecommendationModel.fromMap(e as Map<String, dynamic>))
+          .toList(),
+      appliedStyle: map['applied_style'] as String? ?? '',
+      appliedTier: map['applied_tier'] as String? ?? 'MODERATE',
+      appliedCurrency: map['applied_currency'] as String? ?? 'MYR',
+      totalRecommendedSpend: (map['total_recommended_spend'] as num?)?.toDouble() ?? 0.0,
+      generatedAt: map['generated_at'] != null ? DateTime.tryParse(map['generated_at'].toString()) : null,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'room_id': roomId,
+      'recommendations': recommendations.map((e) => e.toMap()).toList(),
+      'applied_style': appliedStyle,
+      'applied_tier': appliedTier,
+      'applied_currency': appliedCurrency,
+      'total_recommended_spend': totalRecommendedSpend,
+      'generated_at': generatedAt?.toIso8601String(),
     };
   }
 }
