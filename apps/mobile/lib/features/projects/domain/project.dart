@@ -4000,6 +4000,578 @@ class CommerceAttributionSummaryModel {
   }
 }
 
+// ==============================================================================
+// Milestone 6.2: Contractor Handoff & Tender Bid Management Domain Models
+// ==============================================================================
+
+class TradeWorkPackageModel {
+  final String packageId;
+  final String trade;
+  final String title;
+  final String description;
+  final String location;
+  final String priority;
+  final List<String> prerequisiteTrades;
+  final List<String> scopeItems;
+  final List<String> safetyNotes;
+  final int estimatedDurationDays;
+
+  const TradeWorkPackageModel({
+    required this.packageId,
+    required this.trade,
+    required this.title,
+    required this.description,
+    this.location = 'Whole Room',
+    this.priority = 'NORMAL',
+    this.prerequisiteTrades = const [],
+    this.scopeItems = const [],
+    this.safetyNotes = const [],
+    this.estimatedDurationDays = 2,
+  });
+
+  factory TradeWorkPackageModel.fromMap(Map<String, dynamic> map) {
+    return TradeWorkPackageModel(
+      packageId: map['package_id'] as String? ?? '',
+      trade: map['trade'] as String? ?? 'CARPENTRY_JOINERY',
+      title: map['title'] as String? ?? '',
+      description: map['description'] as String? ?? '',
+      location: map['location'] as String? ?? 'Whole Room',
+      priority: map['priority'] as String? ?? 'NORMAL',
+      prerequisiteTrades: (map['prerequisite_trades'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? const [],
+      scopeItems: (map['scope_items'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? const [],
+      safetyNotes: (map['safety_notes'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? const [],
+      estimatedDurationDays: (map['estimated_duration_days'] as num?)?.toInt() ?? 2,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'package_id': packageId,
+      'trade': trade,
+      'title': title,
+      'description': description,
+      'location': location,
+      'priority': priority,
+      'prerequisite_trades': prerequisiteTrades,
+      'scope_items': scopeItems,
+      'safety_notes': safetyNotes,
+      'estimated_duration_days': estimatedDurationDays,
+    };
+  }
+}
+
+class BillOfQuantitiesItemModel {
+  final String itemId;
+  final String trade;
+  final String itemCode;
+  final String description;
+  final double quantity;
+  final String unit;
+  final double wasteFactorPct;
+  final double totalQuantityWithWaste;
+  final bool isOwnerSupplied;
+  final double estimatedUnitRate;
+  final double estimatedMaterialTotal;
+  final double estimatedLaborTotal;
+  final bool requiresSiteVerification;
+
+  const BillOfQuantitiesItemModel({
+    required this.itemId,
+    required this.trade,
+    required this.itemCode,
+    required this.description,
+    required this.quantity,
+    this.unit = 'm2',
+    this.wasteFactorPct = 10.0,
+    required this.totalQuantityWithWaste,
+    this.isOwnerSupplied = false,
+    this.estimatedUnitRate = 0.0,
+    this.estimatedMaterialTotal = 0.0,
+    this.estimatedLaborTotal = 0.0,
+    this.requiresSiteVerification = false,
+  });
+
+  double get totalEstimatedCost => estimatedMaterialTotal + estimatedLaborTotal;
+
+  factory BillOfQuantitiesItemModel.fromMap(Map<String, dynamic> map) {
+    return BillOfQuantitiesItemModel(
+      itemId: map['item_id'] as String? ?? '',
+      trade: map['trade'] as String? ?? 'CARPENTRY_JOINERY',
+      itemCode: map['item_code'] as String? ?? '',
+      description: map['description'] as String? ?? '',
+      quantity: (map['quantity'] as num?)?.toDouble() ?? 0.0,
+      unit: map['unit'] as String? ?? 'm2',
+      wasteFactorPct: (map['waste_factor_pct'] as num?)?.toDouble() ?? 10.0,
+      totalQuantityWithWaste: (map['total_quantity_with_waste'] as num?)?.toDouble() ?? 0.0,
+      isOwnerSupplied: map['is_owner_supplied'] as bool? ?? false,
+      estimatedUnitRate: (map['estimated_unit_rate'] as num?)?.toDouble() ?? 0.0,
+      estimatedMaterialTotal: (map['estimated_material_total'] as num?)?.toDouble() ?? 0.0,
+      estimatedLaborTotal: (map['estimated_labor_total'] as num?)?.toDouble() ?? 0.0,
+      requiresSiteVerification: map['requires_site_verification'] as bool? ?? false,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'item_id': itemId,
+      'trade': trade,
+      'item_code': itemCode,
+      'description': description,
+      'quantity': quantity,
+      'unit': unit,
+      'waste_factor_pct': wasteFactorPct,
+      'total_quantity_with_waste': totalQuantityWithWaste,
+      'is_owner_supplied': isOwnerSupplied,
+      'estimated_unit_rate': estimatedUnitRate,
+      'estimated_material_total': estimatedMaterialTotal,
+      'estimated_labor_total': estimatedLaborTotal,
+      'requires_site_verification': requiresSiteVerification,
+    };
+  }
+}
+
+class ContractorVerificationChecklistModel {
+  final String checklistId;
+  final String dimensionLabel;
+  final String dimensionType;
+  final double dimensionValue;
+  final String unit;
+  final double confidence;
+  final String source;
+  final bool isPhysicallyVerified;
+  final String? verifiedByName;
+  final DateTime? verifiedAt;
+  final String? notes;
+  final String criticalForTrade;
+
+  const ContractorVerificationChecklistModel({
+    required this.checklistId,
+    required this.dimensionLabel,
+    required this.dimensionType,
+    required this.dimensionValue,
+    this.unit = 'm',
+    this.confidence = 0.85,
+    this.source = 'ESTIMATED',
+    this.isPhysicallyVerified = false,
+    this.verifiedByName,
+    this.verifiedAt,
+    this.notes,
+    this.criticalForTrade = 'CARPENTRY_JOINERY',
+  });
+
+  ContractorVerificationChecklistModel copyWith({
+    bool? isPhysicallyVerified,
+    String? verifiedByName,
+    DateTime? verifiedAt,
+    String? notes,
+  }) {
+    return ContractorVerificationChecklistModel(
+      checklistId: checklistId,
+      dimensionLabel: dimensionLabel,
+      dimensionType: dimensionType,
+      dimensionValue: dimensionValue,
+      unit: unit,
+      confidence: confidence,
+      source: source,
+      isPhysicallyVerified: isPhysicallyVerified ?? this.isPhysicallyVerified,
+      verifiedByName: verifiedByName ?? this.verifiedByName,
+      verifiedAt: verifiedAt ?? this.verifiedAt,
+      notes: notes ?? this.notes,
+      criticalForTrade: criticalForTrade,
+    );
+  }
+
+  factory ContractorVerificationChecklistModel.fromMap(Map<String, dynamic> map) {
+    return ContractorVerificationChecklistModel(
+      checklistId: map['checklist_id'] as String? ?? '',
+      dimensionLabel: map['dimension_label'] as String? ?? '',
+      dimensionType: map['dimension_type'] as String? ?? 'Linear',
+      dimensionValue: (map['dimension_value'] as num?)?.toDouble() ?? 0.0,
+      unit: map['unit'] as String? ?? 'm',
+      confidence: (map['confidence'] as num?)?.toDouble() ?? 0.85,
+      source: map['source'] as String? ?? 'ESTIMATED',
+      isPhysicallyVerified: map['is_physically_verified'] as bool? ?? false,
+      verifiedByName: map['verified_by_name'] as String?,
+      verifiedAt: map['verified_at'] != null ? DateTime.tryParse(map['verified_at'] as String) : null,
+      notes: map['notes'] as String?,
+      criticalForTrade: map['critical_for_trade'] as String? ?? 'CARPENTRY_JOINERY',
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'checklist_id': checklistId,
+      'dimension_label': dimensionLabel,
+      'dimension_type': dimensionType,
+      'dimension_value': dimensionValue,
+      'unit': unit,
+      'confidence': confidence,
+      'source': source,
+      'is_physically_verified': isPhysicallyVerified,
+      'verified_by_name': verifiedByName,
+      'verified_at': verifiedAt?.toIso8601String(),
+      'notes': notes,
+      'critical_for_trade': criticalForTrade,
+    };
+  }
+}
+
+class ContractorProjectBriefModel {
+  final String briefId;
+  final String projectId;
+  final String? roomId;
+  final String title;
+  final String projectSummary;
+  final String? propertyAddress;
+  final String? siteAccessNotes;
+  final List<TradeWorkPackageModel> workPackages;
+  final List<BillOfQuantitiesItemModel> boqItems;
+  final List<ContractorVerificationChecklistModel> verificationChecklist;
+  final int confirmedMeasurementsCount;
+  final int unconfirmedMeasurementsCount;
+  final double totalEstimatedMaterials;
+  final double totalEstimatedLabor;
+  final double totalEstimatedCost;
+  final String currency;
+  final String statutoryDisclaimer;
+  final DateTime createdAt;
+  final String? printableHtml;
+
+  const ContractorProjectBriefModel({
+    required this.briefId,
+    required this.projectId,
+    this.roomId,
+    required this.title,
+    this.projectSummary = '',
+    this.propertyAddress,
+    this.siteAccessNotes,
+    this.workPackages = const [],
+    this.boqItems = const [],
+    this.verificationChecklist = const [],
+    this.confirmedMeasurementsCount = 0,
+    this.unconfirmedMeasurementsCount = 0,
+    this.totalEstimatedMaterials = 0.0,
+    this.totalEstimatedLabor = 0.0,
+    this.totalEstimatedCost = 0.0,
+    this.currency = 'MYR',
+    this.statutoryDisclaimer = '',
+    required this.createdAt,
+    this.printableHtml,
+  });
+
+  String get currencySymbol => CatalogProductModel._currencySymbol(currency);
+  String get formattedTotalCost => '$currencySymbol ${totalEstimatedCost.toStringAsFixed(2)}';
+  String get formattedMaterialCost => '$currencySymbol ${totalEstimatedMaterials.toStringAsFixed(2)}';
+  String get formattedLaborCost => '$currencySymbol ${totalEstimatedLabor.toStringAsFixed(2)}';
+
+  factory ContractorProjectBriefModel.fromMap(Map<String, dynamic> map) {
+    return ContractorProjectBriefModel(
+      briefId: map['brief_id'] as String? ?? '',
+      projectId: map['project_id'] as String? ?? '',
+      roomId: map['room_id'] as String?,
+      title: map['title'] as String? ?? 'Contractor Project Brief',
+      projectSummary: map['project_summary'] as String? ?? '',
+      propertyAddress: map['property_address'] as String?,
+      siteAccessNotes: map['site_access_notes'] as String?,
+      workPackages: ((map['work_packages'] as List<dynamic>?) ?? [])
+          .map((e) => TradeWorkPackageModel.fromMap(e as Map<String, dynamic>))
+          .toList(),
+      boqItems: ((map['boq_items'] as List<dynamic>?) ?? [])
+          .map((e) => BillOfQuantitiesItemModel.fromMap(e as Map<String, dynamic>))
+          .toList(),
+      verificationChecklist: ((map['verification_checklist'] as List<dynamic>?) ?? [])
+          .map((e) => ContractorVerificationChecklistModel.fromMap(e as Map<String, dynamic>))
+          .toList(),
+      confirmedMeasurementsCount: (map['confirmed_measurements_count'] as num?)?.toInt() ?? 0,
+      unconfirmedMeasurementsCount: (map['unconfirmed_measurements_count'] as num?)?.toInt() ?? 0,
+      totalEstimatedMaterials: (map['total_estimated_materials'] as num?)?.toDouble() ?? 0.0,
+      totalEstimatedLabor: (map['total_estimated_labor'] as num?)?.toDouble() ?? 0.0,
+      totalEstimatedCost: (map['total_estimated_cost'] as num?)?.toDouble() ?? 0.0,
+      currency: map['currency'] as String? ?? 'MYR',
+      statutoryDisclaimer: map['statutory_disclaimer'] as String? ?? '',
+      createdAt: map['created_at'] != null
+          ? DateTime.tryParse(map['created_at'] as String) ?? DateTime.now()
+          : DateTime.now(),
+      printableHtml: map['printable_html'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'brief_id': briefId,
+      'project_id': projectId,
+      'room_id': roomId,
+      'title': title,
+      'project_summary': projectSummary,
+      'property_address': propertyAddress,
+      'site_access_notes': siteAccessNotes,
+      'work_packages': workPackages.map((e) => e.toMap()).toList(),
+      'boq_items': boqItems.map((e) => e.toMap()).toList(),
+      'verification_checklist': verificationChecklist.map((e) => e.toMap()).toList(),
+      'confirmed_measurements_count': confirmedMeasurementsCount,
+      'unconfirmed_measurements_count': unconfirmedMeasurementsCount,
+      'total_estimated_materials': totalEstimatedMaterials,
+      'total_estimated_labor': totalEstimatedLabor,
+      'total_estimated_cost': totalEstimatedCost,
+      'currency': currency,
+      'statutory_disclaimer': statutoryDisclaimer,
+      'created_at': createdAt.toIso8601String(),
+      'printable_html': printableHtml,
+    };
+  }
+}
+
+class ContractorBidModel {
+  final String bidId;
+  final String rfqId;
+  final String contractorId;
+  final String contractorName;
+  final String licenseNo;
+  final String contactEmail;
+  final String? contactPhone;
+  final int yearsInBusiness;
+  final String? insurancePolicyNo;
+  final List<String> tradeSpecialties;
+  final double overallBidAmount;
+  final String currency;
+  final int estimatedLeadTimeDays;
+  final int validityDays;
+  final String status;
+  final List<Map<String, dynamic>> lineItemBreakdowns;
+  final bool statutoryComplianceAcknowledged;
+  final bool onSiteVerificationAcknowledged;
+  final String? submissionNotes;
+  final DateTime submittedAt;
+
+  const ContractorBidModel({
+    required this.bidId,
+    required this.rfqId,
+    required this.contractorId,
+    required this.contractorName,
+    required this.licenseNo,
+    required this.contactEmail,
+    this.contactPhone,
+    this.yearsInBusiness = 5,
+    this.insurancePolicyNo,
+    this.tradeSpecialties = const [],
+    required this.overallBidAmount,
+    this.currency = 'MYR',
+    this.estimatedLeadTimeDays = 14,
+    this.validityDays = 30,
+    this.status = 'SUBMITTED',
+    this.lineItemBreakdowns = const [],
+    this.statutoryComplianceAcknowledged = true,
+    this.onSiteVerificationAcknowledged = true,
+    this.submissionNotes,
+    required this.submittedAt,
+  });
+
+  String get currencySymbol => CatalogProductModel._currencySymbol(currency);
+  String get formattedBidAmount => '$currencySymbol ${overallBidAmount.toStringAsFixed(2)}';
+  bool get isAccepted => status == 'ACCEPTED';
+
+  factory ContractorBidModel.fromMap(Map<String, dynamic> map) {
+    return ContractorBidModel(
+      bidId: map['bid_id'] as String? ?? '',
+      rfqId: map['rfq_id'] as String? ?? '',
+      contractorId: map['contractor_id'] as String? ?? '',
+      contractorName: map['contractor_name'] as String? ?? '',
+      licenseNo: map['license_no'] as String? ?? '',
+      contactEmail: map['contact_email'] as String? ?? '',
+      contactPhone: map['contact_phone'] as String?,
+      yearsInBusiness: (map['years_in_business'] as num?)?.toInt() ?? 5,
+      insurancePolicyNo: map['insurance_policy_no'] as String?,
+      tradeSpecialties: (map['trade_specialties'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? const [],
+      overallBidAmount: (map['overall_bid_amount'] as num?)?.toDouble() ?? 0.0,
+      currency: map['currency'] as String? ?? 'MYR',
+      estimatedLeadTimeDays: (map['estimated_lead_time_days'] as num?)?.toInt() ?? 14,
+      validityDays: (map['validity_days'] as num?)?.toInt() ?? 30,
+      status: map['status'] as String? ?? 'SUBMITTED',
+      lineItemBreakdowns: (map['line_item_breakdowns'] as List<dynamic>?)
+              ?.map((e) => Map<String, dynamic>.from(e as Map))
+              .toList() ??
+          const [],
+      statutoryComplianceAcknowledged: map['statutory_compliance_acknowledged'] as bool? ?? true,
+      onSiteVerificationAcknowledged: map['on_site_verification_acknowledged'] as bool? ?? true,
+      submissionNotes: map['submission_notes'] as String?,
+      submittedAt: map['submitted_at'] != null
+          ? DateTime.tryParse(map['submitted_at'] as String) ?? DateTime.now()
+          : DateTime.now(),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'bid_id': bidId,
+      'rfq_id': rfqId,
+      'contractor_id': contractorId,
+      'contractor_name': contractorName,
+      'license_no': licenseNo,
+      'contact_email': contactEmail,
+      'contact_phone': contactPhone,
+      'years_in_business': yearsInBusiness,
+      'insurance_policy_no': insurancePolicyNo,
+      'trade_specialties': tradeSpecialties,
+      'overall_bid_amount': overallBidAmount,
+      'currency': currency,
+      'estimated_lead_time_days': estimatedLeadTimeDays,
+      'validity_days': validityDays,
+      'status': status,
+      'line_item_breakdowns': lineItemBreakdowns,
+      'statutory_compliance_acknowledged': statutoryComplianceAcknowledged,
+      'on_site_verification_acknowledged': onSiteVerificationAcknowledged,
+      'submission_notes': submissionNotes,
+      'submitted_at': submittedAt.toIso8601String(),
+    };
+  }
+}
+
+class ContractorQuoteRequestModel {
+  final String rfqId;
+  final String projectId;
+  final String? roomId;
+  final String? briefId;
+  final String title;
+  final List<String> targetTrades;
+  final DateTime submissionDeadline;
+  final String status;
+  final List<String> invitedContractors;
+  final List<ContractorBidModel> bids;
+  final String? awardedBidId;
+  final String legalTermsAndConditions;
+  final DateTime createdAt;
+
+  const ContractorQuoteRequestModel({
+    required this.rfqId,
+    required this.projectId,
+    this.roomId,
+    this.briefId,
+    required this.title,
+    this.targetTrades = const [],
+    required this.submissionDeadline,
+    this.status = 'BIDDING_OPEN',
+    this.invitedContractors = const [],
+    this.bids = const [],
+    this.awardedBidId,
+    this.legalTermsAndConditions = '',
+    required this.createdAt,
+  });
+
+  bool get isAwarded => status == 'AWARDED';
+
+  factory ContractorQuoteRequestModel.fromMap(Map<String, dynamic> map) {
+    return ContractorQuoteRequestModel(
+      rfqId: map['rfq_id'] as String? ?? '',
+      projectId: map['project_id'] as String? ?? '',
+      roomId: map['room_id'] as String?,
+      briefId: map['brief_id'] as String?,
+      title: map['title'] as String? ?? 'Contractor Quote Request',
+      targetTrades: (map['target_trades'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? const [],
+      submissionDeadline: map['submission_deadline'] != null
+          ? DateTime.tryParse(map['submission_deadline'] as String) ?? DateTime.now().add(const Duration(days: 14))
+          : DateTime.now().add(const Duration(days: 14)),
+      status: map['status'] as String? ?? 'BIDDING_OPEN',
+      invitedContractors: (map['invited_contractors'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? const [],
+      bids: ((map['bids'] as List<dynamic>?) ?? [])
+          .map((e) => ContractorBidModel.fromMap(e as Map<String, dynamic>))
+          .toList(),
+      awardedBidId: map['awarded_bid_id'] as String?,
+      legalTermsAndConditions: map['legal_terms_and_conditions'] as String? ?? '',
+      createdAt: map['created_at'] != null
+          ? DateTime.tryParse(map['created_at'] as String) ?? DateTime.now()
+          : DateTime.now(),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'rfq_id': rfqId,
+      'project_id': projectId,
+      'room_id': roomId,
+      'brief_id': briefId,
+      'title': title,
+      'target_trades': targetTrades,
+      'submission_deadline': submissionDeadline.toIso8601String(),
+      'status': status,
+      'invited_contractors': invitedContractors,
+      'bids': bids.map((e) => e.toMap()).toList(),
+      'awarded_bid_id': awardedBidId,
+      'legal_terms_and_conditions': legalTermsAndConditions,
+      'created_at': createdAt.toIso8601String(),
+    };
+  }
+}
+
+class BidComparisonSummaryModel {
+  final String rfqId;
+  final String projectId;
+  final String title;
+  final double roomlystEstimatedTotal;
+  final String currency;
+  final int totalBidsCount;
+  final double? lowestBidAmount;
+  final double? highestBidAmount;
+  final double? averageBidAmount;
+  final List<Map<String, dynamic>> bidsRanked;
+  final String? recommendedBidId;
+  final String comparisonNotes;
+
+  const BidComparisonSummaryModel({
+    required this.rfqId,
+    required this.projectId,
+    required this.title,
+    required this.roomlystEstimatedTotal,
+    this.currency = 'MYR',
+    this.totalBidsCount = 0,
+    this.lowestBidAmount,
+    this.highestBidAmount,
+    this.averageBidAmount,
+    this.bidsRanked = const [],
+    this.recommendedBidId,
+    this.comparisonNotes = '',
+  });
+
+  String get currencySymbol => CatalogProductModel._currencySymbol(currency);
+
+  factory BidComparisonSummaryModel.fromMap(Map<String, dynamic> map) {
+    return BidComparisonSummaryModel(
+      rfqId: map['rfq_id'] as String? ?? '',
+      projectId: map['project_id'] as String? ?? '',
+      title: map['title'] as String? ?? '',
+      roomlystEstimatedTotal: (map['roomlyst_estimated_total'] as num?)?.toDouble() ?? 0.0,
+      currency: map['currency'] as String? ?? 'MYR',
+      totalBidsCount: (map['total_bids_count'] as num?)?.toInt() ?? 0,
+      lowestBidAmount: (map['lowest_bid_amount'] as num?)?.toDouble(),
+      highestBidAmount: (map['highest_bid_amount'] as num?)?.toDouble(),
+      averageBidAmount: (map['average_bid_amount'] as num?)?.toDouble(),
+      bidsRanked: (map['bids_ranked'] as List<dynamic>?)
+              ?.map((e) => Map<String, dynamic>.from(e as Map))
+              .toList() ??
+          const [],
+      recommendedBidId: map['recommended_bid_id'] as String?,
+      comparisonNotes: map['comparison_notes'] as String? ?? '',
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'rfq_id': rfqId,
+      'project_id': projectId,
+      'title': title,
+      'roomlyst_estimated_total': roomlystEstimatedTotal,
+      'currency': currency,
+      'total_bids_count': totalBidsCount,
+      'lowest_bid_amount': lowestBidAmount,
+      'highest_bid_amount': highestBidAmount,
+      'average_bid_amount': averageBidAmount,
+      'bids_ranked': bidsRanked,
+      'recommended_bid_id': recommendedBidId,
+      'comparison_notes': comparisonNotes,
+    };
+  }
+}
+
+
 
 
 

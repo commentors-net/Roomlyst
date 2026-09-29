@@ -2014,5 +2014,196 @@ class CommerceAttributionSummary(BaseModel):
     events: List[CommerceTrackingEvent] = Field(default_factory=list)
 
 
+# ==============================================================================
+# Milestone 6.2: Contractor Handoff & Tender Bid Management Models
+# ==============================================================================
+
+class TradeCategory(str, Enum):
+    """Standardized construction and interior renovation trade categories (Milestone 6.2)."""
+    DEMOLITION_PREP = "DEMOLITION_PREP"
+    MASONRY_TILING = "MASONRY_TILING"
+    CARPENTRY_JOINERY = "CARPENTRY_JOINERY"
+    ELECTRICAL_LIGHTING = "ELECTRICAL_LIGHTING"
+    PLUMBING_SANITARY = "PLUMBING_SANITARY"
+    PAINTING_PLASTERING = "PAINTING_PLASTERING"
+    GLAZING_WINDOWS = "GLAZING_WINDOWS"
+    HVAC_VENTILATION = "HVAC_VENTILATION"
+    FINAL_CLEANING = "FINAL_CLEANING"
+
+
+class TradeWorkPackage(BaseModel):
+    """
+    Structured trade work package for contractor execution (Milestone 6.2).
+    Fulfills Blueprint Section 41 (Milestone 6.2).
+    """
+    package_id: str = Field(default_factory=lambda: f"pkg_{uuid.uuid4().hex[:8]}")
+    trade: TradeCategory
+    title: str
+    description: str
+    location: str = "Whole Room"
+    priority: str = "NORMAL"  # HIGH, NORMAL, LOW
+    prerequisite_trades: List[TradeCategory] = Field(default_factory=list)
+    scope_items: List[str] = Field(default_factory=list)
+    safety_notes: List[str] = Field(default_factory=list)
+    estimated_duration_days: int = 2
+
+
+class BillOfQuantitiesItem(BaseModel):
+    """
+    Bill of Quantities (BOQ) line item takeoff with trade allowances (Milestone 6.2).
+    Fulfills Blueprint Section 41 (Milestone 6.2).
+    """
+    item_id: str = Field(default_factory=lambda: f"boq_{uuid.uuid4().hex[:8]}")
+    trade: TradeCategory
+    item_code: str
+    description: str
+    quantity: float
+    unit: str = "m2"  # m2, m, pcs, lot
+    waste_factor_pct: float = 10.0
+    total_quantity_with_waste: float
+    is_owner_supplied: bool = False
+    estimated_unit_rate: float = 0.0
+    estimated_material_total: float = 0.0
+    estimated_labor_total: float = 0.0
+    requires_site_verification: bool = False
+
+
+class ContractorVerificationChecklist(BaseModel):
+    """
+    On-site field verification checklist for tender contractors (Milestone 6.2).
+    Demarcates confirmed vs. estimated measurements to eliminate construction risk.
+    """
+    checklist_id: str = Field(default_factory=lambda: f"chk_{uuid.uuid4().hex[:8]}")
+    dimension_label: str
+    dimension_type: str  # Wall Span, Ceiling Height, Opening Width, Rough-in
+    dimension_value: float
+    unit: str = "m"
+    confidence: float = 0.85
+    source: str = "ESTIMATED"
+    is_physically_verified: bool = False
+    verified_by_name: Optional[str] = None
+    verified_at: Optional[datetime] = None
+    notes: Optional[str] = None
+    critical_for_trade: TradeCategory = TradeCategory.CARPENTRY_JOINERY
+
+
+class ContractorProjectBrief(BaseModel):
+    """
+    Contractor-ready project brief consolidating scope, BOQ, and verification checklists (Milestone 6.2).
+    Fulfills Blueprint Section 41 (Milestone 6.2).
+    """
+    brief_id: str = Field(default_factory=lambda: f"cbrief_{uuid.uuid4().hex[:8]}")
+    project_id: str
+    room_id: Optional[str] = None
+    title: str = "Contractor Project Brief & Tender Package"
+    project_summary: str = ""
+    property_address: Optional[str] = None
+    site_access_notes: Optional[str] = "Normal residential working hours 9:00 AM - 6:00 PM weekdays. Lift protection required."
+    work_packages: List[TradeWorkPackage] = Field(default_factory=list)
+    boq_items: List[BillOfQuantitiesItem] = Field(default_factory=list)
+    verification_checklist: List[ContractorVerificationChecklist] = Field(default_factory=list)
+    confirmed_measurements_count: int = 0
+    unconfirmed_measurements_count: int = 0
+    total_estimated_materials: float = 0.0
+    total_estimated_labor: float = 0.0
+    total_estimated_cost: float = 0.0
+    currency: CurrencyCode = CurrencyCode.MYR
+    statutory_disclaimer: str = (
+        "Statutory Notice: All structural, load-bearing, electrical, gas, and waterproofing works "
+        "must be physically inspected and certified by a registered licensed contractor or professional engineer "
+        "prior to commencing on-site works. AI-derived geometry and estimates are purely advisory."
+    )
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    printable_html: Optional[str] = None
+
+
+class RFQStatus(str, Enum):
+    """Lifecycle statuses for Contractor Request for Quotations (Milestone 6.2)."""
+    DRAFT = "DRAFT"
+    ISSUED = "ISSUED"
+    BIDDING_OPEN = "BIDDING_OPEN"
+    BIDDING_CLOSED = "BIDDING_CLOSED"
+    AWARDED = "AWARDED"
+    CANCELLED = "CANCELLED"
+
+
+class BidStatus(str, Enum):
+    """Evaluation status for submitted contractor bids (Milestone 6.2)."""
+    SUBMITTED = "SUBMITTED"
+    UNDER_REVIEW = "UNDER_REVIEW"
+    SHORTLISTED = "SHORTLISTED"
+    ACCEPTED = "ACCEPTED"
+    REJECTED = "REJECTED"
+    WITHDRAWN = "WITHDRAWN"
+
+
+class ContractorBid(BaseModel):
+    """
+    Contractor tender quotation and binding compliance submission (Milestone 6.2).
+    Enforces legal, insurance, and on-site verification declarations.
+    """
+    bid_id: str = Field(default_factory=lambda: f"bid_{uuid.uuid4().hex[:8]}")
+    rfq_id: str
+    contractor_id: str
+    contractor_name: str
+    license_no: str
+    contact_email: str
+    contact_phone: Optional[str] = None
+    years_in_business: int = 5
+    insurance_policy_no: Optional[str] = None
+    trade_specialties: List[TradeCategory] = Field(default_factory=list)
+    overall_bid_amount: float
+    currency: CurrencyCode = CurrencyCode.MYR
+    estimated_lead_time_days: int = 14
+    validity_days: int = 30
+    status: BidStatus = BidStatus.SUBMITTED
+    line_item_breakdowns: List[Dict[str, Any]] = Field(default_factory=list)
+    statutory_compliance_acknowledged: bool = True
+    on_site_verification_acknowledged: bool = True
+    submission_notes: Optional[str] = None
+    submitted_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class ContractorQuoteRequest(BaseModel):
+    """
+    Contractor Request for Quotation (RFQ) workflow object (Milestone 6.2).
+    Fulfills Blueprint Section 41 (Milestone 6.2).
+    """
+    rfq_id: str = Field(default_factory=lambda: f"rfq_{uuid.uuid4().hex[:8]}")
+    project_id: str
+    room_id: Optional[str] = None
+    brief_id: Optional[str] = None
+    title: str = "Renovation Contractor Tender Request"
+    target_trades: List[TradeCategory] = Field(default_factory=list)
+    submission_deadline: datetime = Field(default_factory=lambda: datetime.now(timezone.utc) + timedelta(days=14))
+    status: RFQStatus = RFQStatus.BIDDING_OPEN
+    invited_contractors: List[str] = Field(default_factory=list)
+    bids: List[ContractorBid] = Field(default_factory=list)
+    awarded_bid_id: Optional[str] = None
+    legal_terms_and_conditions: str = (
+        "Bidders must be CIDB / licensed trade contractors with valid public liability insurance. "
+        "Contractor agrees to physically field-verify all site dimensions and service connections "
+        "before procuring materials or initiating site demolitions."
+    )
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class BidComparisonSummary(BaseModel):
+    """Comparative analysis report evaluating contractor tenders against budget estimates (Milestone 6.2)."""
+    rfq_id: str
+    project_id: str
+    title: str
+    roomlyst_estimated_total: float
+    currency: CurrencyCode = CurrencyCode.MYR
+    total_bids_count: int = 0
+    lowest_bid_amount: Optional[float] = None
+    highest_bid_amount: Optional[float] = None
+    average_bid_amount: Optional[float] = None
+    bids_ranked: List[Dict[str, Any]] = Field(default_factory=list)
+    recommended_bid_id: Optional[str] = None
+    comparison_notes: str = ""
+
+
+
 
 

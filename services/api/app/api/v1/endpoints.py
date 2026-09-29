@@ -3,6 +3,7 @@ V1 REST Endpoints for Roomlyst API.
 Compliant with Blueprint Section 7, 21, and 22.
 """
 
+from datetime import datetime, timezone
 import io
 import os
 import uuid
@@ -85,6 +86,16 @@ from packages.room_model import (
     SellerFitVerification,
     CommerceTrackingEvent,
     CommerceAttributionSummary,
+    TradeCategory,
+    TradeWorkPackage,
+    BillOfQuantitiesItem,
+    ContractorVerificationChecklist,
+    ContractorProjectBrief,
+    RFQStatus,
+    BidStatus,
+    ContractorBid,
+    ContractorQuoteRequest,
+    BidComparisonSummary,
 )
 from services.ai_worker.pipelines.generation import LocalRedesignGenerator
 from services.ai_worker.pipelines.room_analyzer import RoomAnalyzer
@@ -3336,6 +3347,247 @@ def get_commerce_attribution_report(
     Provides analytics on seller clicks, influenced GMV, and lead conversions.
     """
     return repository.get_commerce_attribution_summary(project_id=project_id, merchant_id=merchant_id)
+
+
+# ==============================================================================
+# Milestone 6.2: Contractor Handoff, BOQ, and Tender Bid Management Endpoints
+# ==============================================================================
+
+class GenerateContractorBriefRequest(BaseModel):
+    room_id: Optional[str] = None
+    site_access_notes: Optional[str] = None
+
+
+class VerifyChecklistItemRequest(BaseModel):
+    checklist_id: str
+    verified_by_name: str = "Lead Contractor"
+    notes: Optional[str] = None
+
+
+class CreateContractorRFQRequest(BaseModel):
+    title: str = "Renovation Contractor Tender Request"
+    target_trades: List[TradeCategory]
+    submission_deadline: Optional[datetime] = None
+    brief_id: Optional[str] = None
+    room_id: Optional[str] = None
+    invited_contractors: Optional[List[str]] = None
+    legal_terms_and_conditions: Optional[str] = None
+
+
+class SubmitContractorBidRequest(BaseModel):
+    contractor_id: str
+    contractor_name: str
+    license_no: str
+    contact_email: str
+    contact_phone: Optional[str] = None
+    years_in_business: int = 5
+    insurance_policy_no: Optional[str] = None
+    trade_specialties: List[TradeCategory]
+    overall_bid_amount: float
+    estimated_lead_time_days: int = 14
+    validity_days: int = 30
+    line_item_breakdowns: Optional[List[Dict[str, Any]]] = None
+    statutory_compliance_acknowledged: bool = True
+    on_site_verification_acknowledged: bool = True
+    submission_notes: Optional[str] = None
+
+
+@router.post("/projects/{project_id}/contractor-brief", response_model=ContractorProjectBrief, status_code=status.HTTP_201_CREATED)
+def generate_project_contractor_brief(
+    project_id: str,
+    req: GenerateContractorBriefRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Fulfills Milestone 6.2:
+    Compiles a contractor-ready project brief with trade work packages,
+    bill of quantities with wastage factors, and confirmed-vs-estimated measurement schedules.
+    """
+    try:
+        brief = repository.generate_contractor_brief(
+            project_id=project_id,
+            room_id=req.room_id,
+            site_access_notes=req.site_access_notes,
+        )
+        return brief
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/projects/{project_id}/contractor-brief", response_model=ContractorProjectBrief)
+def get_project_contractor_brief(
+    project_id: str,
+    db: Session = Depends(get_db),
+):
+    """
+    Fulfills Milestone 6.2:
+    Retrieves the latest contractor brief for a project or generates a default one.
+    """
+    briefs = repository.list_contractor_briefs(project_id)
+    if briefs:
+        return briefs[-1]
+
+    # Generate if not exists
+    try:
+        brief = repository.generate_contractor_brief(project_id=project_id)
+        return brief
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/contractor-briefs/{brief_id}", response_model=ContractorProjectBrief)
+def get_contractor_brief_by_id(brief_id: str):
+    """
+    Fulfills Milestone 6.2:
+    Retrieves a specific contractor brief by ID.
+    """
+    brief = repository.get_contractor_brief(brief_id)
+    if not brief:
+        raise HTTPException(status_code=404, detail=f"Contractor brief '{brief_id}' not found.")
+    return brief
+
+
+@router.get("/contractor-briefs/{brief_id}/printable", response_class=HTMLResponse)
+def get_contractor_brief_printable_html(brief_id: str):
+    """
+    Fulfills Milestone 6.2:
+    Serves a standalone printable HTML5 contractor tender document with print styling and signature blocks.
+    """
+    brief = repository.get_contractor_brief(brief_id)
+    if not brief or not brief.printable_html:
+        raise HTTPException(status_code=404, detail=f"Contractor brief '{brief_id}' not found.")
+    return HTMLResponse(content=brief.printable_html, status_code=200)
+
+
+@router.post("/contractor-briefs/{brief_id}/verify-item", response_model=ContractorVerificationChecklist)
+def verify_contractor_checklist_item(
+    brief_id: str,
+    req: VerifyChecklistItemRequest,
+):
+    """
+    Fulfills Milestone 6.2:
+    Records trade contractor or surveyor on-site physical measurement verification.
+    """
+    try:
+        item = repository.verify_checklist_item(
+            brief_id=brief_id,
+            checklist_id=req.checklist_id,
+            verified_by_name=req.verified_by_name,
+            notes=req.notes,
+        )
+        return item
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/projects/{project_id}/rfqs", response_model=ContractorQuoteRequest, status_code=status.HTTP_201_CREATED)
+def create_project_quote_request(
+    project_id: str,
+    req: CreateContractorRFQRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Fulfills Milestone 6.2:
+    Issues a new Request for Quotation (RFQ) to invited contractors.
+    """
+    try:
+        rfq = repository.create_quote_request(
+            project_id=project_id,
+            title=req.title,
+            target_trades=req.target_trades,
+            submission_deadline=req.submission_deadline,
+            brief_id=req.brief_id,
+            room_id=req.room_id,
+            invited_contractors=req.invited_contractors,
+            legal_terms_and_conditions=req.legal_terms_and_conditions,
+        )
+        return rfq
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/projects/{project_id}/rfqs", response_model=List[ContractorQuoteRequest])
+def list_project_quote_requests(project_id: str):
+    """
+    Fulfills Milestone 6.2:
+    Lists all RFQs issued for a project.
+    """
+    return repository.list_quote_requests(project_id)
+
+
+@router.get("/rfqs/{rfq_id}", response_model=ContractorQuoteRequest)
+def get_quote_request_by_id(rfq_id: str):
+    """
+    Fulfills Milestone 6.2:
+    Retrieves RFQ status and submitted contractor quotations.
+    """
+    rfq = repository.get_quote_request(rfq_id)
+    if not rfq:
+        raise HTTPException(status_code=404, detail=f"RFQ '{rfq_id}' not found.")
+    return rfq
+
+
+@router.post("/rfqs/{rfq_id}/bids", response_model=ContractorBid, status_code=status.HTTP_201_CREATED)
+def submit_bid_for_rfq(
+    rfq_id: str,
+    req: SubmitContractorBidRequest,
+):
+    """
+    Fulfills Milestone 6.2:
+    Submits a contractor quotation tender with mandatory licensing and on-site verification acknowledgments.
+    """
+    try:
+        bid = repository.submit_contractor_bid(
+            rfq_id=rfq_id,
+            contractor_id=req.contractor_id,
+            contractor_name=req.contractor_name,
+            license_no=req.license_no,
+            contact_email=req.contact_email,
+            overall_bid_amount=req.overall_bid_amount,
+            trade_specialties=req.trade_specialties,
+            line_item_breakdowns=req.line_item_breakdowns,
+            contact_phone=req.contact_phone,
+            years_in_business=req.years_in_business,
+            insurance_policy_no=req.insurance_policy_no,
+            estimated_lead_time_days=req.estimated_lead_time_days,
+            validity_days=req.validity_days,
+            statutory_compliance_acknowledged=req.statutory_compliance_acknowledged,
+            on_site_verification_acknowledged=req.on_site_verification_acknowledged,
+            submission_notes=req.submission_notes,
+        )
+        return bid
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/rfqs/{rfq_id}/compare", response_model=BidComparisonSummary)
+def compare_bids_for_rfq(rfq_id: str):
+    """
+    Fulfills Milestone 6.2:
+    Produces a side-by-side bid comparison report evaluating variance against budget estimates.
+    """
+    try:
+        comparison = repository.evaluate_and_compare_bids(rfq_id)
+        return comparison
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/rfqs/{rfq_id}/award/{bid_id}", response_model=ContractorBid)
+def award_tender_bid(
+    rfq_id: str,
+    bid_id: str,
+):
+    """
+    Fulfills Milestone 6.2:
+    Awards tender contract to the selected contractor and marks other bids rejected.
+    """
+    try:
+        awarded = repository.award_contractor_bid(rfq_id=rfq_id, bid_id=bid_id)
+        return awarded
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
 
 
 

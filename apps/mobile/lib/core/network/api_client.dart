@@ -885,6 +885,98 @@ class ApiClient {
     return get('/commerce/attribution?$qs');
   }
 
+  // ===========================================================================
+  // Milestone 6.2: Contractor Handoff & Tender Bid Management
+  // ===========================================================================
+  static Future<dynamic> generateContractorBrief(
+    String projectId, {
+    String? roomId,
+    String? siteAccessNotes,
+  }) async {
+    final payload = <String, dynamic>{};
+    if (roomId != null) payload['room_id'] = roomId;
+    if (siteAccessNotes != null) payload['site_access_notes'] = siteAccessNotes;
+    return post('/projects/$projectId/contractor-brief', payload);
+  }
+
+  static Future<dynamic> getContractorBrief(String projectId) async {
+    return get('/projects/$projectId/contractor-brief');
+  }
+
+  static Future<dynamic> getContractorBriefById(String briefId) async {
+    return get('/contractor-briefs/$briefId');
+  }
+
+  static Future<String> getContractorBriefPrintableHtml(String briefId) async {
+    final url = Uri.parse('${AppConfig.fullApiUrl}/contractor-briefs/$briefId/printable');
+    final headers = await _buildHeaders();
+    final response = await http.get(url, headers: headers);
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return response.body;
+    }
+    throw Exception('Failed to load printable contractor brief: ${response.statusCode}');
+  }
+
+  static Future<dynamic> verifyChecklistItem(
+    String briefId, {
+    required String checklistId,
+    String verifiedByName = 'Lead Contractor',
+    String? notes,
+  }) async {
+    final payload = <String, dynamic>{
+      'checklist_id': checklistId,
+      'verified_by_name': verifiedByName,
+    };
+    if (notes != null) payload['notes'] = notes;
+    return post('/contractor-briefs/$briefId/verify-item', payload);
+  }
+
+  static Future<dynamic> createContractorRFQ(
+    String projectId, {
+    required String title,
+    required List<String> targetTrades,
+    String? briefId,
+    String? roomId,
+    DateTime? submissionDeadline,
+    List<String>? invitedContractors,
+    String? legalTermsAndConditions,
+  }) async {
+    final payload = <String, dynamic>{
+      'title': title,
+      'target_trades': targetTrades,
+    };
+    if (briefId != null) payload['brief_id'] = briefId;
+    if (roomId != null) payload['room_id'] = roomId;
+    if (submissionDeadline != null) payload['submission_deadline'] = submissionDeadline.toIso8601String();
+    if (invitedContractors != null) payload['invited_contractors'] = invitedContractors;
+    if (legalTermsAndConditions != null) payload['legal_terms_and_conditions'] = legalTermsAndConditions;
+    return post('/projects/$projectId/rfqs', payload);
+  }
+
+  static Future<dynamic> listContractorRFQs(String projectId) async {
+    return get('/projects/$projectId/rfqs');
+  }
+
+  static Future<dynamic> getContractorRFQ(String rfqId) async {
+    return get('/rfqs/$rfqId');
+  }
+
+  static Future<dynamic> submitContractorBid(
+    String rfqId,
+    Map<String, dynamic> bidData,
+  ) async {
+    return post('/rfqs/$rfqId/bids', bidData);
+  }
+
+  static Future<dynamic> compareContractorBids(String rfqId) async {
+    return get('/rfqs/$rfqId/compare');
+  }
+
+  static Future<dynamic> awardContractorBid(String rfqId, String bidId) async {
+    return post('/rfqs/$rfqId/award/$bidId', {});
+  }
+
+
   static dynamic _handleResponse(http.Response response) {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       if (response.body.isEmpty) return null;

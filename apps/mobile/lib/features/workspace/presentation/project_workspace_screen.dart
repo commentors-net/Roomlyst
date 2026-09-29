@@ -5,6 +5,7 @@ import '../../projects/services/project_service.dart';
 import 'client_directory_screen.dart';
 import 'client_presentation_screen.dart';
 import 'project_export_dossier_screen.dart';
+import '../../contractor/presentation/contractor_handoff_screen.dart';
 
 class ProjectWorkspaceScreen extends StatefulWidget {
   final String projectId;
@@ -371,6 +372,21 @@ class _ProjectWorkspaceScreenState extends State<ProjectWorkspaceScreen> {
       appBar: AppBar(
         title: Text(widget.projectName),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.handyman_outlined),
+            tooltip: 'Contractor Handoff & Tender',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ContractorHandoffScreen(
+                    projectId: widget.projectId,
+                    projectName: widget.projectName,
+                  ),
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.picture_as_pdf_outlined),
             tooltip: 'Export Handover Dossier',

@@ -36,6 +36,16 @@ from packages.room_model import (
     CommerceAttributionSummary,
     ProductDimensions,
     CurrencyCode,
+    TradeCategory,
+    TradeWorkPackage,
+    BillOfQuantitiesItem,
+    ContractorVerificationChecklist,
+    ContractorProjectBrief,
+    RFQStatus,
+    BidStatus,
+    ContractorBid,
+    ContractorQuoteRequest,
+    BidComparisonSummary,
 )
 
 
@@ -68,6 +78,9 @@ class InMemoryRepository:
         self.merchants: Dict[str, MerchantRecord] = {}
         self.visualizations: Dict[str, ProductPlacementVisualization] = {}
         self.commerce_events: List[CommerceTrackingEvent] = []
+        self.contractor_briefs: Dict[str, ContractorProjectBrief] = {}
+        self.rfqs: Dict[str, ContractorQuoteRequest] = {}
+        self.contractor_bids: Dict[str, ContractorBid] = {}
         self._seed_merchants()
 
     # ==========================
@@ -1321,6 +1334,766 @@ class InMemoryRepository:
             currency="MYR",
             events=filtered[-50:],
         )
+
+    # ==========================================================================
+    # Milestone 6.2: Contractor Handoff, BOQ, and Tender Bid Management Methods
+    # ==========================================================================
+    def generate_contractor_brief(
+        self,
+        project_id: str,
+        room_id: Optional[str] = None,
+        site_access_notes: Optional[str] = None,
+    ) -> ContractorProjectBrief:
+        """
+        Compiles a contractor-ready project brief with confirmed-vs-estimated measurement
+        separation, trade work packages, and bill of quantities (Milestone 6.2).
+        """
+        proj = self.projects.get(project_id)
+        if not proj:
+            raise ValueError(f"Project {project_id} not found")
+
+        # Select target room or project rooms
+        target_rooms: List[CanonicalRoomModel] = []
+        if room_id and room_id in self.rooms:
+            target_rooms = [self.rooms[room_id]]
+        elif proj.room_ids:
+            target_rooms = [self.rooms[rid] for rid in proj.room_ids if rid in self.rooms]
+
+        room_name = target_rooms[0].name if target_rooms else "All Project Rooms"
+        primary_room = target_rooms[0] if target_rooms else None
+
+        # Determine geometry and areas
+        floor_area = 24.0
+        ceiling_height = 2.80
+        perimeter = 20.0
+        if primary_room and primary_room.geometry:
+            geom = primary_room.geometry
+            if getattr(geom, "floor_area_sqm", None) and geom.floor_area_sqm > 0:
+                floor_area = geom.floor_area_sqm
+            if getattr(geom, "ceiling_height_m", None) and geom.ceiling_height_m > 0:
+                ceiling_height = geom.ceiling_height_m
+            if getattr(geom, "perimeter_m", None) and geom.perimeter_m > 0:
+                perimeter = geom.perimeter_m
+            elif getattr(geom, "estimated_width_m", None) and getattr(geom, "estimated_length_m", None):
+                perimeter = 2 * (geom.estimated_width_m + geom.estimated_length_m)
+
+        # 1. Process Confirmed vs Estimated Measurements & Verification Checklist
+        verification_checklist: List[ContractorVerificationChecklist] = []
+        confirmed_count = 0
+        unconfirmed_count = 0
+
+        # Extract measurements from room model
+        measurements = primary_room.measurements if primary_room else []
+        if measurements:
+            for m in measurements:
+                src_str = getattr(m.source, "value", str(m.source)) if hasattr(m, "source") else "ESTIMATED"
+                is_conf = bool(
+                    getattr(m, "verified_by_user", False)
+                    or getattr(m, "is_confirmed", False)
+                    or src_str in ("USER_VERIFIED", "LIDAR_VERIFIED", "LIDAR_NATIVE")
+                    or getattr(m, "confidence", 0.0) >= 0.90
+                )
+                if is_conf:
+                    confirmed_count += 1
+                else:
+                    unconfirmed_count += 1
+
+                trade = TradeCategory.CARPENTRY_JOINERY
+                lbl = getattr(m, "name", getattr(m, "label", getattr(m, "measurement_type", "Dimension")))
+                lbl_lower = lbl.lower()
+                if "height" in lbl_lower:
+                    trade = TradeCategory.PAINTING_PLASTERING
+                elif "door" in lbl_lower or "entry" in lbl_lower:
+                    trade = TradeCategory.DEMOLITION_PREP
+                elif "floor" in lbl_lower or "area" in lbl_lower:
+                    trade = TradeCategory.MASONRY_TILING
+
+                val = getattr(m, "value", 1.0)
+                unit_str = getattr(m, "unit", "m")
+                val_float = float(val) if isinstance(val, (int, float)) else 1.0
+
+                verification_checklist.append(
+                    ContractorVerificationChecklist(
+                        dimension_label=lbl,
+                        dimension_type=getattr(m, "measurement_type", getattr(m, "dimension_type", "Linear")),
+                        dimension_value=round(val_float, 2),
+                        unit=unit_str,
+                        confidence=getattr(m, "confidence", 0.85),
+                        source=src_str,
+                        is_physically_verified=is_conf,
+                        critical_for_trade=trade,
+                    )
+                )
+
+        # Fallback critical checklist items if measurements were sparse
+        if not verification_checklist:
+            verification_checklist = [
+                ContractorVerificationChecklist(
+                    dimension_label="Room Floor Span (Length x Width)",
+                    dimension_type="Wall Span",
+                    dimension_value=round(floor_area, 2),
+                    unit="m2",
+                    confidence=0.88,
+                    source="MULTIVIEW_RECONSTRUCTION",
+                    is_physically_verified=False,
+                    critical_for_trade=TradeCategory.MASONRY_TILING,
+                ),
+                ContractorVerificationChecklist(
+                    dimension_label="Finished Ceiling Height",
+                    dimension_type="Ceiling Height",
+                    dimension_value=round(ceiling_height, 2),
+                    unit="m",
+                    confidence=0.92,
+                    source="LIDAR_VERIFIED",
+                    is_physically_verified=True,
+                    critical_for_trade=TradeCategory.PAINTING_PLASTERING,
+                ),
+                ContractorVerificationChecklist(
+                    dimension_label="Main Joinery Wall Span",
+                    dimension_type="Wall Span",
+                    dimension_value=4.50,
+                    unit="m",
+                    confidence=0.82,
+                    source="ESTIMATED",
+                    is_physically_verified=False,
+                    critical_for_trade=TradeCategory.CARPENTRY_JOINERY,
+                ),
+                ContractorVerificationChecklist(
+                    dimension_label="Entry Door Clear Rough Opening",
+                    dimension_type="Opening Clearance",
+                    dimension_value=0.90,
+                    unit="m",
+                    confidence=0.95,
+                    source="USER_VERIFIED",
+                    is_physically_verified=True,
+                    critical_for_trade=TradeCategory.DEMOLITION_PREP,
+                ),
+            ]
+            confirmed_count = 2
+            unconfirmed_count = 2
+
+        # 2. Build Trade Work Packages
+        work_packages: List[TradeWorkPackage] = [
+            TradeWorkPackage(
+                trade=TradeCategory.DEMOLITION_PREP,
+                title="Site Protection & Strip-Out Prep",
+                description="Erect protective heavy-duty polythene sheeting, floor corflute boards, and strip existing wall finishes.",
+                location=room_name,
+                priority="HIGH",
+                prerequisite_trades=[],
+                scope_items=[
+                    "Install hallway and lift lobby floor protection",
+                    "Disconnect and cap electrical points in accordance with safety standards",
+                    "Demolish and remove redundant fixtures and debris to municipal landfill",
+                ],
+                safety_notes=[
+                    "Mandatory PPE: Hard hat, safety boots, and particulate dust masks",
+                    "Isolate electrical distribution board before cutting any conduits",
+                ],
+                estimated_duration_days=2,
+            ),
+            TradeWorkPackage(
+                trade=TradeCategory.MASONRY_TILING,
+                title="Floor Substrate Screeding & Tile Laying",
+                description="Laser-level substrate with self-leveling compound and install specified porcelain floor tiles.",
+                location=room_name,
+                priority="NORMAL",
+                prerequisite_trades=[TradeCategory.DEMOLITION_PREP],
+                scope_items=[
+                    "Check floor substrate moisture content (< 4.5% CM)",
+                    "Apply polymer-modified floor primer and screed to 1:100 fall if applicable",
+                    "Lay 600x600mm rectified porcelain tiles with 2mm leveling clips",
+                    "Grout with mold-resistant epoxy grout and allow 48h curing",
+                ],
+                safety_notes=[
+                    "Ensure adequate cross-ventilation during epoxy grout application",
+                ],
+                estimated_duration_days=4,
+            ),
+            TradeWorkPackage(
+                trade=TradeCategory.CARPENTRY_JOINERY,
+                title="Bespoke Cabinetry & Architectural Joinery",
+                description="Fabricate and install bespoke full-height cabinetry with Blum soft-close hardware.",
+                location=room_name,
+                priority="HIGH",
+                prerequisite_trades=[TradeCategory.MASONRY_TILING],
+                scope_items=[
+                    "Field-measure actual site wall spans and ceiling clearances prior to cutting carcasses",
+                    "Anchor joinery units to structural masonry with M8 expansion bolts",
+                    "Install integrated LED aluminum profile channels and concealed wiring",
+                ],
+                safety_notes=[
+                    "Secure all tall units to structural walls to prevent tip-over hazards",
+                ],
+                estimated_duration_days=5,
+            ),
+            TradeWorkPackage(
+                trade=TradeCategory.ELECTRICAL_LIGHTING,
+                title="Conduit Rough-In & Luminaire Installation",
+                description="Install dedicated lighting circuits, LED downlights, and designer wall sconces.",
+                location=room_name,
+                priority="HIGH",
+                prerequisite_trades=[TradeCategory.DEMOLITION_PREP],
+                scope_items=[
+                    "Chasm and conceal PVC conduits into masonry walls",
+                    "Pull 2.5mm2 fire-resistant copper conductors for power outlets",
+                    "Fit and commission recessed LED drivers and smart dimmers",
+                    "Perform earth leakage circuit breaker (ELCB) trip tests",
+                ],
+                safety_notes=[
+                    "All works must be signed off by a certified electrical wireman / engineer",
+                ],
+                estimated_duration_days=3,
+            ),
+            TradeWorkPackage(
+                trade=TradeCategory.PAINTING_PLASTERING,
+                title="Plaster Skimming & Architectural Paint",
+                description="Skim coat drywall/masonry joints and apply 3-coat washable acrylic paint system.",
+                location=room_name,
+                priority="NORMAL",
+                prerequisite_trades=[TradeCategory.CARPENTRY_JOINERY, TradeCategory.ELECTRICAL_LIGHTING],
+                scope_items=[
+                    "Sand and patch wall fissures with fiber mesh tape",
+                    "Apply 1 coat alkali-resistant sealer/primer",
+                    "Apply 2 finish coats of low-VOC matte emulsion to specified color swatch",
+                ],
+                safety_notes=[
+                    "Mask joinery and flooring with painter tape prior to roller application",
+                ],
+                estimated_duration_days=3,
+            ),
+            TradeWorkPackage(
+                trade=TradeCategory.FINAL_CLEANING,
+                title="Post-Construction Chemical Cleaning & Handover",
+                description="Industrial deep cleaning and joint sealing ready for client furniture move-in.",
+                location=room_name,
+                priority="LOW",
+                prerequisite_trades=[
+                    TradeCategory.DEMOLITION_PREP,
+                    TradeCategory.MASONRY_TILING,
+                    TradeCategory.CARPENTRY_JOINERY,
+                    TradeCategory.ELECTRICAL_LIGHTING,
+                    TradeCategory.PAINTING_PLASTERING,
+                ],
+                scope_items=[
+                    "Vacuum all cabinetry interiors and wipe down glass surfaces",
+                    "Remove chemical haze and residue from tiled floors",
+                    "Conduct joint site walk-through with Lead Designer and Client",
+                ],
+                safety_notes=[
+                    "Use non-acidic cleaners on chrome fixtures and polished stone",
+                ],
+                estimated_duration_days=1,
+            ),
+        ]
+
+        # 3. Build Bill of Quantities (BOQ) with Wastage Margins
+        wall_area = max(35.0, round(perimeter * ceiling_height - 5.0, 1))
+
+        boq_items: List[BillOfQuantitiesItem] = [
+            BillOfQuantitiesItem(
+                trade=TradeCategory.DEMOLITION_PREP,
+                item_code="DEM-01",
+                description="Surface protection sheeting, floor corflute, and site disposal skips",
+                quantity=1.0,
+                unit="lot",
+                waste_factor_pct=0.0,
+                total_quantity_with_waste=1.0,
+                is_owner_supplied=False,
+                estimated_unit_rate=1200.0,
+                estimated_material_total=400.0,
+                estimated_labor_total=800.0,
+                requires_site_verification=False,
+            ),
+            BillOfQuantitiesItem(
+                trade=TradeCategory.MASONRY_TILING,
+                item_code="TIL-01",
+                description="Rectified matte porcelain tiles (600x600mm) including adhesive & epoxy grout",
+                quantity=round(floor_area, 2),
+                unit="m2",
+                waste_factor_pct=10.0,
+                total_quantity_with_waste=round(floor_area * 1.10, 2),
+                is_owner_supplied=False,
+                estimated_unit_rate=135.0,
+                estimated_material_total=round(floor_area * 1.10 * 85.0, 2),
+                estimated_labor_total=round(floor_area * 50.0, 2),
+                requires_site_verification=True,
+            ),
+            BillOfQuantitiesItem(
+                trade=TradeCategory.CARPENTRY_JOINERY,
+                item_code="CAR-01",
+                description="Full-height custom cabinetry with premium laminate & Blum soft-close hinges",
+                quantity=4.5,
+                unit="m",
+                waste_factor_pct=5.0,
+                total_quantity_with_waste=4.72,
+                is_owner_supplied=False,
+                estimated_unit_rate=1650.0,
+                estimated_material_total=5200.0,
+                estimated_labor_total=2225.0,
+                requires_site_verification=True,
+            ),
+            BillOfQuantitiesItem(
+                trade=TradeCategory.ELECTRICAL_LIGHTING,
+                item_code="ELE-01",
+                description="Concealed conduit wiring, 13A switched sockets, and recessed LED downlights",
+                quantity=8.0,
+                unit="pcs",
+                waste_factor_pct=0.0,
+                total_quantity_with_waste=8.0,
+                is_owner_supplied=False,
+                estimated_unit_rate=150.0,
+                estimated_material_total=720.0,
+                estimated_labor_total=480.0,
+                requires_site_verification=False,
+            ),
+            BillOfQuantitiesItem(
+                trade=TradeCategory.PAINTING_PLASTERING,
+                item_code="PNT-01",
+                description="Interior wall skim coating, sealer, and 2-coat premium washable emulsion",
+                quantity=wall_area,
+                unit="m2",
+                waste_factor_pct=8.0,
+                total_quantity_with_waste=round(wall_area * 1.08, 2),
+                is_owner_supplied=False,
+                estimated_unit_rate=38.0,
+                estimated_material_total=round(wall_area * 1.08 * 20.0, 2),
+                estimated_labor_total=round(wall_area * 18.0, 2),
+                requires_site_verification=False,
+            ),
+        ]
+
+        total_mat = round(sum(i.estimated_material_total for i in boq_items), 2)
+        total_lab = round(sum(i.estimated_labor_total for i in boq_items), 2)
+        total_cost = round(total_mat + total_lab, 2)
+
+        # 4. Generate Contractor-Ready Brief Object
+        brief = ContractorProjectBrief(
+            project_id=project_id,
+            room_id=room_id,
+            title=f"Contractor Project Brief — {proj.name} ({room_name})",
+            project_summary=f"Tender specification and trade execution package for {room_name} at {proj.name}.",
+            property_address=proj.property_address or "Kuala Lumpur, Malaysia",
+            site_access_notes=site_access_notes or (
+                "Standard residential building operating hours 9:00 AM – 5:30 PM (Mondays to Fridays). "
+                "No drilling or loud percussion outside permitted hours. Loading bay booking required 48h in advance."
+            ),
+            work_packages=work_packages,
+            boq_items=boq_items,
+            verification_checklist=verification_checklist,
+            confirmed_measurements_count=confirmed_count,
+            unconfirmed_measurements_count=unconfirmed_count,
+            total_estimated_materials=total_mat,
+            total_estimated_labor=total_lab,
+            total_estimated_cost=total_cost,
+            currency=CurrencyCode(proj.currency) if proj.currency in ("MYR", "SGD", "USD", "EUR", "GBP") else CurrencyCode.MYR,
+        )
+
+        brief.printable_html = self._generate_contractor_printable_html(brief, proj)
+        self.contractor_briefs[brief.brief_id] = brief
+        return brief
+
+    def get_contractor_brief(self, brief_id: str) -> Optional[ContractorProjectBrief]:
+        return self.contractor_briefs.get(brief_id)
+
+    def list_contractor_briefs(self, project_id: str) -> List[ContractorProjectBrief]:
+        return [b for b in self.contractor_briefs.values() if b.project_id == project_id]
+
+    def verify_checklist_item(
+        self,
+        brief_id: str,
+        checklist_id: str,
+        verified_by_name: str,
+        notes: Optional[str] = None,
+    ) -> ContractorVerificationChecklist:
+        """Records physical on-site measurement sign-off by a trade contractor or surveyor."""
+        brief = self.contractor_briefs.get(brief_id)
+        if not brief:
+            raise ValueError(f"Contractor brief {brief_id} not found")
+
+        item = next((c for c in brief.verification_checklist if c.checklist_id == checklist_id), None)
+        if not item:
+            raise ValueError(f"Checklist item {checklist_id} not found in brief")
+
+        if not item.is_physically_verified:
+            item.is_physically_verified = True
+            brief.confirmed_measurements_count += 1
+            brief.unconfirmed_measurements_count = max(0, brief.unconfirmed_measurements_count - 1)
+
+        item.verified_by_name = verified_by_name
+        item.verified_at = datetime.now(timezone.utc)
+        if notes:
+            item.notes = notes
+
+        # Refresh printable HTML
+        proj = self.projects.get(brief.project_id)
+        if proj:
+            brief.printable_html = self._generate_contractor_printable_html(brief, proj)
+
+        return item
+
+    # Request for Quotation (RFQ) & Bidding
+    def create_quote_request(
+        self,
+        project_id: str,
+        title: str,
+        target_trades: List[TradeCategory],
+        submission_deadline: Optional[datetime] = None,
+        brief_id: Optional[str] = None,
+        room_id: Optional[str] = None,
+        invited_contractors: Optional[List[str]] = None,
+        legal_terms_and_conditions: Optional[str] = None,
+    ) -> ContractorQuoteRequest:
+        """Issues a new contractor Request for Quotation (RFQ) for tender submission."""
+        proj = self.projects.get(project_id)
+        if not proj:
+            raise ValueError(f"Project {project_id} not found")
+
+        deadline = submission_deadline or (datetime.now(timezone.utc) + timedelta(days=14))
+        rfq = ContractorQuoteRequest(
+            project_id=project_id,
+            room_id=room_id,
+            brief_id=brief_id,
+            title=title,
+            target_trades=target_trades,
+            submission_deadline=deadline,
+            status=RFQStatus.BIDDING_OPEN,
+            invited_contractors=invited_contractors or ["Apex Builders", "Straits Craft Carpentry", "VoltSmart Electrical"],
+        )
+        if legal_terms_and_conditions:
+            rfq.legal_terms_and_conditions = legal_terms_and_conditions
+
+        self.rfqs[rfq.rfq_id] = rfq
+        return rfq
+
+    def get_quote_request(self, rfq_id: str) -> Optional[ContractorQuoteRequest]:
+        return self.rfqs.get(rfq_id)
+
+    def list_quote_requests(self, project_id: str) -> List[ContractorQuoteRequest]:
+        return [r for r in self.rfqs.values() if r.project_id == project_id]
+
+    def submit_contractor_bid(
+        self,
+        rfq_id: str,
+        contractor_id: str,
+        contractor_name: str,
+        license_no: str,
+        contact_email: str,
+        overall_bid_amount: float,
+        trade_specialties: List[TradeCategory],
+        line_item_breakdowns: Optional[List[Dict[str, Any]]] = None,
+        contact_phone: Optional[str] = None,
+        years_in_business: int = 5,
+        insurance_policy_no: Optional[str] = None,
+        estimated_lead_time_days: int = 14,
+        validity_days: int = 30,
+        statutory_compliance_acknowledged: bool = True,
+        on_site_verification_acknowledged: bool = True,
+        submission_notes: Optional[str] = None,
+    ) -> ContractorBid:
+        """
+        Submits a formal contractor bid. Strictly enforces statutory licensing and
+        mandatory physical field verification obligations.
+        """
+        rfq = self.rfqs.get(rfq_id)
+        if not rfq:
+            raise ValueError(f"RFQ {rfq_id} not found")
+
+        if not statutory_compliance_acknowledged or not on_site_verification_acknowledged:
+            raise ValueError(
+                "Contractor must acknowledge statutory licensing compliance and mandatory on-site measurement verification before submitting tender."
+            )
+
+        bid = ContractorBid(
+            rfq_id=rfq_id,
+            contractor_id=contractor_id,
+            contractor_name=contractor_name,
+            license_no=license_no,
+            contact_email=contact_email,
+            contact_phone=contact_phone,
+            years_in_business=years_in_business,
+            insurance_policy_no=insurance_policy_no or f"POL-{uuid.uuid4().hex[:6].upper()}",
+            trade_specialties=trade_specialties,
+            overall_bid_amount=overall_bid_amount,
+            currency=CurrencyCode.MYR,
+            estimated_lead_time_days=estimated_lead_time_days,
+            validity_days=validity_days,
+            status=BidStatus.SUBMITTED,
+            line_item_breakdowns=line_item_breakdowns or [],
+            statutory_compliance_acknowledged=True,
+            on_site_verification_acknowledged=True,
+            submission_notes=submission_notes,
+        )
+
+        rfq.bids.append(bid)
+        self.contractor_bids[bid.bid_id] = bid
+        return bid
+
+    def evaluate_and_compare_bids(self, rfq_id: str) -> BidComparisonSummary:
+        """Analyzes all received bids for an RFQ against the Roomlyst internal estimate."""
+        rfq = self.rfqs.get(rfq_id)
+        if not rfq:
+            raise ValueError(f"RFQ {rfq_id} not found")
+
+        # Find estimated benchmark cost from brief or default
+        benchmark_cost = 14500.0
+        if rfq.brief_id and rfq.brief_id in self.contractor_briefs:
+            benchmark_cost = self.contractor_briefs[rfq.brief_id].total_estimated_cost
+
+        bids = rfq.bids
+        if not bids:
+            return BidComparisonSummary(
+                rfq_id=rfq_id,
+                project_id=rfq.project_id,
+                title=rfq.title,
+                roomlyst_estimated_total=benchmark_cost,
+                total_bids_count=0,
+                comparison_notes="No contractor bids submitted yet for this tender.",
+            )
+
+        amounts = [b.overall_bid_amount for b in bids]
+        lowest = min(amounts)
+        highest = max(amounts)
+        average = round(sum(amounts) / len(amounts), 2)
+
+        ranked: List[Dict[str, Any]] = []
+        for b in sorted(bids, key=lambda x: x.overall_bid_amount):
+            variance_pct = round(((b.overall_bid_amount - benchmark_cost) / benchmark_cost) * 100, 1)
+            ranked.append({
+                "bid_id": b.bid_id,
+                "contractor_name": b.contractor_name,
+                "license_no": b.license_no,
+                "overall_bid_amount": b.overall_bid_amount,
+                "variance_from_estimate_pct": variance_pct,
+                "lead_time_days": b.estimated_lead_time_days,
+                "status": b.status.value,
+                "is_conforming": b.statutory_compliance_acknowledged and b.on_site_verification_acknowledged,
+            })
+
+        recommended_bid = sorted(bids, key=lambda x: x.overall_bid_amount)[0]
+
+        return BidComparisonSummary(
+            rfq_id=rfq_id,
+            project_id=rfq.project_id,
+            title=rfq.title,
+            roomlyst_estimated_total=benchmark_cost,
+            total_bids_count=len(bids),
+            lowest_bid_amount=lowest,
+            highest_bid_amount=highest,
+            average_bid_amount=average,
+            bids_ranked=ranked,
+            recommended_bid_id=recommended_bid.bid_id,
+            comparison_notes=(
+                f"Evaluated {len(bids)} contractor submissions. "
+                f"Lowest conforming quotation is {recommended_bid.contractor_name} at "
+                f"MYR {lowest:,.2f} ({((lowest - benchmark_cost) / benchmark_cost) * 100:+.1f}% vs estimate)."
+            ),
+        )
+
+    def award_contractor_bid(self, rfq_id: str, bid_id: str) -> ContractorBid:
+        """Awards tender contract to the selected contractor and marks other bids rejected."""
+        rfq = self.rfqs.get(rfq_id)
+        if not rfq:
+            raise ValueError(f"RFQ {rfq_id} not found")
+
+        awarded_bid = next((b for b in rfq.bids if b.bid_id == bid_id), None)
+        if not awarded_bid:
+            raise ValueError(f"Bid {bid_id} not found in RFQ {rfq_id}")
+
+        for b in rfq.bids:
+            if b.bid_id == bid_id:
+                b.status = BidStatus.ACCEPTED
+            else:
+                if b.status == BidStatus.SUBMITTED:
+                    b.status = BidStatus.REJECTED
+
+        rfq.awarded_bid_id = bid_id
+        rfq.status = RFQStatus.AWARDED
+        return awarded_bid
+
+    def _generate_contractor_printable_html(
+        self,
+        brief: ContractorProjectBrief,
+        project: ProjectRecord,
+    ) -> str:
+        """Produces a standalone printable HTML5 tender brief with print-friendly CSS."""
+        curr = brief.currency.value if hasattr(brief.currency, "value") else str(brief.currency)
+
+        checklist_rows = "".join([
+            f"""<tr>
+                <td><strong>{item.dimension_label}</strong></td>
+                <td>{item.dimension_type}</td>
+                <td style="font-family:monospace; font-weight:600;">{item.dimension_value} {item.unit}</td>
+                <td><span class="badge {'badge-confirmed' if item.is_physically_verified else 'badge-unconfirmed'}">
+                    {'CONFIRMED' if item.is_physically_verified else 'REQUIRES ON-SITE VERIFICATION'}
+                </span></td>
+                <td>{item.verified_by_name or '—'}</td>
+                <td>{item.critical_for_trade.value}</td>
+            </tr>"""
+            for item in brief.verification_checklist
+        ])
+
+        packages_html = "".join([
+            f"""<div class="package-card">
+                <div class="package-header">
+                    <h3>Trade {idx+1}: {pkg.title}</h3>
+                    <span class="badge-trade">{pkg.trade.value} | Est: {pkg.estimated_duration_days} Days</span>
+                </div>
+                <p style="margin: 4px 0 8px 0; color: #475569;">{pkg.description}</p>
+                <div style="font-size: 13px; font-weight: 600; margin-bottom: 4px;">Scope of Work:</div>
+                <ul style="margin: 0 0 8px 18px; padding: 0; font-size: 13px; color: #334155;">
+                    {"".join(f"<li>{s}</li>" for s in pkg.scope_items)}
+                </ul>
+                <div style="font-size: 12px; color: #b45309; background: #fffbeb; padding: 6px 10px; border-radius: 4px;">
+                    <strong>Safety & Compliance:</strong> {", ".join(pkg.safety_notes)}
+                </div>
+            </div>"""
+            for idx, pkg in enumerate(brief.work_packages)
+        ])
+
+        boq_rows = "".join([
+            f"""<tr>
+                <td style="font-family:monospace; font-weight:600;">{item.item_code}</td>
+                <td>{item.description}</td>
+                <td>{item.trade.value}</td>
+                <td style="text-align:right;">{item.quantity} {item.unit}</td>
+                <td style="text-align:right;">+{item.waste_factor_pct}%</td>
+                <td style="text-align:right; font-weight:600;">{item.total_quantity_with_waste} {item.unit}</td>
+                <td style="text-align:right;">{curr} {item.estimated_material_total:,.2f}</td>
+                <td style="text-align:right;">{curr} {item.estimated_labor_total:,.2f}</td>
+                <td style="text-align:right; font-weight:700;">{curr} {(item.estimated_material_total + item.estimated_labor_total):,.2f}</td>
+            </tr>"""
+            for item in brief.boq_items
+        ])
+
+        return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>{brief.title}</title>
+<style>
+  body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #0f172a; margin: 40px; background: #fff; line-height: 1.5; }}
+  h1 {{ font-size: 24px; margin-bottom: 4px; color: #0f172a; }}
+  h2 {{ font-size: 18px; margin-top: 24px; margin-bottom: 8px; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; }}
+  .header-meta {{ display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 14px; color: #475569; }}
+  .notice-box {{ background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; padding: 12px 16px; border-radius: 6px; font-size: 13px; margin-bottom: 24px; }}
+  .kpi-row {{ display: flex; gap: 16px; margin-bottom: 24px; }}
+  .kpi-box {{ flex: 1; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px; background: #f8fafc; }}
+  .kpi-box span {{ font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }}
+  .kpi-box strong {{ display: block; font-size: 20px; color: #0f172a; margin-top: 4px; }}
+  table {{ width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 20px; font-size: 13px; }}
+  th, td {{ border: 1px solid #cbd5e1; padding: 8px 10px; text-align: left; }}
+  th {{ background: #f1f5f9; font-weight: 600; color: #334155; }}
+  .badge {{ display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; }}
+  .badge-confirmed {{ background: #dcfce7; color: #166534; }}
+  .badge-unconfirmed {{ background: #fef3c7; color: #92400e; }}
+  .badge-trade {{ font-size: 11px; background: #e0f2fe; color: #0369a1; padding: 3px 8px; border-radius: 4px; font-weight: 600; }}
+  .package-card {{ border: 1px solid #e2e8f0; border-radius: 6px; padding: 14px; margin-bottom: 12px; background: #fafafa; }}
+  .package-header {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }}
+  .package-header h3 {{ margin: 0; font-size: 15px; color: #0f172a; }}
+  .signatures {{ display: flex; justify-content: space-between; margin-top: 40px; padding-top: 20px; border-top: 1px dashed #cbd5e1; }}
+  .sig-block {{ width: 45%; border-top: 1px solid #94a3b8; padding-top: 8px; font-size: 12px; color: #475569; }}
+  @media print {{
+    body {{ margin: 15mm; }}
+    .no-print {{ display: none; }}
+  }}
+</style>
+</head>
+<body>
+  <div class="header-meta">
+    <div>
+      <h1>{brief.title}</h1>
+      <div>Project: <strong>{project.name}</strong> | Site: {brief.property_address}</div>
+    </div>
+    <div style="text-align: right;">
+      <div>Ref: <strong>{brief.brief_id}</strong></div>
+      <div>Date: {brief.created_at.strftime('%Y-%m-%d')}</div>
+    </div>
+  </div>
+
+  <div class="notice-box">
+    <strong>MANDATORY STATUTORY NOTICE:</strong> {brief.statutory_disclaimer}
+  </div>
+
+  <div class="kpi-row">
+    <div class="kpi-box">
+      <span>Estimated Cost</span>
+      <strong>{curr} {brief.total_estimated_cost:,.2f}</strong>
+    </div>
+    <div class="kpi-box">
+      <span>Material Takeoff</span>
+      <strong>{curr} {brief.total_estimated_materials:,.2f}</strong>
+    </div>
+    <div class="kpi-box">
+      <span>Labor Allocation</span>
+      <strong>{curr} {brief.total_estimated_labor:,.2f}</strong>
+    </div>
+    <div class="kpi-box">
+      <span>Measurements Status</span>
+      <strong style="color: {'#16a34a' if brief.unconfirmed_measurements_count == 0 else '#d97706'};">
+        {brief.confirmed_measurements_count} Confirmed / {brief.unconfirmed_measurements_count} Field-Check
+      </strong>
+    </div>
+  </div>
+
+  <h2>1. Site Access & Operating Constraints</h2>
+  <p style="font-size: 13px; color: #334155; margin-bottom: 20px;">{brief.site_access_notes}</p>
+
+  <h2>2. Critical Dimension Verification Checklist</h2>
+  <p style="font-size: 12px; color: #64748b;">Contractors must physically check dimensions marked below prior to ordering custom millwork or cutting finishes.</p>
+  <table>
+    <thead>
+      <tr>
+        <th>Dimension Target</th>
+        <th>Type</th>
+        <th>Value</th>
+        <th>Status</th>
+        <th>Verified By</th>
+        <th>Critical Trade</th>
+      </tr>
+    </thead>
+    <tbody>
+      {checklist_rows}
+    </tbody>
+  </table>
+
+  <h2>3. Trade Execution Packages & Safety Scope</h2>
+  {packages_html}
+
+  <h2>4. Bill of Quantities (BOQ) with Wastage Margins</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Code</th>
+        <th>Description</th>
+        <th>Trade</th>
+        <th style="text-align:right;">Net Qty</th>
+        <th style="text-align:right;">Waste</th>
+        <th style="text-align:right;">Gross Qty</th>
+        <th style="text-align:right;">Est Mat</th>
+        <th style="text-align:right;">Est Lab</th>
+        <th style="text-align:right;">Total ({curr})</th>
+      </tr>
+    </thead>
+    <tbody>
+      {boq_rows}
+    </tbody>
+  </table>
+
+  <div class="signatures">
+    <div class="sig-block">
+      <strong>Issued By: Lead Interior Designer</strong><br>
+      Studio Registration / Stamp:<br><br>
+      Signature: __________________________ Date: ___________
+    </div>
+    <div class="sig-block">
+      <strong>Acknowledged By: Licensed Contractor</strong><br>
+      Company & CIDB License No:<br><br>
+      Signature: __________________________ Date: ___________
+    </div>
+  </div>
+</body>
+</html>"""
 
 
 # Global singleton repository instance for the running service

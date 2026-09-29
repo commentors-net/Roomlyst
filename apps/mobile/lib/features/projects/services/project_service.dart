@@ -1021,6 +1021,106 @@ class ProjectService {
     );
     return CommerceAttributionSummaryModel.fromMap(res as Map<String, dynamic>);
   }
+
+  // ===========================================================================
+  // Milestone 6.2: Contractor Handoff & Tender Bid Management
+  // ===========================================================================
+  static Future<ContractorProjectBriefModel> generateContractorBrief(
+    String projectId, {
+    String? roomId,
+    String? siteAccessNotes,
+  }) async {
+    final res = await ApiClient.generateContractorBrief(
+      projectId,
+      roomId: roomId,
+      siteAccessNotes: siteAccessNotes,
+    );
+    return ContractorProjectBriefModel.fromMap(res as Map<String, dynamic>);
+  }
+
+  static Future<ContractorProjectBriefModel> fetchContractorBrief(String projectId) async {
+    final res = await ApiClient.getContractorBrief(projectId);
+    return ContractorProjectBriefModel.fromMap(res as Map<String, dynamic>);
+  }
+
+  static Future<ContractorProjectBriefModel> fetchContractorBriefById(String briefId) async {
+    final res = await ApiClient.getContractorBriefById(briefId);
+    return ContractorProjectBriefModel.fromMap(res as Map<String, dynamic>);
+  }
+
+  static Future<String> fetchContractorBriefPrintableHtml(String briefId) async {
+    return ApiClient.getContractorBriefPrintableHtml(briefId);
+  }
+
+  static Future<ContractorVerificationChecklistModel> verifyChecklistItem(
+    String briefId, {
+    required String checklistId,
+    String verifiedByName = 'Lead Contractor',
+    String? notes,
+  }) async {
+    final res = await ApiClient.verifyChecklistItem(
+      briefId,
+      checklistId: checklistId,
+      verifiedByName: verifiedByName,
+      notes: notes,
+    );
+    return ContractorVerificationChecklistModel.fromMap(res as Map<String, dynamic>);
+  }
+
+  static Future<ContractorQuoteRequestModel> createContractorRFQ(
+    String projectId, {
+    required String title,
+    required List<String> targetTrades,
+    String? briefId,
+    String? roomId,
+    DateTime? submissionDeadline,
+    List<String>? invitedContractors,
+    String? legalTermsAndConditions,
+  }) async {
+    final res = await ApiClient.createContractorRFQ(
+      projectId,
+      title: title,
+      targetTrades: targetTrades,
+      briefId: briefId,
+      roomId: roomId,
+      submissionDeadline: submissionDeadline,
+      invitedContractors: invitedContractors,
+      legalTermsAndConditions: legalTermsAndConditions,
+    );
+    return ContractorQuoteRequestModel.fromMap(res as Map<String, dynamic>);
+  }
+
+  static Future<List<ContractorQuoteRequestModel>> fetchContractorRFQs(String projectId) async {
+    final res = await ApiClient.listContractorRFQs(projectId);
+    if (res is List) {
+      return res.map((e) => ContractorQuoteRequestModel.fromMap(e as Map<String, dynamic>)).toList();
+    }
+    return [];
+  }
+
+  static Future<ContractorQuoteRequestModel> fetchContractorRFQById(String rfqId) async {
+    final res = await ApiClient.getContractorRFQ(rfqId);
+    return ContractorQuoteRequestModel.fromMap(res as Map<String, dynamic>);
+  }
+
+  static Future<ContractorBidModel> submitContractorBid(
+    String rfqId,
+    Map<String, dynamic> bidData,
+  ) async {
+    final res = await ApiClient.submitContractorBid(rfqId, bidData);
+    return ContractorBidModel.fromMap(res as Map<String, dynamic>);
+  }
+
+  static Future<BidComparisonSummaryModel> compareContractorBids(String rfqId) async {
+    final res = await ApiClient.compareContractorBids(rfqId);
+    return BidComparisonSummaryModel.fromMap(res as Map<String, dynamic>);
+  }
+
+  static Future<ContractorBidModel> awardContractorBid(String rfqId, String bidId) async {
+    final res = await ApiClient.awardContractorBid(rfqId, bidId);
+    return ContractorBidModel.fromMap(res as Map<String, dynamic>);
+  }
 }
+
 
 
