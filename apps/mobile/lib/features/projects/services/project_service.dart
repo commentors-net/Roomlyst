@@ -826,6 +826,201 @@ class ProjectService {
   static Future<String> getBrandedReportHtml(String projectId) async {
     return ApiClient.getBrandedReportHtml(projectId);
   }
+
+  // ============================================================================
+  // Milestone 6.1: Furniture Seller Capabilities & In-Room Placement
+  // ============================================================================
+
+  static Future<MerchantModel> createMerchant({
+    required String businessName,
+    required String storeSlug,
+    required String contactEmail,
+    String? phone,
+    String? website,
+    String? logoUrl,
+    String country = 'MY',
+    List<String> supportedCurrencies = const ['MYR', 'SGD', 'USD'],
+    double commissionRatePct = 8.5,
+  }) async {
+    final payload = <String, dynamic>{
+      'business_name': businessName,
+      'store_slug': storeSlug,
+      'contact_email': contactEmail,
+      'country': country,
+      'supported_currencies': supportedCurrencies,
+      'commission_rate_pct': commissionRatePct,
+    };
+    if (phone != null) payload['phone'] = phone;
+    if (website != null) payload['website'] = website;
+    if (logoUrl != null) payload['logo_url'] = logoUrl;
+
+    final res = await ApiClient.createMerchant(payload);
+    return MerchantModel.fromMap(res as Map<String, dynamic>);
+  }
+
+  static Future<List<MerchantModel>> fetchMerchants({String? country}) async {
+    final res = await ApiClient.getMerchants(country: country);
+    if (res is List) {
+      return res.map((e) => MerchantModel.fromMap(e as Map<String, dynamic>)).toList();
+    }
+    return [];
+  }
+
+  static Future<MerchantModel> fetchMerchantDetails(String merchantId) async {
+    final res = await ApiClient.getMerchantDetails(merchantId);
+    return MerchantModel.fromMap(res as Map<String, dynamic>);
+  }
+
+  static Future<MerchantModel> updateMerchant(
+    String merchantId,
+    Map<String, dynamic> updates,
+  ) async {
+    final res = await ApiClient.updateMerchant(merchantId, updates);
+    return MerchantModel.fromMap(res as Map<String, dynamic>);
+  }
+
+  static Future<CatalogProductModel> onboardMerchantProduct({
+    required String merchantId,
+    required String name,
+    required String category,
+    required ProductDimensionsModel dimensions,
+    required double price,
+    String currency = 'USD',
+    String? productUrl,
+    String? imageUrl,
+    String? model3dUrl,
+    String? brand,
+    String? sku,
+    List<String> styleTags = const [],
+    List<String> materialTags = const [],
+    List<String> colorOptions = const [],
+    String? description,
+    String availability = 'IN_STOCK',
+    int leadTimeDays = 7,
+  }) async {
+    final payload = <String, dynamic>{
+      'name': name,
+      'category': category,
+      'dimensions': dimensions.toMap(),
+      'price': price,
+      'currency': currency,
+      'style_tags': styleTags,
+      'material_tags': materialTags,
+      'color_options': colorOptions,
+      'availability': availability,
+      'lead_time_days': leadTimeDays,
+    };
+    if (productUrl != null) payload['product_url'] = productUrl;
+    if (imageUrl != null) payload['image_url'] = imageUrl;
+    if (model3dUrl != null) payload['model_3d_url'] = model3dUrl;
+    if (brand != null) payload['brand'] = brand;
+    if (sku != null) payload['sku'] = sku;
+    if (description != null) payload['description'] = description;
+
+    final res = await ApiClient.onboardMerchantProduct(merchantId, payload);
+    return CatalogProductModel.fromMap(res as Map<String, dynamic>);
+  }
+
+  static Future<List<CatalogProductModel>> fetchMerchantProducts(String merchantId) async {
+    final res = await ApiClient.getMerchantProducts(merchantId);
+    if (res is List) {
+      return res.map((e) => CatalogProductModel.fromMap(e as Map<String, dynamic>)).toList();
+    }
+    return [];
+  }
+
+  static Future<SellerFitVerificationModel> verifySellerProductFit({
+    required String productId,
+    required String roomId,
+    String? targetElementId,
+  }) async {
+    final res = await ApiClient.checkProductFit(
+      productId: productId,
+      roomId: roomId,
+      targetElementId: targetElementId,
+    );
+    return SellerFitVerificationModel.fromMap(res as Map<String, dynamic>);
+  }
+
+  static Future<ProductPlacementModel> addProductPlacement({
+    required String roomId,
+    required String productId,
+    double positionX = 0.5,
+    double positionY = 0.5,
+    double positionZ = 0.0,
+    double rotationDeg = 0.0,
+    double scaleFactor = 1.0,
+    ProductDimensionsModel? boundingBox,
+    String? overlayImageUrl,
+    String? model3dUrl,
+    bool isLocked = false,
+  }) async {
+    final payload = <String, dynamic>{
+      'product_id': productId,
+      'position_x': positionX,
+      'position_y': positionY,
+      'position_z': positionZ,
+      'rotation_deg': rotationDeg,
+      'scale_factor': scaleFactor,
+      'is_locked': isLocked,
+    };
+    if (boundingBox != null) {
+      payload['bounding_box'] = boundingBox.toMap();
+    }
+    if (overlayImageUrl != null) payload['overlay_image_url'] = overlayImageUrl;
+    if (model3dUrl != null) payload['model_3d_url'] = model3dUrl;
+
+    final res = await ApiClient.addProductPlacement(roomId, payload);
+    return ProductPlacementModel.fromMap(res as Map<String, dynamic>);
+  }
+
+  static Future<List<ProductPlacementModel>> fetchRoomPlacements(String roomId) async {
+    final res = await ApiClient.getProductPlacements(roomId);
+    if (res is List) {
+      return res.map((e) => ProductPlacementModel.fromMap(e as Map<String, dynamic>)).toList();
+    }
+    return [];
+  }
+
+  static Future<void> deleteProductPlacement(String roomId, String placementId) async {
+    await ApiClient.deleteProductPlacement(roomId, placementId);
+  }
+
+  static Future<CommerceTrackingEventModel> trackCommerceClick({
+    required String productId,
+    required String productName,
+    required String retailerUrl,
+    String? merchantId,
+    String? projectId,
+    String? designerId,
+    String? clientId,
+    String eventType = 'CLICK_OUT',
+  }) async {
+    final payload = <String, dynamic>{
+      'product_id': productId,
+      'product_name': productName,
+      'retailer_url': retailerUrl,
+      'event_type': eventType,
+    };
+    if (merchantId != null) payload['merchant_id'] = merchantId;
+    if (projectId != null) payload['project_id'] = projectId;
+    if (designerId != null) payload['designer_id'] = designerId;
+    if (clientId != null) payload['client_id'] = clientId;
+
+    final res = await ApiClient.trackCommerceClick(payload);
+    return CommerceTrackingEventModel.fromMap(res as Map<String, dynamic>);
+  }
+
+  static Future<CommerceAttributionSummaryModel> fetchCommerceAttribution({
+    String? projectId,
+    String? merchantId,
+  }) async {
+    final res = await ApiClient.getCommerceAttribution(
+      projectId: projectId,
+      merchantId: merchantId,
+    );
+    return CommerceAttributionSummaryModel.fromMap(res as Map<String, dynamic>);
+  }
 }
 
 

@@ -29,6 +29,7 @@ from packages.room_model.schema import (
     ProductRecommendationReport,
     RenovationTier,
     RoomObject,
+    SellerFitVerification,
 )
 
 
@@ -55,9 +56,13 @@ class ProductRecommendationEngine:
         max_price: Optional[float] = None,
         availability: Optional[ProductAvailability] = None,
         search_query: Optional[str] = None,
+        seller_id: Optional[str] = None,
     ) -> List[CatalogProduct]:
-        """Filters products by category, style, finish tier, price range, and availability."""
+        """Filters products by category, style, finish tier, price range, availability, and seller."""
         results = self._catalog
+
+        if seller_id is not None:
+            results = [p for p in results if getattr(p, "seller_id", None) == seller_id]
 
         if category is not None:
             results = [p for p in results if p.category == category]
@@ -96,6 +101,127 @@ class ProductRecommendationEngine:
             if p.id == product_id or p.sku == product_id:
                 return p
         return None
+
+    def add_product(self, product: CatalogProduct) -> CatalogProduct:
+        """Adds a newly onboarded seller product to the catalog."""
+        self._catalog = [p for p in self._catalog if p.id != product.id]
+        self._catalog.append(product)
+        return product
+
+    def verify_merchant_product_fit(
+        self,
+        product: CatalogProduct,
+        room: CanonicalRoomModel,
+        target_element_id: Optional[str] = None,
+    ) -> SellerFitVerification:
+        """
+        Rigorous merchant product fit verification enforcing Blueprint Section 35:
+        'Never claim an item fits when measurement confidence is too low'.
+        Evaluates doorway/opening pass-through ingress and destination clearance.
+        """
+        room_conf = getattr(room, "overall_confidence", 0.90) or 0.90
+        if room.measurements:
+            meas_confs = [m.confidence for m in room.measurements if hasattr(m, "confidence")]
+            if meas_confs:
+                room_conf = sum(meas_confs) / len(meas_confs)
+
+        ceiling_h = 2.8
+        if room.geometry and room.geometry.ceiling_height_m:
+            ceiling_h = room.geometry.ceiling_height_m
+
+        # Target dimensions
+        target_w = 2.4
+        target_d = 1.0
+        target_h = 1.0
+        if target_element_id:
+            elem = room.get_element_by_id(target_element_id)
+            if elem and isinstance(elem, RoomObject):
+                target_w, target_d, target_h = self._estimate_target_dimensions(elem)
+        elif room.geometry and room.geometry.estimated_width_m and room.geometry.estimated_length_m:
+            target_w = min(room.geometry.estimated_width_m, room.geometry.estimated_length_m)
+            target_d = target_w * 0.45
+
+        fit_status, fit_notes, variance = self.check_spatial_fit(
+            product, target_w, target_d, target_h, ceiling_h
+        )
+
+        # Ingress check: check minimum doorway opening width
+        door_width = 0.85
+        if room.openings:
+            doors = [o for o in room.openings if getattr(o, "opening_type", None) == "door"]
+            if doors and hasattr(doors[0], "width_m") and doors[0].width_m:
+                door_width = doors[0].width_m
+            elif hasattr(room.openings[0], "width_m") and room.openings[0].width_m:
+                door_width = room.openings[0].width_m
+
+        # Minimum dimension required to pass through doorway (orientable in 3D)
+        min_pass_through_dim = min(
+            product.dimensions.width_m,
+            product.dimensions.depth_m,
+            product.dimensions.height_m,
+        )
+        doorway_margin = round(door_width - min_pass_through_dim, 3)
+        doorway_fits = doorway_margin >= 0.0
+
+        dest_clearance = round(max(0.0, target_w - product.dimensions.width_m), 3)
+
+        # Enforce Section 35 strict confidence rule:
+        # If room measurement confidence < 0.85, do not claim fit
+        if room_conf < 0.85:
+            return SellerFitVerification(
+                product_id=product.id,
+                product_name=product.name,
+                room_id=room.id,
+                room_name=room.name,
+                is_fit_claim_permitted=False,
+                fit_status=ProductFitStatus.CLEARANCE_WARNING,
+                fit_confidence=round(room_conf, 2),
+                measurement_confidence=round(room_conf, 2),
+                requires_field_measurement=True,
+                doorway_ingress_check=doorway_fits,
+                doorway_clearance_margin_m=doorway_margin,
+                destination_clearance_m=dest_clearance,
+                notes=(
+                    f"Unconfirmed Fit: Room measurement confidence ({room_conf:.0%}) is below the required 85% threshold. "
+                    f"Physical field measurement is required before purchasing or custom fabrication."
+                ),
+            )
+
+        if not doorway_fits:
+            return SellerFitVerification(
+                product_id=product.id,
+                product_name=product.name,
+                room_id=room.id,
+                room_name=room.name,
+                is_fit_claim_permitted=True,
+                fit_status=ProductFitStatus.OVERSIZED,
+                fit_confidence=round(room_conf, 2),
+                measurement_confidence=round(room_conf, 2),
+                requires_field_measurement=False,
+                doorway_ingress_check=False,
+                doorway_clearance_margin_m=doorway_margin,
+                destination_clearance_m=dest_clearance,
+                notes=(
+                    f"Doorway Ingress Hazard: Smallest item dimension ({min_pass_through_dim:.2f}m) exceeds "
+                    f"detected entrance clearance ({door_width:.2f}m). Delivery disassembly required."
+                ),
+            )
+
+        return SellerFitVerification(
+            product_id=product.id,
+            product_name=product.name,
+            room_id=room.id,
+            room_name=room.name,
+            is_fit_claim_permitted=True,
+            fit_status=fit_status,
+            fit_confidence=round(room_conf, 2),
+            measurement_confidence=round(room_conf, 2),
+            requires_field_measurement=False,
+            doorway_ingress_check=True,
+            doorway_clearance_margin_m=doorway_margin,
+            destination_clearance_m=dest_clearance,
+            notes=f"Fit Verified: {fit_notes}. Doorway clearance margin: +{doorway_margin:.2f}m.",
+        )
 
     def check_spatial_fit(
         self,

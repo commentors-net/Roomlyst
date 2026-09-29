@@ -80,6 +80,11 @@ from packages.room_model import (
     AssumptionScheduleItem,
     RoomSheetSummary,
     ProfessionalExportDossier,
+    MerchantRecord,
+    ProductPlacementVisualization,
+    SellerFitVerification,
+    CommerceTrackingEvent,
+    CommerceAttributionSummary,
 )
 from services.ai_worker.pipelines.generation import LocalRedesignGenerator
 from services.ai_worker.pipelines.room_analyzer import RoomAnalyzer
@@ -2951,6 +2956,387 @@ def get_printable_branded_report(
         return HTMLResponse(content=dossier.printable_html or "<h1>No report content</h1>")
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+# =====================================================================
+# Milestone 6.1: Furniture Seller Capabilities & In-Room Placement
+# =====================================================================
+
+class CreateMerchantRequest(BaseModel):
+    business_name: str
+    store_slug: str
+    contact_email: Optional[str] = None
+    email: Optional[str] = None
+    contact_phone: Optional[str] = None
+    phone: Optional[str] = None
+    website: Optional[str] = None
+    logo_url: Optional[str] = None
+    country: str = "US"
+    supported_currencies: List[str] = Field(default_factory=lambda: ["USD"])
+    commission_rate_pct: float = 8.0
+    is_verified: bool = False
+
+
+class UpdateMerchantRequest(BaseModel):
+    business_name: Optional[str] = None
+    contact_email: Optional[str] = None
+    email: Optional[str] = None
+    contact_phone: Optional[str] = None
+    phone: Optional[str] = None
+    website: Optional[str] = None
+    logo_url: Optional[str] = None
+    country: Optional[str] = None
+    supported_currencies: Optional[List[str]] = None
+    commission_rate_pct: Optional[float] = None
+    is_verified: Optional[bool] = None
+
+
+class AddMerchantProductRequest(BaseModel):
+    name: str
+    category: ProductCategory
+    dimensions: ProductDimensions
+    price: float
+    currency: str = "USD"
+    product_url: Optional[str] = None
+    image_url: Optional[str] = None
+    model_3d_url: Optional[str] = None
+    brand: Optional[str] = None
+    sku: Optional[str] = None
+    style_tags: List[str] = Field(default_factory=list)
+    material_tags: List[str] = Field(default_factory=list)
+    color_options: List[str] = Field(default_factory=list)
+    description: Optional[str] = None
+    availability: ProductAvailability = ProductAvailability.IN_STOCK
+    lead_time_days: int = 7
+
+
+class CheckProductFitRequest(BaseModel):
+    room_id: str
+    target_element_id: Optional[str] = None
+
+
+class AddProductPlacementRequest(BaseModel):
+    product_id: str
+    position_x: float = 0.5
+    position_y: float = 0.5
+    position_z: float = 0.0
+    rotation_deg: float = 0.0
+    scale_factor: float = 1.0
+    bounding_box: Optional[ProductDimensions] = None
+    overlay_image_url: Optional[str] = None
+    model_3d_url: Optional[str] = None
+    is_locked: bool = False
+
+
+class TrackCommerceClickRequest(BaseModel):
+    product_id: str
+    product_name: str
+    retailer_url: str
+    merchant_id: Optional[str] = None
+    project_id: Optional[str] = None
+    designer_id: Optional[str] = None
+    client_id: Optional[str] = None
+    event_type: str = "CLICK_OUT"
+
+
+@router.post("/merchants", response_model=MerchantRecord, status_code=status.HTTP_201_CREATED)
+def create_merchant(req: CreateMerchantRequest):
+    """
+    Fulfills Milestone 6.1:
+    Onboards a furniture seller or manufacturer merchant into Roomlyst ecosystem.
+    """
+    existing = repository.get_merchant_by_slug(req.store_slug)
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Store slug '{req.store_slug}' is already registered."
+        )
+
+    cur_list: List[CurrencyCode] = []
+    for c in req.supported_currencies:
+        try:
+            cur_list.append(CurrencyCode(c.upper()))
+        except ValueError:
+            pass
+    if not cur_list:
+        cur_list = [CurrencyCode.USD]
+
+    c_email = req.contact_email or req.email or "partner@roomlyst.com"
+    c_phone = req.contact_phone or req.phone
+
+    merchant = MerchantRecord(
+        business_name=req.business_name,
+        store_slug=req.store_slug,
+        contact_email=c_email,
+        contact_phone=c_phone,
+        website=req.website,
+        logo_url=req.logo_url,
+        country=req.country,
+        supported_currencies=cur_list,
+        commission_rate_pct=req.commission_rate_pct,
+        is_verified=req.is_verified,
+    )
+    return repository.create_merchant(merchant)
+
+
+@router.get("/merchants", response_model=List[MerchantRecord])
+def list_merchants(country: Optional[str] = None):
+    """
+    Fulfills Milestone 6.1:
+    Lists registered furniture merchants, optionally filtered by country.
+    """
+    return repository.list_merchants(country=country)
+
+
+@router.get("/merchants/{merchant_id}", response_model=MerchantRecord)
+def get_merchant_details(merchant_id: str):
+    """
+    Fulfills Milestone 6.1:
+    Retrieves full merchant record by ID.
+    """
+    merchant = repository.get_merchant(merchant_id)
+    if not merchant:
+        raise HTTPException(status_code=404, detail=f"Merchant '{merchant_id}' not found.")
+    return merchant
+
+
+@router.patch("/merchants/{merchant_id}", response_model=MerchantRecord)
+def update_merchant_details(merchant_id: str, req: UpdateMerchantRequest):
+    """
+    Fulfills Milestone 6.1:
+    Updates merchant profile, currency support, or verification status.
+    """
+    updates = req.model_dump(exclude_unset=True)
+    if "email" in updates and "contact_email" not in updates:
+        updates["contact_email"] = updates.pop("email")
+    if "phone" in updates and "contact_phone" not in updates:
+        updates["contact_phone"] = updates.pop("phone")
+    if "supported_currencies" in updates and updates["supported_currencies"] is not None:
+        valid_curs = []
+        for c in updates["supported_currencies"]:
+            try:
+                valid_curs.append(CurrencyCode(c.upper()))
+            except ValueError:
+                pass
+        updates["supported_currencies"] = valid_curs
+
+    updated = repository.update_merchant(merchant_id, updates)
+    if not updated:
+        raise HTTPException(status_code=404, detail=f"Merchant '{merchant_id}' not found.")
+    return updated
+
+
+@router.post("/merchants/{merchant_id}/products", response_model=CatalogProduct, status_code=status.HTTP_201_CREATED)
+def onboard_merchant_product(merchant_id: str, req: AddMerchantProductRequest):
+    """
+    Fulfills Milestone 6.1:
+    Uploads a seller's product catalogue item, including 3D model (GLB), dimensions, and pricing.
+    """
+    merchant = repository.get_merchant(merchant_id)
+    if not merchant:
+        raise HTTPException(status_code=404, detail=f"Merchant '{merchant_id}' not found.")
+
+    sku = req.sku or f"{merchant.store_slug.upper()}-{uuid.uuid4().hex[:6].upper()}"
+    prod_id = f"prod-{uuid.uuid4().hex[:8]}"
+
+    cur = CurrencyCode.USD
+    try:
+        cur = CurrencyCode(req.currency.upper())
+    except ValueError:
+        pass
+
+    product = CatalogProduct(
+        id=prod_id,
+        sku=sku,
+        name=req.name,
+        category=req.category,
+        brand=req.brand or merchant.business_name,
+        dimensions=req.dimensions,
+        price=req.price,
+        currency=cur,
+        retailer=merchant.business_name,
+        retailer_url=req.product_url or merchant.website or "https://roomlyst.com/shop",
+        image_url=req.image_url,
+        model_3d_url=req.model_3d_url,
+        seller_id=merchant.merchant_id,
+        styles=req.style_tags,
+        materials=req.material_tags,
+        colors=req.color_options,
+        description=req.description,
+        availability=req.availability,
+        lead_time_days=req.lead_time_days,
+    )
+
+    product_recommender.add_product(product)
+
+    # Increment active listing count
+    repository.update_merchant(merchant_id, {"active_listing_count": merchant.active_listing_count + 1})
+
+    return product
+
+
+@router.get("/merchants/{merchant_id}/products", response_model=List[CatalogProduct])
+def list_merchant_products(merchant_id: str):
+    """
+    Fulfills Milestone 6.1:
+    Lists all catalog items registered by a specific merchant.
+    """
+    merchant = repository.get_merchant(merchant_id)
+    if not merchant:
+        raise HTTPException(status_code=404, detail=f"Merchant '{merchant_id}' not found.")
+    return product_recommender.query_catalog(seller_id=merchant_id)
+
+
+@router.post("/catalog/products/{product_id}/check-fit", response_model=SellerFitVerification)
+def verify_seller_product_fit(
+    product_id: str,
+    req: CheckProductFitRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Fulfills Blueprint Section 35 & Milestone 6.1:
+    Strictly verifies physical room clearances and 3D doorway ingress against merchant product dimensions.
+    Enforces that no positive fit claim is made if measurement confidence is below 85%.
+    """
+    product = product_recommender.get_product_by_id(product_id)
+    if not product:
+        raise HTTPException(status_code=404, detail=f"Product '{product_id}' not found.")
+
+    room_model = None
+    db_room = db.query(Room).filter(Room.id == req.room_id).first()
+    if db_room and db_room.room_model_data:
+        room_model = CanonicalRoomModel.model_validate(db_room.room_model_data)
+    elif req.room_id in repository.rooms:
+        room_model = repository.rooms[req.room_id]
+
+    if not room_model:
+        raise HTTPException(status_code=404, detail=f"Room '{req.room_id}' not found.")
+
+    verification = product_recommender.verify_merchant_product_fit(
+        product=product,
+        room=room_model,
+        target_element_id=req.target_element_id,
+    )
+    return verification
+
+
+@router.post("/rooms/{room_id}/visualizations", response_model=ProductPlacementVisualization, status_code=status.HTTP_201_CREATED)
+def add_room_product_placement(
+    room_id: str,
+    req: AddProductPlacementRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Fulfills Milestone 6.1:
+    Places a 3D/2D merchant product into a room design visualization with position, scale, and bounding box.
+    """
+    room_model = None
+    db_room = db.query(Room).filter(Room.id == room_id).first()
+    if db_room and db_room.room_model_data:
+        room_model = CanonicalRoomModel.model_validate(db_room.room_model_data)
+    elif room_id in repository.rooms:
+        room_model = repository.rooms[room_id]
+
+    if not room_model:
+        raise HTTPException(status_code=404, detail=f"Room '{room_id}' not found.")
+
+    product = product_recommender.get_product_by_id(req.product_id)
+    product_name = product.name if product else "Catalog Product"
+    merchant_id = getattr(product, "seller_id", None) if product else None
+    bbox = req.bounding_box or (product.dimensions if product else ProductDimensions(width_m=1.0, depth_m=1.0, height_m=1.0))
+    model_3d = req.model_3d_url or (getattr(product, "model_3d_url", None) if product else None)
+    overlay_img = req.overlay_image_url or (getattr(product, "image_url", None) if product else None)
+
+    placement = repository.add_product_placement(
+        room_id=room_id,
+        product_id=req.product_id,
+        product_name=product_name,
+        bounding_box=bbox,
+        merchant_id=merchant_id,
+        position_x=req.position_x,
+        position_y=req.position_y,
+        position_z=req.position_z,
+        rotation_deg=req.rotation_deg,
+        scale_factor=req.scale_factor,
+        overlay_image_url=overlay_img,
+        model_3d_url=model_3d,
+        is_locked=req.is_locked,
+    )
+
+    if db_room:
+        if not hasattr(room_model, "visualizations") or room_model.visualizations is None:
+            room_model.visualizations = []
+        room_model.visualizations.append(placement)
+        db_room.room_model_data = room_model.model_dump(mode="json")
+        db.commit()
+
+    return placement
+
+
+@router.get("/rooms/{room_id}/visualizations", response_model=List[ProductPlacementVisualization])
+def list_room_product_placements(room_id: str):
+    """
+    Fulfills Milestone 6.1:
+    Lists all placed merchant products in a room concept.
+    """
+    return repository.list_product_placements(room_id)
+
+
+@router.delete("/rooms/{room_id}/visualizations/{placement_id}")
+def delete_room_product_placement(
+    room_id: str,
+    placement_id: str,
+    db: Session = Depends(get_db),
+):
+    """
+    Fulfills Milestone 6.1:
+    Removes a product placement visualization from a room concept.
+    """
+    success = repository.delete_product_placement(placement_id)
+    if not success:
+        raise HTTPException(status_code=404, detail=f"Placement '{placement_id}' not found.")
+
+    db_room = db.query(Room).filter(Room.id == room_id).first()
+    if db_room and db_room.room_model_data:
+        room_model = CanonicalRoomModel.model_validate(db_room.room_model_data)
+        if room_model.visualizations:
+            room_model.visualizations = [p for p in room_model.visualizations if getattr(p, "placement_id", None) != placement_id]
+            db_room.room_model_data = room_model.model_dump(mode="json")
+            db.commit()
+
+    return {"status": "success", "deleted_placement_id": placement_id}
+
+
+@router.post("/commerce/track-click", response_model=CommerceTrackingEvent)
+def track_commerce_outbound_click(req: TrackCommerceClickRequest):
+    """
+    Fulfills Milestone 6.1:
+    Records an outbound referral click or lead event, generating a deep-link with affiliate attribution tokens.
+    """
+    event = repository.track_commerce_click(
+        product_id=req.product_id,
+        product_name=req.product_name,
+        retailer_url=req.retailer_url,
+        project_id=req.project_id,
+        designer_id=req.designer_id,
+        client_id=req.client_id,
+        merchant_id=req.merchant_id,
+        event_type=req.event_type,
+    )
+    return event
+
+
+@router.get("/commerce/attribution", response_model=CommerceAttributionSummary)
+def get_commerce_attribution_report(
+    project_id: Optional[str] = None,
+    merchant_id: Optional[str] = None,
+):
+    """
+    Fulfills Milestone 6.1:
+    Provides analytics on seller clicks, influenced GMV, and lead conversions.
+    """
+    return repository.get_commerce_attribution_summary(project_id=project_id, merchant_id=merchant_id)
+
 
 
 

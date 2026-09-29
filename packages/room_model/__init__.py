@@ -96,6 +96,11 @@ from .schema import (
     AssumptionScheduleItem,
     RoomSheetSummary,
     ProfessionalExportDossier,
+    MerchantRecord,
+    SellerFitVerification,
+    ProductPlacementVisualization,
+    CommerceTrackingEvent,
+    CommerceAttributionSummary,
     evaluate_scan_orchestration,
     get_standard_tier_benchmarks,
 )
@@ -190,6 +195,11 @@ __all__ = [
     "AssumptionScheduleItem",
     "RoomSheetSummary",
     "ProfessionalExportDossier",
+    "MerchantRecord",
+    "SellerFitVerification",
+    "ProductPlacementVisualization",
+    "CommerceTrackingEvent",
+    "CommerceAttributionSummary",
     "evaluate_scan_orchestration",
     "get_standard_tier_benchmarks",
 ]

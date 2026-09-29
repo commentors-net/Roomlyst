@@ -821,6 +821,70 @@ class ApiClient {
     }
   }
 
+  // Milestone 6.1: Furniture Seller & Commerce API Methods
+  static Future<dynamic> createMerchant(Map<String, dynamic> data) async {
+    return post('/merchants', data);
+  }
+
+  static Future<dynamic> getMerchants({String? country}) async {
+    final queryStr = (country != null && country.isNotEmpty) ? '?country=${Uri.encodeComponent(country)}' : '';
+    return get('/merchants$queryStr');
+  }
+
+  static Future<dynamic> getMerchantDetails(String merchantId) async {
+    return get('/merchants/$merchantId');
+  }
+
+  static Future<dynamic> updateMerchant(String merchantId, Map<String, dynamic> data) async {
+    return patch('/merchants/$merchantId', data);
+  }
+
+  static Future<dynamic> onboardMerchantProduct(String merchantId, Map<String, dynamic> data) async {
+    return post('/merchants/$merchantId/products', data);
+  }
+
+  static Future<dynamic> getMerchantProducts(String merchantId) async {
+    return get('/merchants/$merchantId/products');
+  }
+
+  static Future<dynamic> checkProductFit({
+    required String productId,
+    required String roomId,
+    String? targetElementId,
+  }) async {
+    final payload = <String, dynamic>{
+      'room_id': roomId,
+    };
+    if (targetElementId != null) {
+      payload['target_element_id'] = targetElementId;
+    }
+    return post('/catalog/products/$productId/check-fit', payload);
+  }
+
+  static Future<dynamic> addProductPlacement(String roomId, Map<String, dynamic> data) async {
+    return post('/rooms/$roomId/visualizations', data);
+  }
+
+  static Future<dynamic> getProductPlacements(String roomId) async {
+    return get('/rooms/$roomId/visualizations');
+  }
+
+  static Future<dynamic> deleteProductPlacement(String roomId, String placementId) async {
+    return delete('/rooms/$roomId/visualizations/$placementId');
+  }
+
+  static Future<dynamic> trackCommerceClick(Map<String, dynamic> data) async {
+    return post('/commerce/track-click', data);
+  }
+
+  static Future<dynamic> getCommerceAttribution({String? projectId, String? merchantId}) async {
+    final params = <String, String>{};
+    if (projectId != null) params['project_id'] = projectId;
+    if (merchantId != null) params['merchant_id'] = merchantId;
+    final qs = Uri(queryParameters: params).query;
+    return get('/commerce/attribution?$qs');
+  }
+
   static dynamic _handleResponse(http.Response response) {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       if (response.body.isEmpty) return null;

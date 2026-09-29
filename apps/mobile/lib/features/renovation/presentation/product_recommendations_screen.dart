@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../catalog/presentation/merchant_catalog_screen.dart';
 import '../../projects/domain/project.dart';
 import '../../projects/services/project_service.dart';
 
@@ -216,6 +217,21 @@ class _ProductRecommendationsScreenState extends State<ProductRecommendationsScr
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.storefront),
+            tooltip: 'Furniture Sellers',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => MerchantCatalogScreen(
+                    roomId: widget.roomId,
+                    roomName: widget.roomName,
+                  ),
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.tune),
             tooltip: 'Filter & Preferences',

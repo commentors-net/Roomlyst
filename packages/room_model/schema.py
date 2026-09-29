@@ -1249,7 +1249,9 @@ class CatalogProduct(BaseModel):
     currency: CurrencyCode = CurrencyCode.MYR
     retailer: str
     retailer_url: Optional[str] = None
+    seller_id: Optional[str] = None
     image_url: Optional[str] = None
+    model_3d_url: Optional[str] = None
     availability: ProductAvailability = ProductAvailability.IN_STOCK
     lead_time_days: int = 5
     price_updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -1427,6 +1429,7 @@ class CanonicalRoomModel(BaseModel):
     renovation_plans: List[RenovationPlanVersion] = Field(default_factory=list)
     comments: List[Any] = Field(default_factory=list)  # List[DesignComment] (forward ref)
     approvals: List[Any] = Field(default_factory=list)  # List[ApprovalRecord] (forward ref)
+    visualizations: List[Any] = Field(default_factory=list)  # List[ProductPlacementVisualization] (forward ref)
     overall_confidence: float = Field(default=0.88, ge=0.0, le=1.0)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -1913,6 +1916,103 @@ class ProfessionalExportDossier(BaseModel):
     assumption_schedules: List[AssumptionScheduleItem] = Field(default_factory=list)
     printable_html: Optional[str] = None
     download_bundle_url: Optional[str] = None
+
+
+# ==============================================================================
+# Milestone 6.1: Furniture Seller Capabilities & Commerce Models
+# ==============================================================================
+
+class MerchantRecord(BaseModel):
+    """
+    Furniture Seller / Merchant Registry Record (Milestone 6.1).
+    Fulfills Blueprint Section 35 & 41.
+    """
+    merchant_id: str = Field(default_factory=lambda: f"merch_{uuid.uuid4().hex[:8]}")
+    business_name: str
+    store_slug: str
+    contact_email: str
+    contact_phone: Optional[str] = None
+    website: Optional[str] = None
+    logo_url: Optional[str] = None
+    country: str = "MY"
+    supported_currencies: List[CurrencyCode] = Field(default_factory=lambda: [CurrencyCode.MYR, CurrencyCode.SGD])
+    commission_rate_pct: float = 8.5
+    is_verified: bool = True
+    active_listing_count: int = 0
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class SellerFitVerification(BaseModel):
+    """
+    Strict fit verification evaluation for merchant products.
+    Enforces Blueprint Section 35: 'Never claim an item fits when measurement confidence is too low'.
+    """
+    product_id: str
+    product_name: str
+    room_id: str
+    room_name: str
+    is_fit_claim_permitted: bool = True
+    fit_status: ProductFitStatus = ProductFitStatus.PERFECT_FIT
+    fit_confidence: float = 0.95
+    measurement_confidence: float = 0.90
+    requires_field_measurement: bool = False
+    doorway_ingress_check: bool = True
+    doorway_clearance_margin_m: float = 0.15
+    destination_clearance_m: float = 0.60
+    notes: str = "Item fits designated space with adequate clearance margins."
+
+
+class ProductPlacementVisualization(BaseModel):
+    """
+    Product placement and 2D/3D visualization record in a room concept (Milestone 6.1).
+    Fulfills Blueprint Section 35 & Milestone 6.1.
+    """
+    placement_id: str = Field(default_factory=lambda: f"place_{uuid.uuid4().hex[:8]}")
+    room_id: str
+    product_id: str
+    product_name: str
+    merchant_id: Optional[str] = None
+    position_x: float = 0.5
+    position_y: float = 0.5
+    position_z: float = 0.0
+    rotation_deg: float = 0.0
+    scale_factor: float = 1.0
+    bounding_box: ProductDimensions
+    overlay_image_url: Optional[str] = None
+    model_3d_url: Optional[str] = None
+    is_locked: bool = False
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class CommerceTrackingEvent(BaseModel):
+    """
+    Commerce attribution and deep-link click event tracking (Milestone 6.1).
+    Fulfills Blueprint Section 35 & Milestone 6.1.
+    """
+    event_id: str = Field(default_factory=lambda: f"evt_{uuid.uuid4().hex[:8]}")
+    event_type: str = "CLICK_OUT"  # CLICK_OUT, LEAD_SUBMISSION, ADD_TO_PROJECT, QUOTE_REQUEST
+    merchant_id: Optional[str] = None
+    product_id: str
+    product_name: str
+    project_id: Optional[str] = None
+    designer_id: Optional[str] = None
+    client_id: Optional[str] = None
+    retailer_url: str
+    affiliate_token: str
+    tracked_destination_url: str
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class CommerceAttributionSummary(BaseModel):
+    """Aggregated commerce attribution metrics for designers and sellers (Milestone 6.1)."""
+    total_clicks: int = 0
+    total_leads: int = 0
+    total_quote_requests: int = 0
+    total_products_placed: int = 0
+    estimated_gmv_influenced: float = 0.0
+    currency: str = "MYR"
+    events: List[CommerceTrackingEvent] = Field(default_factory=list)
+
 
 
 

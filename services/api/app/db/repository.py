@@ -29,6 +29,13 @@ from packages.room_model import (
     AssumptionScheduleItem,
     RoomSheetSummary,
     ProfessionalExportDossier,
+    MerchantRecord,
+    SellerFitVerification,
+    ProductPlacementVisualization,
+    CommerceTrackingEvent,
+    CommerceAttributionSummary,
+    ProductDimensions,
+    CurrencyCode,
 )
 
 
@@ -58,6 +65,10 @@ class InMemoryRepository:
         self.comments: Dict[str, DesignComment] = {}
         self.approvals: Dict[str, ApprovalRecord] = {}
         self.share_links: Dict[str, ShareReviewLink] = {}
+        self.merchants: Dict[str, MerchantRecord] = {}
+        self.visualizations: Dict[str, ProductPlacementVisualization] = {}
+        self.commerce_events: List[CommerceTrackingEvent] = []
+        self._seed_merchants()
 
     # ==========================
     # Project Methods
@@ -1026,6 +1037,290 @@ class InMemoryRepository:
 </html>
 """
         return html
+
+    # ==========================
+    # Milestone 6.1: Furniture Seller & Commerce Methods
+    # ==========================
+
+    def _seed_merchants(self):
+        """Initializes default certified merchants across regions."""
+        seed_data = [
+            MerchantRecord(
+                merchant_id="merch_boconcept",
+                business_name="BoConcept Scandinavia",
+                store_slug="boconcept",
+                contact_email="sales@boconcept.sg",
+                contact_phone="+65 6736 0777",
+                website="https://www.boconcept.com",
+                logo_url="https://storage.roomlyst.com/merchants/boconcept_logo.png",
+                country="SG",
+                supported_currencies=[CurrencyCode.SGD, CurrencyCode.MYR, CurrencyCode.USD],
+                commission_rate_pct=8.5,
+                is_verified=True,
+                active_listing_count=12,
+            ),
+            MerchantRecord(
+                merchant_id="merch_castlery",
+                business_name="Castlery Living",
+                store_slug="castlery",
+                contact_email="concierge@castlery.my",
+                contact_phone="+60 3 2779 2888",
+                website="https://www.castlery.com",
+                logo_url="https://storage.roomlyst.com/merchants/castlery_logo.png",
+                country="MY",
+                supported_currencies=[CurrencyCode.MYR, CurrencyCode.SGD],
+                commission_rate_pct=10.0,
+                is_verified=True,
+                active_listing_count=18,
+            ),
+            MerchantRecord(
+                merchant_id="merch_hay",
+                business_name="HAY Design Copenhagen",
+                store_slug="hay",
+                contact_email="asia@hay.dk",
+                contact_phone="+65 6235 9999",
+                website="https://hay.dk",
+                logo_url="https://storage.roomlyst.com/merchants/hay_logo.png",
+                country="SG",
+                supported_currencies=[CurrencyCode.SGD, CurrencyCode.EUR, CurrencyCode.USD],
+                commission_rate_pct=9.0,
+                is_verified=True,
+                active_listing_count=8,
+            ),
+            MerchantRecord(
+                merchant_id="merch_atelier",
+                business_name="Atelier Woodcraft & Co",
+                store_slug="atelier-woodcraft",
+                contact_email="craft@atelierwoodcraft.my",
+                contact_phone="+60 12 345 6789",
+                website="https://atelierwoodcraft.my",
+                logo_url="https://storage.roomlyst.com/merchants/atelier_logo.png",
+                country="MY",
+                supported_currencies=[CurrencyCode.MYR],
+                commission_rate_pct=12.0,
+                is_verified=True,
+                active_listing_count=6,
+            ),
+            MerchantRecord(
+                merchant_id="merch_cratebarrel",
+                business_name="Crate & Barrel Home",
+                store_slug="crate-and-barrel",
+                contact_email="trade@crateandbarrel.com",
+                contact_phone="+1 800 967 6696",
+                website="https://www.crateandbarrel.com",
+                logo_url="https://storage.roomlyst.com/merchants/cratebarrel_logo.png",
+                country="US",
+                supported_currencies=[CurrencyCode.USD, CurrencyCode.CAD],
+                commission_rate_pct=7.5,
+                is_verified=True,
+                active_listing_count=15,
+            ),
+        ]
+        for m in seed_data:
+            self.merchants[m.merchant_id] = m
+
+    def create_merchant(
+        self,
+        business_name_or_record: Any,
+        store_slug: Optional[str] = None,
+        contact_email: Optional[str] = None,
+        contact_phone: Optional[str] = None,
+        website: Optional[str] = None,
+        logo_url: Optional[str] = None,
+        country: str = "MY",
+        supported_currencies: Optional[List[CurrencyCode]] = None,
+        commission_rate_pct: float = 8.5,
+    ) -> MerchantRecord:
+        """Onboards a new verified furniture seller or merchant partner."""
+        if isinstance(business_name_or_record, MerchantRecord):
+            merchant = business_name_or_record
+            for existing in self.merchants.values():
+                if existing.store_slug == merchant.store_slug:
+                    raise ValueError(f"Merchant store slug '{merchant.store_slug}' already exists")
+            self.merchants[merchant.merchant_id] = merchant
+            return merchant
+
+        business_name = str(business_name_or_record)
+        for existing in self.merchants.values():
+            if existing.store_slug == store_slug:
+                raise ValueError(f"Merchant store slug '{store_slug}' already exists")
+
+        currencies = supported_currencies or [CurrencyCode.MYR, CurrencyCode.SGD]
+        merchant = MerchantRecord(
+            business_name=business_name,
+            store_slug=store_slug or "store",
+            contact_email=contact_email or "partner@roomlyst.com",
+            contact_phone=contact_phone,
+            website=website,
+            logo_url=logo_url,
+            country=country,
+            supported_currencies=currencies,
+            commission_rate_pct=commission_rate_pct,
+            is_verified=True,
+            active_listing_count=0,
+        )
+        self.merchants[merchant.merchant_id] = merchant
+        return merchant
+
+    def get_merchant(self, merchant_id: str) -> Optional[MerchantRecord]:
+        return self.merchants.get(merchant_id)
+
+    def get_merchant_by_slug(self, store_slug: str) -> Optional[MerchantRecord]:
+        for m in self.merchants.values():
+            if m.store_slug == store_slug:
+                return m
+        return None
+
+    def list_merchants(
+        self,
+        country: Optional[str] = None,
+        search: Optional[str] = None,
+    ) -> List[MerchantRecord]:
+        results = list(self.merchants.values())
+        if country:
+            results = [m for m in results if m.country.upper() == country.upper()]
+        if search:
+            q = search.lower()
+            results = [
+                m for m in results
+                if q in m.business_name.lower() or q in m.store_slug.lower() or q in m.contact_email.lower()
+            ]
+        results.sort(key=lambda m: m.business_name)
+        return results
+
+    def update_merchant(self, merchant_id: str, data: Dict[str, Any]) -> MerchantRecord:
+        merchant = self.merchants.get(merchant_id)
+        if not merchant:
+            raise ValueError(f"Merchant '{merchant_id}' not found")
+        dump = merchant.model_dump()
+        for k, v in data.items():
+            if v is not None and k in dump:
+                dump[k] = v
+        updated = MerchantRecord.model_validate(dump)
+        self.merchants[merchant_id] = updated
+        return updated
+
+    # Product Placement Visualizations
+    def add_product_placement(
+        self,
+        room_id: str,
+        product_id: str,
+        product_name: str,
+        bounding_box: ProductDimensions,
+        merchant_id: Optional[str] = None,
+        position_x: float = 0.5,
+        position_y: float = 0.5,
+        position_z: float = 0.0,
+        rotation_deg: float = 0.0,
+        scale_factor: float = 1.0,
+        overlay_image_url: Optional[str] = None,
+        model_3d_url: Optional[str] = None,
+        is_locked: bool = False,
+    ) -> ProductPlacementVisualization:
+        """Places a merchant product into an interactive room concept."""
+        placement = ProductPlacementVisualization(
+            room_id=room_id,
+            product_id=product_id,
+            product_name=product_name,
+            merchant_id=merchant_id,
+            position_x=position_x,
+            position_y=position_y,
+            position_z=position_z,
+            rotation_deg=rotation_deg,
+            scale_factor=scale_factor,
+            bounding_box=bounding_box,
+            overlay_image_url=overlay_image_url,
+            model_3d_url=model_3d_url,
+            is_locked=is_locked,
+        )
+        self.visualizations[placement.placement_id] = placement
+
+        # Attach to room model if room exists
+        if room_id in self.rooms:
+            self.rooms[room_id].visualizations.append(placement)
+
+        return placement
+
+    def list_product_placements(self, room_id: str) -> List[ProductPlacementVisualization]:
+        return [p for p in self.visualizations.values() if p.room_id == room_id]
+
+    def get_product_placement(self, placement_id: str) -> Optional[ProductPlacementVisualization]:
+        return self.visualizations.get(placement_id)
+
+    def delete_product_placement(self, placement_id: str) -> bool:
+        if placement_id in self.visualizations:
+            placement = self.visualizations.pop(placement_id)
+            if placement.room_id in self.rooms:
+                self.rooms[placement.room_id].visualizations = [
+                    p for p in self.rooms[placement.room_id].visualizations
+                    if getattr(p, "placement_id", None) != placement_id
+                ]
+            return True
+        return False
+
+    # Commerce Tracking & Attribution
+    def track_commerce_click(
+        self,
+        product_id: str,
+        product_name: str,
+        retailer_url: str,
+        project_id: Optional[str] = None,
+        designer_id: Optional[str] = None,
+        client_id: Optional[str] = None,
+        merchant_id: Optional[str] = None,
+        event_type: str = "CLICK_OUT",
+    ) -> CommerceTrackingEvent:
+        """Logs deep-link attribution and click-to-retailer commerce events."""
+        proj_tag = project_id or "direct"
+        designer_tag = designer_id or "studio"
+        token = f"roomlyst_{proj_tag}_{designer_tag}"
+
+        sep = "&" if "?" in retailer_url else "?"
+        tracked_url = f"{retailer_url}{sep}ref={token}&utm_source=roomlyst&utm_medium=app"
+
+        event = CommerceTrackingEvent(
+            event_type=event_type,
+            merchant_id=merchant_id,
+            product_id=product_id,
+            product_name=product_name,
+            project_id=project_id,
+            designer_id=designer_id,
+            client_id=client_id,
+            retailer_url=retailer_url,
+            affiliate_token=token,
+            tracked_destination_url=tracked_url,
+        )
+        self.commerce_events.append(event)
+        return event
+
+    def get_commerce_attribution_summary(
+        self,
+        project_id: Optional[str] = None,
+        merchant_id: Optional[str] = None,
+    ) -> CommerceAttributionSummary:
+        """Summarizes commercial referral metrics for a project or merchant."""
+        filtered = self.commerce_events
+        if project_id:
+            filtered = [e for e in filtered if e.project_id == project_id]
+        if merchant_id:
+            filtered = [e for e in filtered if e.merchant_id == merchant_id]
+
+        total_clicks = sum(1 for e in filtered if e.event_type == "CLICK_OUT")
+        total_leads = sum(1 for e in filtered if e.event_type == "LEAD_SUBMISSION")
+        total_quotes = sum(1 for e in filtered if e.event_type == "QUOTE_REQUEST")
+        total_placed = len(self.visualizations)
+
+        estimated_gmv = (total_clicks * 450.0) + (total_leads * 2200.0) + (total_quotes * 5500.0)
+
+        return CommerceAttributionSummary(
+            total_clicks=total_clicks,
+            total_leads=total_leads,
+            total_quote_requests=total_quotes,
+            total_products_placed=total_placed,
+            estimated_gmv_influenced=round(estimated_gmv, 2),
+            currency="MYR",
+            events=filtered[-50:],
+        )
 
 
 # Global singleton repository instance for the running service

@@ -1428,6 +1428,7 @@ class RoomModelData {
   final MaterialTakeoffReportModel? materialTakeoff;
   final ProductRecommendationReportModel? productRecommendations;
   final List<RenovationPlanVersionModel> renovationPlans;
+  final List<ProductPlacementModel> visualizations;
   final List<DesignVersionModel> versions;
 
   RoomModelData({
@@ -1454,6 +1455,7 @@ class RoomModelData {
     this.materialTakeoff,
     this.productRecommendations,
     this.renovationPlans = const [],
+    this.visualizations = const [],
     this.versions = const [],
   });
 
@@ -1468,6 +1470,7 @@ class RoomModelData {
     final rawPlanes = (map['spatial_planes'] as List<dynamic>?) ?? [];
     final rawVersions = (map['versions'] as List<dynamic>?) ?? [];
     final rawPlans = (map['renovation_plans'] as List<dynamic>?) ?? [];
+    final rawViz = (map['visualizations'] as List<dynamic>?) ?? [];
 
     return RoomModelData(
       id: map['id'] as String,
@@ -1518,6 +1521,9 @@ class RoomModelData {
           : null,
       renovationPlans: rawPlans
           .map((e) => RenovationPlanVersionModel.fromMap(e as Map<String, dynamic>))
+          .toList(),
+      visualizations: rawViz
+          .map((e) => ProductPlacementModel.fromMap(e as Map<String, dynamic>))
           .toList(),
       versions: rawVersions
           .map((e) => DesignVersionModel.fromMap(e as Map<String, dynamic>))
@@ -2182,7 +2188,9 @@ class CatalogProductModel {
   final String currency;
   final String retailer;
   final String? retailerUrl;
+  final String? sellerId;
   final String? imageUrl;
+  final String? model3dUrl;
   final String availability;
   final int leadTimeDays;
   final String description;
@@ -2203,7 +2211,9 @@ class CatalogProductModel {
     this.currency = 'MYR',
     required this.retailer,
     this.retailerUrl,
+    this.sellerId,
     this.imageUrl,
+    this.model3dUrl,
     this.availability = 'IN_STOCK',
     this.leadTimeDays = 7,
     this.description = '',
@@ -2257,7 +2267,9 @@ class CatalogProductModel {
       currency: map['currency'] as String? ?? 'MYR',
       retailer: map['retailer'] as String? ?? '',
       retailerUrl: map['retailer_url'] as String?,
+      sellerId: map['seller_id'] as String?,
       imageUrl: map['image_url'] as String?,
+      model3dUrl: map['model_3d_url'] as String?,
       availability: map['availability'] as String? ?? 'IN_STOCK',
       leadTimeDays: (map['lead_time_days'] as num?)?.toInt() ?? 7,
       description: map['description'] as String? ?? '',
@@ -2281,7 +2293,9 @@ class CatalogProductModel {
       'currency': currency,
       'retailer': retailer,
       'retailer_url': retailerUrl,
+      'seller_id': sellerId,
       'image_url': imageUrl,
+      'model_3d_url': model3dUrl,
       'availability': availability,
       'lead_time_days': leadTimeDays,
       'description': description,
@@ -3638,6 +3652,350 @@ class ProfessionalExportDossierModel {
       'assumption_schedules': assumptionSchedules.map((e) => e.toMap()).toList(),
       'printable_html': printableHtml,
       'download_bundle_url': downloadBundleUrl,
+    };
+  }
+}
+
+// ==========================================
+// Milestone 6.1: Furniture Seller & Placement Models
+// ==========================================
+
+class MerchantModel {
+  final String merchantId;
+  final String businessName;
+  final String storeSlug;
+  final String contactEmail;
+  final String? contactPhone;
+  final String? website;
+  final String? logoUrl;
+  final String country;
+  final List<String> supportedCurrencies;
+  final double commissionRatePct;
+  final bool isVerified;
+  final int activeListingCount;
+  final DateTime createdAt;
+
+  const MerchantModel({
+    required this.merchantId,
+    required this.businessName,
+    required this.storeSlug,
+    required this.contactEmail,
+    this.contactPhone,
+    this.website,
+    this.logoUrl,
+    this.country = 'MY',
+    this.supportedCurrencies = const ['MYR', 'SGD'],
+    this.commissionRatePct = 8.5,
+    this.isVerified = true,
+    this.activeListingCount = 0,
+    required this.createdAt,
+  });
+
+  factory MerchantModel.fromMap(Map<String, dynamic> map) {
+    final rawCurrencies = (map['supported_currencies'] as List<dynamic>?) ?? [];
+    DateTime created = DateTime.now();
+    if (map['created_at'] != null) {
+      created = DateTime.tryParse(map['created_at'].toString()) ?? DateTime.now();
+    }
+
+    return MerchantModel(
+      merchantId: map['merchant_id'] as String? ?? '',
+      businessName: map['business_name'] as String? ?? 'Merchant',
+      storeSlug: map['store_slug'] as String? ?? '',
+      contactEmail: (map['contact_email'] ?? map['email']) as String? ?? '',
+      contactPhone: (map['contact_phone'] ?? map['phone']) as String?,
+      website: map['website'] as String?,
+      logoUrl: map['logo_url'] as String?,
+      country: map['country'] as String? ?? 'MY',
+      supportedCurrencies: rawCurrencies.map((e) => e.toString()).toList(),
+      commissionRatePct: (map['commission_rate_pct'] as num?)?.toDouble() ?? 8.5,
+      isVerified: map['is_verified'] as bool? ?? true,
+      activeListingCount: (map['active_listing_count'] as num?)?.toInt() ?? 0,
+      createdAt: created,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'merchant_id': merchantId,
+      'business_name': businessName,
+      'store_slug': storeSlug,
+      'contact_email': contactEmail,
+      'contact_phone': contactPhone,
+      'website': website,
+      'logo_url': logoUrl,
+      'country': country,
+      'supported_currencies': supportedCurrencies,
+      'commission_rate_pct': commissionRatePct,
+      'is_verified': isVerified,
+      'active_listing_count': activeListingCount,
+      'created_at': createdAt.toIso8601String(),
+    };
+  }
+}
+
+class SellerFitVerificationModel {
+  final String productId;
+  final String productName;
+  final String roomId;
+  final String roomName;
+  final bool isFitClaimPermitted;
+  final String fitStatus;
+  final double fitConfidence;
+  final double measurementConfidence;
+  final bool requiresFieldMeasurement;
+  final bool doorwayIngressCheck;
+  final double doorwayClearanceMarginM;
+  final double destinationClearanceM;
+  final String notes;
+
+  const SellerFitVerificationModel({
+    required this.productId,
+    required this.productName,
+    required this.roomId,
+    required this.roomName,
+    required this.isFitClaimPermitted,
+    required this.fitStatus,
+    required this.fitConfidence,
+    required this.measurementConfidence,
+    required this.requiresFieldMeasurement,
+    required this.doorwayIngressCheck,
+    required this.doorwayClearanceMarginM,
+    required this.destinationClearanceM,
+    required this.notes,
+  });
+
+  bool get isSafeToPurchase => isFitClaimPermitted && !requiresFieldMeasurement && doorwayIngressCheck;
+
+  factory SellerFitVerificationModel.fromMap(Map<String, dynamic> map) {
+    return SellerFitVerificationModel(
+      productId: map['product_id'] as String? ?? '',
+      productName: map['product_name'] as String? ?? '',
+      roomId: map['room_id'] as String? ?? '',
+      roomName: map['room_name'] as String? ?? '',
+      isFitClaimPermitted: map['is_fit_claim_permitted'] as bool? ?? false,
+      fitStatus: map['fit_status'] as String? ?? 'CLEARANCE_WARNING',
+      fitConfidence: (map['fit_confidence'] as num?)?.toDouble() ?? 0.0,
+      measurementConfidence: (map['measurement_confidence'] as num?)?.toDouble() ?? 0.0,
+      requiresFieldMeasurement: map['requires_field_measurement'] as bool? ?? true,
+      doorwayIngressCheck: map['doorway_ingress_check'] as bool? ?? false,
+      doorwayClearanceMarginM: (map['doorway_clearance_margin_m'] as num?)?.toDouble() ?? 0.0,
+      destinationClearanceM: (map['destination_clearance_m'] as num?)?.toDouble() ?? 0.0,
+      notes: map['notes'] as String? ?? '',
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'product_id': productId,
+      'product_name': productName,
+      'room_id': roomId,
+      'room_name': roomName,
+      'is_fit_claim_permitted': isFitClaimPermitted,
+      'fit_status': fitStatus,
+      'fit_confidence': fitConfidence,
+      'measurement_confidence': measurementConfidence,
+      'requires_field_measurement': requiresFieldMeasurement,
+      'doorway_ingress_check': doorwayIngressCheck,
+      'doorway_clearance_margin_m': doorwayClearanceMarginM,
+      'destination_clearance_m': destinationClearanceM,
+      'notes': notes,
+    };
+  }
+}
+
+class ProductPlacementModel {
+  final String placementId;
+  final String roomId;
+  final String productId;
+  final String productName;
+  final String? merchantId;
+  final double positionX;
+  final double positionY;
+  final double positionZ;
+  final double rotationDeg;
+  final double scaleFactor;
+  final ProductDimensionsModel boundingBox;
+  final String? overlayImageUrl;
+  final String? model3dUrl;
+  final bool isLocked;
+
+  const ProductPlacementModel({
+    required this.placementId,
+    required this.roomId,
+    required this.productId,
+    required this.productName,
+    this.merchantId,
+    this.positionX = 0.5,
+    this.positionY = 0.5,
+    this.positionZ = 0.0,
+    this.rotationDeg = 0.0,
+    this.scaleFactor = 1.0,
+    required this.boundingBox,
+    this.overlayImageUrl,
+    this.model3dUrl,
+    this.isLocked = false,
+  });
+
+  factory ProductPlacementModel.fromMap(Map<String, dynamic> map) {
+    return ProductPlacementModel(
+      placementId: map['placement_id'] as String? ?? '',
+      roomId: map['room_id'] as String? ?? '',
+      productId: map['product_id'] as String? ?? '',
+      productName: map['product_name'] as String? ?? 'Placed Product',
+      merchantId: map['merchant_id'] as String?,
+      positionX: (map['position_x'] as num?)?.toDouble() ?? 0.5,
+      positionY: (map['position_y'] as num?)?.toDouble() ?? 0.5,
+      positionZ: (map['position_z'] as num?)?.toDouble() ?? 0.0,
+      rotationDeg: (map['rotation_deg'] as num?)?.toDouble() ?? 0.0,
+      scaleFactor: (map['scale_factor'] as num?)?.toDouble() ?? 1.0,
+      boundingBox: map['bounding_box'] != null
+          ? ProductDimensionsModel.fromMap(map['bounding_box'] as Map<String, dynamic>)
+          : ProductDimensionsModel(widthM: 1.0, depthM: 1.0, heightM: 1.0),
+      overlayImageUrl: map['overlay_image_url'] as String?,
+      model3dUrl: map['model_3d_url'] as String?,
+      isLocked: map['is_locked'] as bool? ?? false,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'placement_id': placementId,
+      'room_id': roomId,
+      'product_id': productId,
+      'product_name': productName,
+      'merchant_id': merchantId,
+      'position_x': positionX,
+      'position_y': positionY,
+      'position_z': positionZ,
+      'rotation_deg': rotationDeg,
+      'scale_factor': scaleFactor,
+      'bounding_box': boundingBox.toMap(),
+      'overlay_image_url': overlayImageUrl,
+      'model_3d_url': model3dUrl,
+      'is_locked': isLocked,
+    };
+  }
+}
+
+class CommerceTrackingEventModel {
+  final String eventId;
+  final String eventType;
+  final String? merchantId;
+  final String productId;
+  final String productName;
+  final String? projectId;
+  final String? designerId;
+  final String? clientId;
+  final String retailerUrl;
+  final String affiliateToken;
+  final String trackedDestinationUrl;
+  final DateTime timestamp;
+
+  const CommerceTrackingEventModel({
+    required this.eventId,
+    required this.eventType,
+    this.merchantId,
+    required this.productId,
+    required this.productName,
+    this.projectId,
+    this.designerId,
+    this.clientId,
+    required this.retailerUrl,
+    required this.affiliateToken,
+    required this.trackedDestinationUrl,
+    required this.timestamp,
+  });
+
+  factory CommerceTrackingEventModel.fromMap(Map<String, dynamic> map) {
+    DateTime ts = DateTime.now();
+    if (map['timestamp'] != null) {
+      ts = DateTime.tryParse(map['timestamp'].toString()) ?? DateTime.now();
+    }
+
+    return CommerceTrackingEventModel(
+      eventId: map['event_id'] as String? ?? '',
+      eventType: map['event_type'] as String? ?? 'CLICK_OUT',
+      merchantId: map['merchant_id'] as String?,
+      productId: map['product_id'] as String? ?? '',
+      productName: map['product_name'] as String? ?? '',
+      projectId: map['project_id'] as String?,
+      designerId: map['designer_id'] as String?,
+      clientId: map['client_id'] as String?,
+      retailerUrl: map['retailer_url'] as String? ?? '',
+      affiliateToken: map['affiliate_token'] as String? ?? '',
+      trackedDestinationUrl: map['tracked_destination_url'] as String? ?? '',
+      timestamp: ts,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'event_id': eventId,
+      'event_type': eventType,
+      'merchant_id': merchantId,
+      'product_id': productId,
+      'product_name': productName,
+      'project_id': projectId,
+      'designer_id': designerId,
+      'client_id': clientId,
+      'retailer_url': retailerUrl,
+      'affiliate_token': affiliateToken,
+      'tracked_destination_url': trackedDestinationUrl,
+      'timestamp': timestamp.toIso8601String(),
+    };
+  }
+}
+
+class CommerceAttributionSummaryModel {
+  final int totalClicks;
+  final int totalLeads;
+  final int totalQuoteRequests;
+  final int totalProductsPlaced;
+  final double estimatedGmvInfluenced;
+  final String currency;
+  final List<CommerceTrackingEventModel> events;
+
+  const CommerceAttributionSummaryModel({
+    this.totalClicks = 0,
+    this.totalLeads = 0,
+    this.totalQuoteRequests = 0,
+    this.totalProductsPlaced = 0,
+    this.estimatedGmvInfluenced = 0.0,
+    this.currency = 'MYR',
+    this.events = const [],
+  });
+
+  String get formattedInfluencedGmv {
+    final sym = CatalogProductModel._currencySymbol(currency);
+    return '$sym ${estimatedGmvInfluenced.toStringAsFixed(0)}';
+  }
+
+  factory CommerceAttributionSummaryModel.fromMap(Map<String, dynamic> map) {
+    final rawEvents = (map['events'] as List<dynamic>?) ?? [];
+
+    return CommerceAttributionSummaryModel(
+      totalClicks: (map['total_clicks'] as num?)?.toInt() ?? 0,
+      totalLeads: (map['total_leads'] as num?)?.toInt() ?? 0,
+      totalQuoteRequests: (map['total_quote_requests'] as num?)?.toInt() ?? 0,
+      totalProductsPlaced: (map['total_products_placed'] as num?)?.toInt() ?? 0,
+      estimatedGmvInfluenced: (map['estimated_gmv_influenced'] as num?)?.toDouble() ?? 0.0,
+      currency: map['currency'] as String? ?? 'MYR',
+      events: rawEvents
+          .map((e) => CommerceTrackingEventModel.fromMap(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'total_clicks': totalClicks,
+      'total_leads': totalLeads,
+      'total_quote_requests': totalQuoteRequests,
+      'total_products_placed': totalProductsPlaced,
+      'estimated_gmv_influenced': estimatedGmvInfluenced,
+      'currency': currency,
+      'events': events.map((e) => e.toMap()).toList(),
     };
   }
 }
