@@ -1051,6 +1051,23 @@ class ApiClient {
     return get('/projects/$projectId/role-view?role=${Uri.encodeComponent(role)}');
   }
 
+  static Future<dynamic> loginWithSocial({
+    required String provider,
+    required String email,
+    String? name,
+    String? idToken,
+    String role = 'homeowner',
+  }) async {
+    final payload = <String, dynamic>{
+      'provider': provider,
+      'email': email,
+      'role': role,
+    };
+    if (name != null) payload['name'] = name;
+    if (idToken != null) payload['id_token'] = idToken;
+    return post('/auth/social-login', payload);
+  }
+
 
   static dynamic _handleResponse(http.Response response) {
     if (response.statusCode >= 200 && response.statusCode < 300) {

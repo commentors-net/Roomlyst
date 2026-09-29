@@ -59,3 +59,61 @@ def test_auth_invalid_credentials_rejected():
         headers={"Authorization": "Bearer invalid.jwt.token"},
     )
     assert res_invalid_token.status_code == 401
+
+
+def test_social_login_google_and_apple():
+    # 1. Google login (new user)
+    google_res = client.post(
+        "/api/v1/auth/social-login",
+        json={
+            "provider": "google",
+            "email": "sarah.homeowner@gmail.com",
+            "name": "Sarah Homeowner",
+            "role": "homeowner",
+        },
+    )
+    assert google_res.status_code == 200
+    google_data = google_res.json()
+    assert "access_token" in google_data
+    assert google_data["email"] == "sarah.homeowner@gmail.com"
+    assert google_data["role"] == "homeowner"
+
+    # Verify profile access
+    headers = {"Authorization": f"Bearer {google_data['access_token']}"}
+    me_res = client.get("/api/v1/auth/me", headers=headers)
+    assert me_res.status_code == 200
+    assert me_res.json()["email"] == "sarah.homeowner@gmail.com"
+
+    # 2. Apple login (new user)
+    apple_res = client.post(
+        "/api/v1/auth/social-login",
+        json={
+            "provider": "apple",
+            "email": "designer.elena@privaterelay.appleid.com",
+            "name": "Elena Vance",
+            "role": "interior_designer",
+        },
+    )
+    assert apple_res.status_code == 200
+    apple_data = apple_res.json()
+    assert "access_token" in apple_data
+    assert apple_data["email"] == "designer.elena@privaterelay.appleid.com"
+
+    # 3. Repeat login (existing user)
+    google_repeat = client.post(
+        "/api/v1/auth/social-login",
+        json={
+            "provider": "google",
+            "email": "sarah.homeowner@gmail.com",
+        },
+    )
+    assert google_repeat.status_code == 200
+    assert google_repeat.json()["user_id"] == google_data["user_id"]
+
+    # 4. Reject unsupported provider
+    bad_provider = client.post(
+        "/api/v1/auth/social-login",
+        json={"provider": "unsupported_provider", "email": "test@domain.com"},
+    )
+    assert bad_provider.status_code == 400
+

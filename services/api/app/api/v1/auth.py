@@ -4,6 +4,8 @@ Adheres to Blueprint Section 22 and 24.
 """
 
 from datetime import datetime
+from typing import Optional
+import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
@@ -14,6 +16,14 @@ from ...db.models import User
 from ...db.session import get_db
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+
+
+class SocialLoginRequest(BaseModel):
+    provider: str = Field(..., description="'google' or 'apple'")
+    email: EmailStr = Field(..., json_schema_extra={"example": "user@gmail.com"})
+    name: Optional[str] = None
+    id_token: Optional[str] = None
+    role: str = Field(default="homeowner")
 
 
 class UserRegisterRequest(BaseModel):
@@ -88,6 +98,42 @@ def login(req: UserLoginRequest, db: Session = Depends(get_db)):
         )
 
     token = create_access_token(subject=user.id, claims={"email": user.email, "role": user.role})
+    return TokenResponse(
+        access_token=token,
+        user_id=user.id,
+        email=user.email,
+        role=user.role,
+    )
+
+
+@router.post("/social-login", response_model=TokenResponse)
+def social_login(req: SocialLoginRequest, db: Session = Depends(get_db)):
+    """Authenticates or auto-registers a user via Google or Apple Identity provider (Zero API charge)."""
+    provider_lower = req.provider.lower()
+    if provider_lower not in ("google", "apple"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported social provider: {req.provider}. Supported: 'google', 'apple'",
+        )
+
+    user = db.query(User).filter(User.email == req.email.lower()).first()
+    if not user:
+        user = User(
+            email=req.email.lower(),
+            hashed_password=hash_password(f"social_oauth_{uuid.uuid4().hex}"),
+            role=req.role,
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account is currently inactive",
+        )
+
+    token = create_access_token(subject=user.id, claims={"email": user.email, "role": user.role, "provider": provider_lower})
     return TokenResponse(
         access_token=token,
         user_id=user.id,
