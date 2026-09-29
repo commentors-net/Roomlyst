@@ -6,6 +6,7 @@ import 'client_directory_screen.dart';
 import 'client_presentation_screen.dart';
 import 'project_export_dossier_screen.dart';
 import '../../contractor/presentation/contractor_handoff_screen.dart';
+import '../../staging/presentation/property_staging_screen.dart';
 
 class ProjectWorkspaceScreen extends StatefulWidget {
   final String projectId;
@@ -397,6 +398,21 @@ class _ProjectWorkspaceScreenState extends State<ProjectWorkspaceScreen> {
                   builder: (_) => ProjectExportDossierScreen(
                     projectId: widget.projectId,
                     projectName: widget.projectName,
+                  ),
+                ),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.real_estate_agent_outlined),
+            tooltip: 'Virtual Staging & MLS',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => PropertyStagingScreen(
+                    projectId: widget.projectId,
+                    propertyTitle: widget.projectName,
                   ),
                 ),
               );

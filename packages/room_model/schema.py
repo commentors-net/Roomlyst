@@ -2204,6 +2204,120 @@ class BidComparisonSummary(BaseModel):
     comparison_notes: str = ""
 
 
+# ==============================================================================
+# Milestone 6.3: Property-Agent Virtual Staging & Disclosure Models
+# ==============================================================================
+
+class StagingType(str, Enum):
+    """Real estate virtual staging workflow categories (Milestone 6.3)."""
+    VIRTUAL_STAGING_EMPTY = "VIRTUAL_STAGING_EMPTY"
+    DECLUTTER_AND_STAGE = "DECLUTTER_AND_STAGE"
+    RENOVATION_POTENTIAL = "RENOVATION_POTENTIAL"
+
+
+class WatermarkPosition(str, Enum):
+    """Position of the regulatory virtual staging disclosure watermark (Milestone 6.3)."""
+    BOTTOM_RIGHT = "BOTTOM_RIGHT"
+    BOTTOM_LEFT = "BOTTOM_LEFT"
+    TOP_BANNER = "TOP_BANNER"
+
+
+class VirtualStagingDisclosure(BaseModel):
+    """
+    Mandatory regulatory disclosure metadata for real estate virtual staging (Milestone 6.3).
+    Adheres to BOVAEP / CEA / RESO real estate advertising standards.
+    """
+    is_virtually_staged: bool = True
+    watermark_applied: bool = True
+    watermark_text: str = "VIRTUALLY STAGED — FOR ILLUSTRATIVE PURPOSES ONLY"
+    watermark_position: WatermarkPosition = WatermarkPosition.BOTTOM_RIGHT
+    disclosure_statement: str = (
+        "Virtually Staged: Furnishings and decor are digitally added for illustrative purposes only. "
+        "Original room dimensions, walls, and permanent fixtures remain unaltered."
+    )
+    regulatory_framework: str = "RESO Standard / BOVAEP / CEA Guidelines"
+    agent_license_no: Optional[str] = None
+    agency_name: Optional[str] = None
+    original_image_url: str
+    staged_image_url: str
+    staged_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class RenovationPotentialEstimate(BaseModel):
+    """
+    Estimated cosmetic flip renovation cost and projected property valuation uplift (Milestone 6.3).
+    Helps prospective buyers and property investors evaluate fixer-upper potential.
+    """
+    cosmetic_scope_items: List[str] = Field(default_factory=list)
+    estimated_renovation_cost: float = 0.0
+    currency: CurrencyCode = CurrencyCode.MYR
+    indicative_value_uplift_pct: float = 8.5
+    estimated_value_uplift_amount: float = 0.0
+    roi_notes: str = "Estimated value uplift based on regional cosmetic renovation and staging benchmarks."
+
+
+class StagedRoomAsset(BaseModel):
+    """
+    Paired original and virtually staged room asset with compliance disclosure (Milestone 6.3).
+    Fulfills Blueprint Section 41 (Milestone 6.3).
+    """
+    asset_id: str = Field(default_factory=lambda: f"stage_{uuid.uuid4().hex[:8]}")
+    room_id: str
+    room_name: str
+    staging_type: StagingType = StagingType.VIRTUAL_STAGING_EMPTY
+    style_theme: str = "Warm Contemporary"
+    original_image_url: str
+    staged_image_url: str
+    watermarked_image_url: str
+    disclosure: VirtualStagingDisclosure
+    renovation_potential: Optional[RenovationPotentialEstimate] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class PortalExportPackage(BaseModel):
+    """
+    MLS / Property Portal compliant export package with paired images and disclosure manifests (Milestone 6.3).
+    """
+    listing_id: str
+    property_title: str
+    total_staged_rooms: int = 0
+    portal_format: str = "RESO_STANDARD"
+    export_timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    media_entries: List[Dict[str, Any]] = Field(default_factory=list)
+    disclosure_manifest: Dict[str, Any] = Field(default_factory=dict)
+
+
+class PropertyListingRecord(BaseModel):
+    """
+    Real estate property listing record for agents and marketing teams (Milestone 6.3).
+    Fulfills Blueprint Section 41 (Milestone 6.3).
+    """
+    listing_id: str = Field(default_factory=lambda: f"lst_{uuid.uuid4().hex[:8]}")
+    project_id: Optional[str] = None
+    property_title: str
+    property_type: str = "Condominium"  # Condominium, Landed House, Apartment, Commercial
+    bedrooms: int = 3
+    bathrooms: int = 2
+    built_up_sqft: float = 1200.0
+    listing_price: float = 0.0
+    currency: CurrencyCode = CurrencyCode.MYR
+    property_address: str
+    mls_number: Optional[str] = None
+    listing_agent_name: str
+    agent_license_no: Optional[str] = "REA E-12345"
+    agency_name: Optional[str] = "PropTech Realty Partners"
+    agent_phone: Optional[str] = None
+    agent_email: Optional[str] = None
+    staged_rooms: List[StagedRoomAsset] = Field(default_factory=list)
+    is_published: bool = False
+    portal_export_bundle_url: Optional[str] = None
+    portal_export_package: Optional[PortalExportPackage] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+
+
 
 
 

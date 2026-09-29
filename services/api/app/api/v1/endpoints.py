@@ -9,7 +9,7 @@ import os
 import uuid
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile, status
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from PIL import Image
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -96,7 +96,15 @@ from packages.room_model import (
     ContractorBid,
     ContractorQuoteRequest,
     BidComparisonSummary,
+    StagingType,
+    WatermarkPosition,
+    VirtualStagingDisclosure,
+    RenovationPotentialEstimate,
+    StagedRoomAsset,
+    PropertyListingRecord,
+    PortalExportPackage,
 )
+from services.ai_worker.pipelines.virtual_stager import virtual_stager
 from services.ai_worker.pipelines.generation import LocalRedesignGenerator
 from services.ai_worker.pipelines.room_analyzer import RoomAnalyzer
 from services.ai_worker.pipelines.multiview_analyzer import MultiViewRoomAnalyzer
@@ -3587,6 +3595,198 @@ def award_tender_bid(
         return awarded
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+# =====================================================================
+# Milestone 6.3: Property Agent Workflows & Virtual Staging Endpoints
+# =====================================================================
+
+class CreatePropertyListingRequest(BaseModel):
+    property_title: str
+    mls_number: Optional[str] = None
+    property_type: str = "Condominium"
+    bedrooms: int = 3
+    bathrooms: int = 2
+    built_up_sqft: float = 1200.0
+    listing_price: float = 850000.0
+    currency: str = "MYR"
+    property_address: str
+    listing_agent_name: str
+    agent_license_no: Optional[str] = "REA E-12345"
+    agency_name: Optional[str] = "PropTech Realty Partners"
+    agent_phone: Optional[str] = None
+    agent_email: Optional[str] = None
+    project_id: Optional[str] = None
+
+
+class StageRoomRequest(BaseModel):
+    room_name: str
+    staging_type: str = "VIRTUAL_STAGING_EMPTY"
+    style_theme: str = "Warm Contemporary"
+    original_image_url: Optional[str] = None
+    watermark_position: str = "BOTTOM_RIGHT"
+    floor_area_sqm: float = 24.0
+    room_id: Optional[str] = None
+
+
+class PortalExportRequest(BaseModel):
+    portal_target: str = "propertyguru"
+
+
+@router.post("/listings", response_model=PropertyListingRecord, status_code=status.HTTP_201_CREATED)
+def create_property_listing(payload: CreatePropertyListingRequest):
+    """
+    Fulfills Blueprint Section 41 & Milestone 6.3:
+    Registers a real estate property listing for virtual staging and marketing workflows.
+    """
+    cur = CurrencyCode.MYR
+    try:
+        cur = CurrencyCode(payload.currency.upper())
+    except ValueError:
+        pass
+
+    listing = repository.create_listing(
+        property_title=payload.property_title,
+        mls_number=payload.mls_number,
+        property_type=payload.property_type,
+        bedrooms=payload.bedrooms,
+        bathrooms=payload.bathrooms,
+        built_up_sqft=payload.built_up_sqft,
+        listing_price=payload.listing_price,
+        currency=cur,
+        property_address=payload.property_address,
+        listing_agent_name=payload.listing_agent_name,
+        agent_license_no=payload.agent_license_no,
+        agency_name=payload.agency_name,
+        agent_phone=payload.agent_phone,
+        agent_email=payload.agent_email,
+    )
+    if payload.project_id:
+        listing.project_id = payload.project_id
+    return listing
+
+
+@router.get("/listings", response_model=List[PropertyListingRecord])
+def list_property_listings(agent_license: Optional[str] = None):
+    """
+    Fulfills Milestone 6.3:
+    Lists active property listings, optionally filtered by agent license number.
+    """
+    return repository.list_listings(agent_license=agent_license)
+
+
+@router.get("/listings/{listing_id}", response_model=PropertyListingRecord)
+def get_property_listing(listing_id: str):
+    """
+    Fulfills Milestone 6.3:
+    Retrieves full property listing details, including all virtually staged rooms.
+    """
+    listing = repository.get_listing(listing_id)
+    if not listing:
+        raise HTTPException(status_code=404, detail=f"Listing '{listing_id}' not found.")
+    return listing
+
+
+@router.post("/listings/{listing_id}/stage-room", response_model=StagedRoomAsset, status_code=status.HTTP_201_CREATED)
+def stage_room_for_listing(listing_id: str, payload: StageRoomRequest):
+    """
+    Fulfills Blueprint Section 41 & Milestone 6.3:
+    Generates a virtual staging concept (empty furnishing, declutter, or renovation preview)
+    and enforces mandatory regulatory disclosure watermarking.
+    """
+    try:
+        stype = StagingType(payload.staging_type)
+    except ValueError:
+        stype = StagingType.VIRTUAL_STAGING_EMPTY
+
+    try:
+        wm_pos = WatermarkPosition(payload.watermark_position)
+    except ValueError:
+        wm_pos = WatermarkPosition.BOTTOM_RIGHT
+
+    try:
+        asset = repository.stage_room_for_listing(
+            listing_id=listing_id,
+            room_name=payload.room_name,
+            staging_type=stype,
+            style_theme=payload.style_theme,
+            original_image_url=payload.original_image_url,
+            watermark_position=wm_pos,
+            floor_area_sqm=payload.floor_area_sqm,
+            room_id=payload.room_id,
+        )
+        return asset
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/listings/{listing_id}/staged-rooms/{asset_id}/disclosure", response_model=VirtualStagingDisclosure)
+def get_staged_room_disclosure(listing_id: str, asset_id: str):
+    """
+    Fulfills Milestone 6.3:
+    Retrieves the mandatory regulatory disclosure payload for a virtually staged room asset.
+    """
+    listing = repository.get_listing(listing_id)
+    if not listing:
+        raise HTTPException(status_code=404, detail=f"Listing '{listing_id}' not found.")
+
+    for room in listing.staged_rooms:
+        if room.asset_id == asset_id:
+            return room.disclosure
+
+    raise HTTPException(status_code=404, detail=f"Staged room asset '{asset_id}' not found on listing '{listing_id}'.")
+
+
+@router.post("/listings/{listing_id}/export-portal-bundle", response_model=PortalExportPackage)
+def export_portal_bundle(listing_id: str, payload: Optional[PortalExportRequest] = None):
+    """
+    Fulfills Blueprint Section 41 & Milestone 6.3:
+    Produces a RESO-compliant syndication package pairing original and staged photos with compliance declarations.
+    """
+    portal_target = payload.portal_target if payload else "propertyguru"
+    try:
+        package = repository.export_portal_bundle(listing_id=listing_id, portal_target=portal_target)
+        return package
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/listings/{listing_id}/marketing-flyer", response_class=HTMLResponse)
+def get_property_marketing_flyer(listing_id: str):
+    """
+    Fulfills Milestone 6.3:
+    Renders a print-ready HTML5 marketing one-sheet with side-by-side original/staged photography and disclaimers.
+    """
+    try:
+        html = repository.generate_property_flyer_html(listing_id=listing_id)
+        return HTMLResponse(content=html, status_code=200)
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/staging/apply-watermark")
+def apply_staging_watermark(
+    file: UploadFile = File(...),
+    watermark_text: str = Form("VIRTUALLY STAGED — FOR ILLUSTRATIVE PURPOSES ONLY"),
+    position: str = Form("BOTTOM_RIGHT"),
+):
+    """
+    Fulfills Milestone 6.3:
+    Burns an indelible disclosure watermark badge onto any arbitrary staged image bytes.
+    """
+    try:
+        wm_pos = WatermarkPosition(position)
+    except ValueError:
+        wm_pos = WatermarkPosition.BOTTOM_RIGHT
+
+    image_bytes = file.file.read()
+    watermarked_bytes = virtual_stager.composite_disclosure_watermark(
+        image_bytes=image_bytes,
+        watermark_text=watermark_text,
+        position=wm_pos,
+    )
+    return Response(content=watermarked_bytes, media_type="image/jpeg")
+
 
 
 

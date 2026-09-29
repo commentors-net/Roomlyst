@@ -4572,6 +4572,356 @@ class BidComparisonSummaryModel {
 }
 
 
+// =====================================================================
+// Milestone 6.3: Property Agent & Virtual Staging Models
+// =====================================================================
+
+enum StagingType {
+  virtualStagingEmpty('VIRTUAL_STAGING_EMPTY', 'Empty Room Staging'),
+  declutterAndStage('DECLUTTER_AND_STAGE', 'Declutter & Re-Stage'),
+  renovationPotential('RENOVATION_POTENTIAL', 'Renovation Potential Flip');
+
+  final String code;
+  final String label;
+  const StagingType(this.code, this.label);
+
+  static StagingType fromCode(String? code) {
+    switch (code) {
+      case 'DECLUTTER_AND_STAGE':
+        return StagingType.declutterAndStage;
+      case 'RENOVATION_POTENTIAL':
+        return StagingType.renovationPotential;
+      case 'VIRTUAL_STAGING_EMPTY':
+      default:
+        return StagingType.virtualStagingEmpty;
+    }
+  }
+}
+
+class VirtualStagingDisclosureModel {
+  final bool isVirtuallyStaged;
+  final bool watermarkApplied;
+  final String watermarkText;
+  final String watermarkPosition;
+  final String disclosureStatement;
+  final String regulatoryFramework;
+  final String? agentLicenseNo;
+  final String? agencyName;
+  final String? originalImageUrl;
+  final String? stagedImageUrl;
+  final String? stagedAt;
+
+  VirtualStagingDisclosureModel({
+    this.isVirtuallyStaged = true,
+    this.watermarkApplied = true,
+    this.watermarkText = 'VIRTUALLY STAGED — FOR ILLUSTRATIVE PURPOSES ONLY',
+    this.watermarkPosition = 'BOTTOM_RIGHT',
+    this.disclosureStatement = '',
+    this.regulatoryFramework = 'RESO Standard / BOVAEP / CEA Guidelines',
+    this.agentLicenseNo,
+    this.agencyName,
+    this.originalImageUrl,
+    this.stagedImageUrl,
+    this.stagedAt,
+  });
+
+  factory VirtualStagingDisclosureModel.fromMap(Map<String, dynamic> map) {
+    return VirtualStagingDisclosureModel(
+      isVirtuallyStaged: map['is_virtually_staged'] as bool? ?? true,
+      watermarkApplied: map['watermark_applied'] as bool? ?? true,
+      watermarkText: map['watermark_text'] as String? ?? 'VIRTUALLY STAGED — FOR ILLUSTRATIVE PURPOSES ONLY',
+      watermarkPosition: map['watermark_position'] as String? ?? 'BOTTOM_RIGHT',
+      disclosureStatement: map['disclosure_statement'] as String? ?? '',
+      regulatoryFramework: map['regulatory_framework'] as String? ?? 'RESO Standard / BOVAEP / CEA Guidelines',
+      agentLicenseNo: map['agent_license_no'] as String?,
+      agencyName: map['agency_name'] as String?,
+      originalImageUrl: map['original_image_url'] as String?,
+      stagedImageUrl: map['staged_image_url'] as String?,
+      stagedAt: map['staged_at'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'is_virtually_staged': isVirtuallyStaged,
+      'watermark_applied': watermarkApplied,
+      'watermark_text': watermarkText,
+      'watermark_position': watermarkPosition,
+      'disclosure_statement': disclosureStatement,
+      'regulatory_framework': regulatoryFramework,
+      'agent_license_no': agentLicenseNo,
+      'agency_name': agencyName,
+      'original_image_url': originalImageUrl,
+      'staged_image_url': stagedImageUrl,
+      'staged_at': stagedAt,
+    };
+  }
+}
+
+class RenovationPotentialEstimateModel {
+  final List<String> cosmeticScopeItems;
+  final double estimatedRenovationCost;
+  final String currency;
+  final double indicativeValueUpliftPct;
+  final double estimatedValueUpliftAmount;
+  final String roiNotes;
+
+  RenovationPotentialEstimateModel({
+    this.cosmeticScopeItems = const [],
+    this.estimatedRenovationCost = 0.0,
+    this.currency = 'MYR',
+    this.indicativeValueUpliftPct = 0.0,
+    this.estimatedValueUpliftAmount = 0.0,
+    this.roiNotes = '',
+  });
+
+  String get currencySymbol => CatalogProductModel._currencySymbol(currency);
+
+  factory RenovationPotentialEstimateModel.fromMap(Map<String, dynamic> map) {
+    return RenovationPotentialEstimateModel(
+      cosmeticScopeItems: (map['cosmetic_scope_items'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [],
+      estimatedRenovationCost: (map['estimated_renovation_cost'] as num?)?.toDouble() ?? 0.0,
+      currency: map['currency'] as String? ?? 'MYR',
+      indicativeValueUpliftPct: (map['indicative_value_uplift_pct'] as num?)?.toDouble() ?? 0.0,
+      estimatedValueUpliftAmount: (map['estimated_value_uplift_amount'] as num?)?.toDouble() ?? 0.0,
+      roiNotes: map['roi_notes'] as String? ?? '',
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'cosmetic_scope_items': cosmeticScopeItems,
+      'estimated_renovation_cost': estimatedRenovationCost,
+      'currency': currency,
+      'indicative_value_uplift_pct': indicativeValueUpliftPct,
+      'estimated_value_uplift_amount': estimatedValueUpliftAmount,
+      'roi_notes': roiNotes,
+    };
+  }
+}
+
+class StagedRoomAssetModel {
+  final String assetId;
+  final String roomId;
+  final String roomName;
+  final StagingType stagingType;
+  final String styleTheme;
+  final String originalImageUrl;
+  final String stagedImageUrl;
+  final String watermarkedImageUrl;
+  final VirtualStagingDisclosureModel disclosure;
+  final RenovationPotentialEstimateModel? renovationPotential;
+  final String? createdAt;
+
+  StagedRoomAssetModel({
+    required this.assetId,
+    required this.roomId,
+    required this.roomName,
+    this.stagingType = StagingType.virtualStagingEmpty,
+    this.styleTheme = 'Warm Contemporary',
+    required this.originalImageUrl,
+    required this.stagedImageUrl,
+    required this.watermarkedImageUrl,
+    required this.disclosure,
+    this.renovationPotential,
+    this.createdAt,
+  });
+
+  factory StagedRoomAssetModel.fromMap(Map<String, dynamic> map) {
+    return StagedRoomAssetModel(
+      assetId: map['asset_id'] as String? ?? '',
+      roomId: map['room_id'] as String? ?? '',
+      roomName: map['room_name'] as String? ?? 'Room',
+      stagingType: StagingType.fromCode(map['staging_type'] as String?),
+      styleTheme: map['style_theme'] as String? ?? 'Warm Contemporary',
+      originalImageUrl: map['original_image_url'] as String? ?? '',
+      stagedImageUrl: map['staged_image_url'] as String? ?? '',
+      watermarkedImageUrl: map['watermarked_image_url'] as String? ?? '',
+      disclosure: map['disclosure'] != null
+          ? VirtualStagingDisclosureModel.fromMap(map['disclosure'] as Map<String, dynamic>)
+          : VirtualStagingDisclosureModel(),
+      renovationPotential: map['renovation_potential'] != null
+          ? RenovationPotentialEstimateModel.fromMap(map['renovation_potential'] as Map<String, dynamic>)
+          : null,
+      createdAt: map['created_at'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'asset_id': assetId,
+      'room_id': roomId,
+      'room_name': roomName,
+      'staging_type': stagingType.code,
+      'style_theme': styleTheme,
+      'original_image_url': originalImageUrl,
+      'staged_image_url': stagedImageUrl,
+      'watermarked_image_url': watermarkedImageUrl,
+      'disclosure': disclosure.toMap(),
+      'renovation_potential': renovationPotential?.toMap(),
+      'created_at': createdAt,
+    };
+  }
+}
+
+class PropertyListingRecordModel {
+  final String listingId;
+  final String? projectId;
+  final String propertyTitle;
+  final String propertyType;
+  final int bedrooms;
+  final int bathrooms;
+  final double builtUpSqft;
+  final double listingPrice;
+  final String currency;
+  final String propertyAddress;
+  final String? mlsNumber;
+  final String listingAgentName;
+  final String? agentLicenseNo;
+  final String? agencyName;
+  final String? agentPhone;
+  final String? agentEmail;
+  final List<StagedRoomAssetModel> stagedRooms;
+  final bool isPublished;
+  final String? portalExportBundleUrl;
+  final String? createdAt;
+  final String? updatedAt;
+
+  PropertyListingRecordModel({
+    required this.listingId,
+    this.projectId,
+    required this.propertyTitle,
+    this.propertyType = 'Condominium',
+    this.bedrooms = 3,
+    this.bathrooms = 2,
+    this.builtUpSqft = 1200.0,
+    this.listingPrice = 0.0,
+    this.currency = 'MYR',
+    required this.propertyAddress,
+    this.mlsNumber,
+    required this.listingAgentName,
+    this.agentLicenseNo,
+    this.agencyName,
+    this.agentPhone,
+    this.agentEmail,
+    this.stagedRooms = const [],
+    this.isPublished = false,
+    this.portalExportBundleUrl,
+    this.createdAt,
+    this.updatedAt,
+  });
+
+  String get currencySymbol => CatalogProductModel._currencySymbol(currency);
+
+  factory PropertyListingRecordModel.fromMap(Map<String, dynamic> map) {
+    return PropertyListingRecordModel(
+      listingId: map['listing_id'] as String? ?? '',
+      projectId: map['project_id'] as String?,
+      propertyTitle: map['property_title'] as String? ?? '',
+      propertyType: map['property_type'] as String? ?? 'Condominium',
+      bedrooms: (map['bedrooms'] as num?)?.toInt() ?? 3,
+      bathrooms: (map['bathrooms'] as num?)?.toInt() ?? 2,
+      builtUpSqft: (map['built_up_sqft'] as num?)?.toDouble() ?? 1200.0,
+      listingPrice: (map['listing_price'] as num?)?.toDouble() ?? 0.0,
+      currency: map['currency'] as String? ?? 'MYR',
+      propertyAddress: map['property_address'] as String? ?? '',
+      mlsNumber: map['mls_number'] as String?,
+      listingAgentName: map['listing_agent_name'] as String? ?? 'Agent',
+      agentLicenseNo: map['agent_license_no'] as String?,
+      agencyName: map['agency_name'] as String?,
+      agentPhone: map['agent_phone'] as String?,
+      agentEmail: map['agent_email'] as String?,
+      stagedRooms: ((map['staged_rooms'] as List<dynamic>?) ?? [])
+          .map((e) => StagedRoomAssetModel.fromMap(e as Map<String, dynamic>))
+          .toList(),
+      isPublished: map['is_published'] as bool? ?? false,
+      portalExportBundleUrl: map['portal_export_bundle_url'] as String?,
+      createdAt: map['created_at'] as String?,
+      updatedAt: map['updated_at'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'listing_id': listingId,
+      'project_id': projectId,
+      'property_title': propertyTitle,
+      'property_type': propertyType,
+      'bedrooms': bedrooms,
+      'bathrooms': bathrooms,
+      'built_up_sqft': builtUpSqft,
+      'listing_price': listingPrice,
+      'currency': currency,
+      'property_address': propertyAddress,
+      'mls_number': mlsNumber,
+      'listing_agent_name': listingAgentName,
+      'agent_license_no': agentLicenseNo,
+      'agency_name': agencyName,
+      'agent_phone': agentPhone,
+      'agent_email': agentEmail,
+      'staged_rooms': stagedRooms.map((e) => e.toMap()).toList(),
+      'is_published': isPublished,
+      'portal_export_bundle_url': portalExportBundleUrl,
+      'created_at': createdAt,
+      'updated_at': updatedAt,
+    };
+  }
+}
+
+class PortalExportPackageModel {
+  final String listingId;
+  final String propertyTitle;
+  final int totalStagedRooms;
+  final String portalFormat;
+  final String? exportTimestamp;
+  final List<Map<String, dynamic>> mediaEntries;
+  final Map<String, dynamic> disclosureManifest;
+
+  PortalExportPackageModel({
+    required this.listingId,
+    required this.propertyTitle,
+    this.totalStagedRooms = 0,
+    this.portalFormat = 'RESO_STANDARD',
+    this.exportTimestamp,
+    this.mediaEntries = const [],
+    this.disclosureManifest = const {},
+  });
+
+  factory PortalExportPackageModel.fromMap(Map<String, dynamic> map) {
+    return PortalExportPackageModel(
+      listingId: map['listing_id'] as String? ?? '',
+      propertyTitle: map['property_title'] as String? ?? '',
+      totalStagedRooms: (map['total_staged_rooms'] as num?)?.toInt() ?? 0,
+      portalFormat: map['portal_format'] as String? ?? 'RESO_STANDARD',
+      exportTimestamp: map['export_timestamp'] as String?,
+      mediaEntries: (map['media_entries'] as List<dynamic>?)
+              ?.map((e) => Map<String, dynamic>.from(e as Map))
+              .toList() ??
+          const [],
+      disclosureManifest: map['disclosure_manifest'] != null
+          ? Map<String, dynamic>.from(map['disclosure_manifest'] as Map)
+          : const {},
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'listing_id': listingId,
+      'property_title': propertyTitle,
+      'total_staged_rooms': totalStagedRooms,
+      'portal_format': portalFormat,
+      'export_timestamp': exportTimestamp,
+      'media_entries': mediaEntries,
+      'disclosure_manifest': disclosureManifest,
+    };
+  }
+}
+
+
+
 
 
 

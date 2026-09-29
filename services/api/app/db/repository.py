@@ -46,6 +46,13 @@ from packages.room_model import (
     ContractorBid,
     ContractorQuoteRequest,
     BidComparisonSummary,
+    StagingType,
+    WatermarkPosition,
+    VirtualStagingDisclosure,
+    RenovationPotentialEstimate,
+    StagedRoomAsset,
+    PropertyListingRecord,
+    PortalExportPackage,
 )
 
 
@@ -81,7 +88,9 @@ class InMemoryRepository:
         self.contractor_briefs: Dict[str, ContractorProjectBrief] = {}
         self.rfqs: Dict[str, ContractorQuoteRequest] = {}
         self.contractor_bids: Dict[str, ContractorBid] = {}
+        self.listings: Dict[str, PropertyListingRecord] = {}
         self._seed_merchants()
+        self._seed_listings()
 
     # ==========================
     # Project Methods
@@ -2094,6 +2103,458 @@ class InMemoryRepository:
   </div>
 </body>
 </html>"""
+
+    # ==========================
+    # Property Agent & Virtual Staging Methods (Milestone 6.3)
+    # ==========================
+    def _seed_listings(self):
+        """Seeds initial property listings with virtual staging concepts."""
+        disclosure_1 = VirtualStagingDisclosure(
+            is_virtually_staged=True,
+            watermark_applied=True,
+            watermark_text="VIRTUALLY STAGED — FOR ILLUSTRATIVE PURPOSES ONLY",
+            watermark_position=WatermarkPosition.BOTTOM_RIGHT,
+            disclosure_statement=(
+                "Virtually Staged: Furnishings and decor are digitally added for illustrative purposes only. "
+                "Original room dimensions, walls, and permanent fixtures remain unaltered."
+            ),
+            regulatory_framework="RESO Standard / BOVAEP / CEA Guidelines",
+            agent_license_no="REN 19482",
+            agency_name="PropNex Realty Malaysia",
+            original_image_url="https://storage.roomlyst.com/samples/vacant_living_room_raw.jpg",
+            staged_image_url="https://storage.roomlyst.com/staged/room_pavilion_01_staged.jpg",
+            staged_at=datetime.now(timezone.utc),
+        )
+
+        staged_asset_1 = StagedRoomAsset(
+            asset_id="stage_asset_001",
+            room_id="room_pavilion_living",
+            room_name="Grand Living & Dining Room",
+            staging_type=StagingType.VIRTUAL_STAGING_EMPTY,
+            style_theme="Warm Contemporary",
+            original_image_url="https://storage.roomlyst.com/samples/vacant_living_room_raw.jpg",
+            staged_image_url="https://storage.roomlyst.com/staged/room_pavilion_01_staged.jpg",
+            watermarked_image_url="https://storage.roomlyst.com/staged/room_pavilion_01_watermarked.jpg",
+            disclosure=disclosure_1,
+            created_at=datetime.now(timezone.utc),
+        )
+
+        renovation_potential_2 = RenovationPotentialEstimate(
+            cosmetic_scope_items=[
+                "Engineered French oak chevron flooring",
+                "Matte mineral limewash paint (Warm Alabaster)",
+                "Concealed architectural LED cove lighting",
+                "Slim-profile black aluminum window frame finish",
+            ],
+            estimated_renovation_cost=18500.0,
+            currency=CurrencyCode.MYR,
+            indicative_value_uplift_pct=9.5,
+            estimated_value_uplift_amount=68000.0,
+            roi_notes="Cosmetic makeover estimated at MYR 18,500 with projected listing value uplift of MYR 68,000 (3.6x cost).",
+        )
+
+        disclosure_2 = VirtualStagingDisclosure(
+            is_virtually_staged=True,
+            watermark_applied=True,
+            watermark_text="RENOVATION POTENTIAL CONCEPT — COSMETIC UPGRADE PREVIEW",
+            watermark_position=WatermarkPosition.BOTTOM_RIGHT,
+            disclosure_statement=(
+                "Renovation Concept: Finish upgrades are digitally simulated. "
+                "Consult contractor specifications before beginning construction."
+            ),
+            regulatory_framework="RESO Standard / BOVAEP / CEA Guidelines",
+            agent_license_no="PEA 2811",
+            agency_name="Knight Frank Malaysia",
+            original_image_url="https://storage.roomlyst.com/samples/dated_bedroom_raw.jpg",
+            staged_image_url="https://storage.roomlyst.com/staged/room_damansara_01_renovated.jpg",
+            staged_at=datetime.now(timezone.utc),
+        )
+
+        staged_asset_2 = StagedRoomAsset(
+            asset_id="stage_asset_002",
+            room_id="room_damansara_master",
+            room_name="Master Suite Retreat",
+            staging_type=StagingType.RENOVATION_POTENTIAL,
+            style_theme="Japandi Minimalist",
+            original_image_url="https://storage.roomlyst.com/samples/dated_bedroom_raw.jpg",
+            staged_image_url="https://storage.roomlyst.com/staged/room_damansara_01_renovated.jpg",
+            watermarked_image_url="https://storage.roomlyst.com/staged/room_damansara_01_renovated_watermarked.jpg",
+            disclosure=disclosure_2,
+            renovation_potential=renovation_potential_2,
+            created_at=datetime.now(timezone.utc),
+        )
+
+        listing_1 = PropertyListingRecord(
+            listing_id="list_bangsar_01",
+            mls_number="MLS-MY-88291",
+            property_title="The Pavilion Suites, Bangsar",
+            property_type="Condominium",
+            bedrooms=3,
+            bathrooms=3,
+            built_up_sqft=1450.0,
+            listing_price=1850000.0,
+            currency=CurrencyCode.MYR,
+            property_address="Level 18, 55 Jalan Telawi, Bangsar, 59100 Kuala Lumpur",
+            listing_agent_name="Sarah Wong",
+            agent_license_no="REN 19482",
+            agency_name="PropNex Realty Malaysia",
+            agent_phone="+60 12 889 1234",
+            agent_email="sarah.wong@propnex.my",
+            staged_rooms=[staged_asset_1],
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+        )
+
+        listing_2 = PropertyListingRecord(
+            listing_id="list_damansara_02",
+            mls_number="MLS-MY-44102",
+            property_title="Verdi Eco-dominiums, Damansara",
+            property_type="Apartment",
+            bedrooms=2,
+            bathrooms=2,
+            built_up_sqft=980.0,
+            listing_price=720000.0,
+            currency=CurrencyCode.MYR,
+            property_address="Tower B, Persiaran Surian, Kota Damansara, 47810 Petaling Jaya",
+            listing_agent_name="Marcus Tan",
+            agent_license_no="PEA 2811",
+            agency_name="Knight Frank Malaysia",
+            agent_phone="+60 17 234 5678",
+            agent_email="marcus.tan@knightfrank.my",
+            staged_rooms=[staged_asset_2],
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+        )
+
+        self.listings[listing_1.listing_id] = listing_1
+        self.listings[listing_2.listing_id] = listing_2
+
+    def create_listing(
+        self,
+        property_title: str,
+        mls_number: Optional[str] = None,
+        property_type: str = "Condominium",
+        bedrooms: int = 3,
+        bathrooms: int = 2,
+        built_up_sqft: float = 1200.0,
+        listing_price: float = 850000.0,
+        currency: CurrencyCode = CurrencyCode.MYR,
+        property_address: str = "Kuala Lumpur, Malaysia",
+        listing_agent_name: str = "Real Estate Agent",
+        agent_license_no: Optional[str] = None,
+        agency_name: Optional[str] = None,
+        agent_phone: Optional[str] = None,
+        agent_email: Optional[str] = None,
+    ) -> PropertyListingRecord:
+        """Creates a new real estate listing record."""
+        listing_id = f"list_{uuid.uuid4().hex[:8]}"
+        mls = mls_number or f"MLS-MY-{uuid.uuid4().hex[:5].upper()}"
+
+        record = PropertyListingRecord(
+            listing_id=listing_id,
+            mls_number=mls,
+            property_title=property_title,
+            property_type=property_type,
+            bedrooms=bedrooms,
+            bathrooms=bathrooms,
+            built_up_sqft=built_up_sqft,
+            listing_price=listing_price,
+            currency=currency,
+            property_address=property_address,
+            listing_agent_name=listing_agent_name,
+            agent_license_no=agent_license_no,
+            agency_name=agency_name,
+            agent_phone=agent_phone,
+            agent_email=agent_email,
+            staged_rooms=[],
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+        )
+        self.listings[record.listing_id] = record
+        return record
+
+    def get_listing(self, listing_id: str) -> Optional[PropertyListingRecord]:
+        return self.listings.get(listing_id)
+
+    def list_listings(self, agent_license: Optional[str] = None) -> List[PropertyListingRecord]:
+        all_listings = list(self.listings.values())
+        if agent_license:
+            return [l for l in all_listings if l.agent_license_no == agent_license]
+        return all_listings
+
+    def update_listing(
+        self,
+        listing_id: str,
+        property_title: Optional[str] = None,
+        listing_price: Optional[float] = None,
+        bedrooms: Optional[int] = None,
+        bathrooms: Optional[int] = None,
+        property_address: Optional[str] = None,
+    ) -> Optional[PropertyListingRecord]:
+        rec = self.listings.get(listing_id)
+        if not rec:
+            return None
+        if property_title is not None:
+            rec.property_title = property_title
+        if listing_price is not None:
+            rec.listing_price = listing_price
+        if bedrooms is not None:
+            rec.bedrooms = bedrooms
+        if bathrooms is not None:
+            rec.bathrooms = bathrooms
+        if property_address is not None:
+            rec.property_address = property_address
+        rec.updated_at = datetime.now(timezone.utc)
+        return rec
+
+    def delete_listing(self, listing_id: str) -> bool:
+        if listing_id in self.listings:
+            del self.listings[listing_id]
+            return True
+        return False
+
+    def stage_room_for_listing(
+        self,
+        listing_id: str,
+        room_name: str,
+        staging_type: StagingType = StagingType.VIRTUAL_STAGING_EMPTY,
+        style_theme: str = "Warm Contemporary",
+        original_image_url: Optional[str] = None,
+        watermark_position: WatermarkPosition = WatermarkPosition.BOTTOM_RIGHT,
+        floor_area_sqm: float = 24.0,
+        room_id: Optional[str] = None,
+    ) -> StagedRoomAsset:
+        """Executes virtual staging for a room in a property listing."""
+        listing = self.listings.get(listing_id)
+        if not listing:
+            raise KeyError(f"Listing {listing_id} not found")
+
+        asset_id = f"stage_{uuid.uuid4().hex[:8]}"
+        rid = room_id or f"room_{uuid.uuid4().hex[:6]}"
+        orig_img = original_image_url or "https://storage.roomlyst.com/samples/vacant_living_room_raw.jpg"
+        slug = style_theme.lower().replace(" ", "_")
+        staged_url = f"https://storage.roomlyst.com/staged/{listing_id}_{staging_type.value.lower()}_{slug}.jpg"
+        watermarked_url = f"https://storage.roomlyst.com/staged/{listing_id}_{staging_type.value.lower()}_{slug}_watermarked.jpg"
+
+        renovation_potential = None
+        if staging_type == StagingType.RENOVATION_POTENTIAL:
+            renovation_cost = round((floor_area_sqm * 180.0) + 4500.0, 2)
+            indicative_uplift = round(renovation_cost * 2.4, 2)
+            uplift_pct = round((indicative_uplift / listing.listing_price) * 100, 1) if listing.listing_price > 0 else 8.5
+
+            renovation_potential = RenovationPotentialEstimate(
+                cosmetic_scope_items=[
+                    "Engineered French oak chevron flooring",
+                    "Matte mineral limewash paint (Warm Alabaster)",
+                    "Concealed architectural LED cove lighting",
+                    "Slim-profile black aluminum window frame finish",
+                ],
+                estimated_renovation_cost=renovation_cost,
+                currency=listing.currency,
+                indicative_value_uplift_pct=uplift_pct,
+                estimated_value_uplift_amount=indicative_uplift,
+                roi_notes=(
+                    f"Cosmetic makeover estimated at {listing.currency.value} {renovation_cost:,.2f} "
+                    f"projected to increase listing valuation by {listing.currency.value} {indicative_uplift:,.2f} (~{uplift_pct}%)."
+                ),
+            )
+
+        disclosure = VirtualStagingDisclosure(
+            is_virtually_staged=True,
+            watermark_applied=True,
+            watermark_text="VIRTUALLY STAGED — FOR ILLUSTRATIVE PURPOSES ONLY",
+            watermark_position=watermark_position,
+            disclosure_statement=(
+                "Virtually Staged: Furnishings and decor are digitally added for illustrative purposes only. "
+                "Original room dimensions, walls, and permanent fixtures remain unaltered."
+            ),
+            regulatory_framework="RESO Standard / BOVAEP / CEA Guidelines",
+            agent_license_no=listing.agent_license_no,
+            agency_name=listing.agency_name,
+            original_image_url=orig_img,
+            staged_image_url=staged_url,
+            staged_at=datetime.now(timezone.utc),
+        )
+
+        staged_asset = StagedRoomAsset(
+            asset_id=asset_id,
+            room_id=rid,
+            room_name=room_name,
+            staging_type=staging_type,
+            style_theme=style_theme,
+            original_image_url=orig_img,
+            staged_image_url=staged_url,
+            watermarked_image_url=watermarked_url,
+            disclosure=disclosure,
+            renovation_potential=renovation_potential,
+            created_at=datetime.now(timezone.utc),
+        )
+
+        listing.staged_rooms.append(staged_asset)
+        listing.updated_at = datetime.now(timezone.utc)
+        return staged_asset
+
+    def export_portal_bundle(
+        self,
+        listing_id: str,
+        portal_target: str = "propertyguru",
+    ) -> PortalExportPackage:
+        """Compiles a RESO/portal syndication export package with compliance manifests."""
+        listing = self.listings.get(listing_id)
+        if not listing:
+            raise KeyError(f"Listing {listing_id} not found")
+
+        media_entries: List[Dict[str, Any]] = []
+        for idx, asset in enumerate(listing.staged_rooms):
+            media_entries.append({
+                "media_index": idx + 1,
+                "room_name": asset.room_name,
+                "staging_type": asset.staging_type.value,
+                "style_theme": asset.style_theme,
+                "is_virtually_staged": True,
+                "original_photo_url": asset.original_image_url,
+                "staged_photo_url": asset.watermarked_image_url,
+                "disclosure_statement": asset.disclosure.disclosure_statement,
+                "watermark_applied": asset.disclosure.watermark_applied,
+                "reso_media_category": "VirtuallyStagedRoom",
+            })
+
+        disclosure_manifest = {
+            "listing_id": listing.listing_id,
+            "mls_number": listing.mls_number,
+            "property_address": listing.property_address,
+            "portal_target": portal_target,
+            "listing_agent": {
+                "name": listing.listing_agent_name,
+                "license_no": listing.agent_license_no,
+                "agency": listing.agency_name,
+            },
+            "compliance_attestation": (
+                "The listing broker confirms that all virtually staged images in this syndication feed "
+                "strictly comply with MLS virtual staging guidelines and accurately represent permanent architecture."
+            ),
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+        package = PortalExportPackage(
+            listing_id=listing.listing_id,
+            property_title=listing.property_title,
+            total_staged_rooms=len(listing.staged_rooms),
+            portal_format="RESO_STANDARD",
+            export_timestamp=datetime.now(timezone.utc),
+            media_entries=media_entries,
+            disclosure_manifest=disclosure_manifest,
+        )
+        listing.portal_export_package = package
+        listing.updated_at = datetime.now(timezone.utc)
+        return package
+
+    def generate_property_flyer_html(self, listing_id: str) -> str:
+        """Generates a print-ready real estate property marketing flyer with staging disclosure."""
+        listing = self.listings.get(listing_id)
+        if not listing:
+            raise KeyError(f"Listing {listing_id} not found")
+
+        curr = listing.currency.value
+        rooms_html = ""
+        for room in listing.staged_rooms:
+            roi_html = ""
+            if room.renovation_potential:
+                rp = room.renovation_potential
+                roi_html = f"""
+                <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 12px; margin-top: 10px;">
+                    <strong style="color: #166534; font-size: 13px;">💡 Renovation Potential Preview</strong>
+                    <div style="font-size: 12px; color: #15803d; margin-top: 4px;">
+                        Est. Cosmetic Makeover: <b>{curr} {rp.estimated_renovation_cost:,.2f}</b> | 
+                        Projected Value Uplift: <b>+{curr} {rp.estimated_value_uplift_amount:,.2f} (~{rp.indicative_value_uplift_pct}%)</b>
+                    </div>
+                </div>
+                """
+
+            rooms_html += f"""
+            <div style="margin-bottom: 28px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+                <div style="padding: 12px 16px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-weight: 600; color: #0f172a; font-size: 15px;">{room.room_name}</span>
+                    <span style="font-size: 11px; background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 4px; font-weight: 500;">
+                        {room.staging_type.value.replace('_', ' ').title()} • {room.style_theme}
+                    </span>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 16px;">
+                    <div>
+                        <div style="font-size: 11px; font-weight: 600; color: #64748b; margin-bottom: 4px;">ORIGINAL (UNFURNISHED / AS-IS)</div>
+                        <img src="{room.original_image_url}" alt="Original Room" style="width: 100%; height: 180px; object-fit: cover; border-radius: 6px; border: 1px solid #e2e8f0;" />
+                    </div>
+                    <div>
+                        <div style="font-size: 11px; font-weight: 600; color: #2563eb; margin-bottom: 4px;">VIRTUALLY STAGED (CONCEPT)</div>
+                        <div style="position: relative;">
+                            <img src="{room.watermarked_image_url}" alt="Virtually Staged" style="width: 100%; height: 180px; object-fit: cover; border-radius: 6px; border: 1px solid #cbd5e1;" />
+                            <div style="position: absolute; bottom: 8px; right: 8px; background: rgba(15, 23, 42, 0.85); color: #ffffff; font-size: 9px; font-weight: bold; padding: 3px 6px; border-radius: 4px;">
+                                ⚠ VIRTUALLY STAGED
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div style="padding: 0 16px 16px 16px;">
+                    <div style="font-size: 11px; color: #64748b; line-height: 1.4;">
+                        <b>Mandatory Disclosure:</b> {room.disclosure.disclosure_statement}
+                    </div>
+                    {roi_html}
+                </div>
+            </div>
+            """
+
+        return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{listing.property_title} — Property Marketing Flyer</title>
+    <style>
+        body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 32px; background: #f8fafc; color: #1e293b; }}
+        .header {{ background: #0f172a; color: white; padding: 24px 32px; border-radius: 12px; margin-bottom: 24px; }}
+        .price {{ font-size: 28px; font-weight: 800; color: #38bdf8; }}
+        .stats-bar {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }}
+        .stat-card {{ background: white; padding: 14px 18px; border-radius: 8px; border: 1px solid #e2e8f0; }}
+        .stat-card span {{ font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 600; display: block; }}
+        .stat-card strong {{ font-size: 18px; color: #0f172a; margin-top: 4px; display: block; }}
+        .footer {{ background: #e2e8f0; padding: 16px 24px; border-radius: 8px; font-size: 11px; color: #475569; margin-top: 24px; text-align: center; }}
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div style="font-size: 12px; letter-spacing: 0.05em; color: #94a3b8; text-transform: uppercase; margin-bottom: 4px;">Exclusive Property Presentation • {listing.mls_number}</div>
+        <h1 style="margin: 0 0 8px 0; font-size: 26px;">{listing.property_title}</h1>
+        <p style="margin: 0 0 16px 0; color: #cbd5e1; font-size: 14px;">📍 {listing.property_address}</p>
+        <div class="price">{curr} {listing.listing_price:,.2f}</div>
+    </div>
+
+    <div class="stats-bar">
+        <div class="stat-card">
+            <span>Property Type</span>
+            <strong>{listing.property_type}</strong>
+        </div>
+        <div class="stat-card">
+            <span>Bedrooms / Baths</span>
+            <strong>{listing.bedrooms} Beds / {listing.bathrooms} Baths</strong>
+        </div>
+        <div class="stat-card">
+            <span>Built-Up Area</span>
+            <strong>{listing.built_up_sqft:,.0f} sqft</strong>
+        </div>
+        <div class="stat-card">
+            <span>Listing Agent</span>
+            <strong style="font-size: 14px;">{listing.listing_agent_name} ({listing.agent_license_no or 'Agent'})</strong>
+        </div>
+    </div>
+
+    <h2 style="font-size: 18px; color: #0f172a; margin-bottom: 16px;">Spatial Concepts & Virtually Staged Rooms</h2>
+    {rooms_html if rooms_html else '<p style="color: #64748b;">No staged rooms currently compiled for this property.</p>'}
+
+    <div class="footer">
+        <b>Regulatory Compliance Note:</b> This property presentation incorporates digitally staged representations adhering to RESO, BOVAEP, and CEA advertising rules. All staged images are paired with original baseline condition records. Contact <b>{listing.listing_agent_name}</b> at <b>{listing.agent_phone or listing.agent_email or listing.agency_name}</b> for private viewings.
+    </div>
+</body>
+</html>"""
+
 
 
 # Global singleton repository instance for the running service

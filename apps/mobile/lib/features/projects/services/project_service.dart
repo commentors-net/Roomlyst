@@ -1120,6 +1120,46 @@ class ProjectService {
     final res = await ApiClient.awardContractorBid(rfqId, bidId);
     return ContractorBidModel.fromMap(res as Map<String, dynamic>);
   }
+
+  // ==========================
+  // Milestone 6.3: Property Agent & Virtual Staging
+  // ==========================
+  static Future<PropertyListingRecordModel> createPropertyListing(Map<String, dynamic> data) async {
+    final res = await ApiClient.createPropertyListing(data);
+    return PropertyListingRecordModel.fromMap(res as Map<String, dynamic>);
+  }
+
+  static Future<List<PropertyListingRecordModel>> fetchPropertyListings({String? agentLicense}) async {
+    final res = await ApiClient.listPropertyListings(agentLicense: agentLicense);
+    if (res is List) {
+      return res.map((e) => PropertyListingRecordModel.fromMap(e as Map<String, dynamic>)).toList();
+    }
+    return [];
+  }
+
+  static Future<PropertyListingRecordModel> fetchPropertyListingById(String listingId) async {
+    final res = await ApiClient.getPropertyListing(listingId);
+    return PropertyListingRecordModel.fromMap(res as Map<String, dynamic>);
+  }
+
+  static Future<StagedRoomAssetModel> stageRoomForListing(String listingId, Map<String, dynamic> data) async {
+    final res = await ApiClient.stageRoomForListing(listingId, data);
+    return StagedRoomAssetModel.fromMap(res as Map<String, dynamic>);
+  }
+
+  static Future<VirtualStagingDisclosureModel> fetchStagedRoomDisclosure(String listingId, String assetId) async {
+    final res = await ApiClient.getStagedRoomDisclosure(listingId, assetId);
+    return VirtualStagingDisclosureModel.fromMap(res as Map<String, dynamic>);
+  }
+
+  static Future<PortalExportPackageModel> exportListingPortalBundle(String listingId, {String portalTarget = 'propertyguru'}) async {
+    final res = await ApiClient.exportListingPortalBundle(listingId, portalTarget: portalTarget);
+    return PortalExportPackageModel.fromMap(res as Map<String, dynamic>);
+  }
+
+  static Future<String> fetchPropertyMarketingFlyerHtml(String listingId) async {
+    return ApiClient.getPropertyMarketingFlyerHtml(listingId);
+  }
 }
 
 

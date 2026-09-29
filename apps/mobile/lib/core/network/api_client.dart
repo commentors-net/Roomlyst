@@ -976,6 +976,44 @@ class ApiClient {
     return post('/rfqs/$rfqId/award/$bidId', {});
   }
 
+  // Milestone 6.3: Property Agent & Virtual Staging API Methods
+  static Future<dynamic> createPropertyListing(Map<String, dynamic> data) async {
+    return post('/listings', data);
+  }
+
+  static Future<dynamic> listPropertyListings({String? agentLicense}) async {
+    final queryStr = (agentLicense != null && agentLicense.isNotEmpty)
+        ? '?agent_license=${Uri.encodeComponent(agentLicense)}'
+        : '';
+    return get('/listings$queryStr');
+  }
+
+  static Future<dynamic> getPropertyListing(String listingId) async {
+    return get('/listings/$listingId');
+  }
+
+  static Future<dynamic> stageRoomForListing(String listingId, Map<String, dynamic> data) async {
+    return post('/listings/$listingId/stage-room', data);
+  }
+
+  static Future<dynamic> getStagedRoomDisclosure(String listingId, String assetId) async {
+    return get('/listings/$listingId/staged-rooms/$assetId/disclosure');
+  }
+
+  static Future<dynamic> exportListingPortalBundle(String listingId, {String portalTarget = 'propertyguru'}) async {
+    return post('/listings/$listingId/export-portal-bundle', {'portal_target': portalTarget});
+  }
+
+  static Future<String> getPropertyMarketingFlyerHtml(String listingId) async {
+    final url = Uri.parse('${AppConfig.fullApiUrl}/listings/$listingId/marketing-flyer');
+    final headers = await _buildHeaders();
+    final response = await http.get(url, headers: headers);
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return response.body;
+    }
+    throw Exception('Failed to load printable property marketing flyer: ${response.statusCode}');
+  }
+
 
   static dynamic _handleResponse(http.Response response) {
     if (response.statusCode >= 200 && response.statusCode < 300) {
