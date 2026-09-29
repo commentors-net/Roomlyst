@@ -4921,6 +4921,357 @@ class PortalExportPackageModel {
 }
 
 
+// =====================================================================
+// Milestone 6.4: Cross-Segment Ecosystem Workflow Orchestration Models
+// Fulfills Blueprint Section 41 & Phase 6 Exit Gate
+// =====================================================================
+
+enum EcosystemRole {
+  homeowner('HOMEOWNER', 'Homeowner'),
+  interiorDesigner('INTERIOR_DESIGNER', 'Interior Designer'),
+  contractor('CONTRACTOR', 'Contractor'),
+  merchantSeller('MERCHANT_SELLER', 'Merchant / Seller'),
+  propertyAgent('PROPERTY_AGENT', 'Property Agent'),
+  studioAdmin('STUDIO_ADMIN', 'Studio Admin');
+
+  final String code;
+  final String label;
+  const EcosystemRole(this.code, this.label);
+
+  static EcosystemRole fromCode(String? code) {
+    switch (code?.toUpperCase()) {
+      case 'INTERIOR_DESIGNER':
+        return EcosystemRole.interiorDesigner;
+      case 'CONTRACTOR':
+        return EcosystemRole.contractor;
+      case 'MERCHANT_SELLER':
+        return EcosystemRole.merchantSeller;
+      case 'PROPERTY_AGENT':
+        return EcosystemRole.propertyAgent;
+      case 'STUDIO_ADMIN':
+        return EcosystemRole.studioAdmin;
+      case 'HOMEOWNER':
+      default:
+        return EcosystemRole.homeowner;
+    }
+  }
+}
+
+enum HandoffTransitionType {
+  homeownerToDesigner('HOMEOWNER_TO_DESIGNER', 'Homeowner → Designer'),
+  designerToMerchant('DESIGNER_TO_MERCHANT', 'Designer → Merchant'),
+  designerToContractor('DESIGNER_TO_CONTRACTOR', 'Designer → Contractor'),
+  designerToAgent('DESIGNER_TO_AGENT', 'Designer → Agent');
+
+  final String code;
+  final String label;
+  const HandoffTransitionType(this.code, this.label);
+
+  static HandoffTransitionType fromCode(String? code) {
+    switch (code?.toUpperCase()) {
+      case 'DESIGNER_TO_MERCHANT':
+        return HandoffTransitionType.designerToMerchant;
+      case 'DESIGNER_TO_CONTRACTOR':
+        return HandoffTransitionType.designerToContractor;
+      case 'DESIGNER_TO_AGENT':
+        return HandoffTransitionType.designerToAgent;
+      case 'HOMEOWNER_TO_DESIGNER':
+      default:
+        return HandoffTransitionType.homeownerToDesigner;
+    }
+  }
+}
+
+enum HandoffStatus {
+  draft('DRAFT', 'Draft'),
+  pendingAcceptance('PENDING_ACCEPTANCE', 'Pending Acceptance'),
+  active('ACTIVE', 'Active'),
+  completed('COMPLETED', 'Completed'),
+  revoked('REVOKED', 'Revoked');
+
+  final String code;
+  final String label;
+  const HandoffStatus(this.code, this.label);
+
+  static HandoffStatus fromCode(String? code) {
+    switch (code?.toUpperCase()) {
+      case 'DRAFT':
+        return HandoffStatus.draft;
+      case 'ACTIVE':
+        return HandoffStatus.active;
+      case 'COMPLETED':
+        return HandoffStatus.completed;
+      case 'REVOKED':
+        return HandoffStatus.revoked;
+      case 'PENDING_ACCEPTANCE':
+      default:
+        return HandoffStatus.pendingAcceptance;
+    }
+  }
+}
+
+class EcosystemHandoffRecordModel {
+  final String handoffId;
+  final String projectId;
+  final HandoffTransitionType transitionType;
+  final String sourceActorId;
+  final EcosystemRole sourceRole;
+  final String targetActorId;
+  final EcosystemRole targetRole;
+  final String? targetActorName;
+  final HandoffStatus status;
+  final List<String> permittedScopes;
+  final List<String> transferredArtifactIds;
+  final String? notes;
+  final String? createdAt;
+  final String? acceptedAt;
+  final String? completedAt;
+
+  EcosystemHandoffRecordModel({
+    required this.handoffId,
+    required this.projectId,
+    required this.transitionType,
+    required this.sourceActorId,
+    required this.sourceRole,
+    required this.targetActorId,
+    required this.targetRole,
+    this.targetActorName,
+    this.status = HandoffStatus.pendingAcceptance,
+    this.permittedScopes = const [],
+    this.transferredArtifactIds = const [],
+    this.notes,
+    this.createdAt,
+    this.acceptedAt,
+    this.completedAt,
+  });
+
+  factory EcosystemHandoffRecordModel.fromMap(Map<String, dynamic> map) {
+    return EcosystemHandoffRecordModel(
+      handoffId: map['handoff_id'] as String? ?? '',
+      projectId: map['project_id'] as String? ?? '',
+      transitionType: HandoffTransitionType.fromCode(map['transition_type'] as String?),
+      sourceActorId: map['source_actor_id'] as String? ?? '',
+      sourceRole: EcosystemRole.fromCode(map['source_role'] as String?),
+      targetActorId: map['target_actor_id'] as String? ?? '',
+      targetRole: EcosystemRole.fromCode(map['target_role'] as String?),
+      targetActorName: map['target_actor_name'] as String?,
+      status: HandoffStatus.fromCode(map['status'] as String?),
+      permittedScopes: (map['permitted_scopes'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [],
+      transferredArtifactIds: (map['transferred_artifact_ids'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [],
+      notes: map['notes'] as String?,
+      createdAt: map['created_at'] as String?,
+      acceptedAt: map['accepted_at'] as String?,
+      completedAt: map['completed_at'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'handoff_id': handoffId,
+      'project_id': projectId,
+      'transition_type': transitionType.code,
+      'source_actor_id': sourceActorId,
+      'source_role': sourceRole.code,
+      'target_actor_id': targetActorId,
+      'target_role': targetRole.code,
+      'target_actor_name': targetActorName,
+      'status': status.code,
+      'permitted_scopes': permittedScopes,
+      'transferred_artifact_ids': transferredArtifactIds,
+      'notes': notes,
+      'created_at': createdAt,
+      'accepted_at': acceptedAt,
+      'completed_at': completedAt,
+    };
+  }
+}
+
+class EcosystemAuditEventModel {
+  final String eventId;
+  final String projectId;
+  final String actorId;
+  final String actorName;
+  final EcosystemRole actorRole;
+  final String action;
+  final String resourceType;
+  final String? resourceId;
+  final Map<String, dynamic> metadata;
+  final String? timestamp;
+  final bool isSensitive;
+
+  EcosystemAuditEventModel({
+    required this.eventId,
+    required this.projectId,
+    required this.actorId,
+    required this.actorName,
+    required this.actorRole,
+    required this.action,
+    required this.resourceType,
+    this.resourceId,
+    this.metadata = const {},
+    this.timestamp,
+    this.isSensitive = false,
+  });
+
+  factory EcosystemAuditEventModel.fromMap(Map<String, dynamic> map) {
+    return EcosystemAuditEventModel(
+      eventId: map['event_id'] as String? ?? '',
+      projectId: map['project_id'] as String? ?? '',
+      actorId: map['actor_id'] as String? ?? '',
+      actorName: map['actor_name'] as String? ?? 'Actor',
+      actorRole: EcosystemRole.fromCode(map['actor_role'] as String?),
+      action: map['action'] as String? ?? '',
+      resourceType: map['resource_type'] as String? ?? '',
+      resourceId: map['resource_id'] as String?,
+      metadata: map['metadata'] != null
+          ? Map<String, dynamic>.from(map['metadata'] as Map)
+          : const {},
+      timestamp: map['timestamp'] as String?,
+      isSensitive: map['is_sensitive'] as bool? ?? false,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'event_id': eventId,
+      'project_id': projectId,
+      'actor_id': actorId,
+      'actor_name': actorName,
+      'actor_role': actorRole.code,
+      'action': action,
+      'resource_type': resourceType,
+      'resource_id': resourceId,
+      'metadata': metadata,
+      'timestamp': timestamp,
+      'is_sensitive': isSensitive,
+    };
+  }
+}
+
+class WorkflowOrchestrationSummaryModel {
+  final String projectId;
+  final String projectName;
+  final String homeownerPhaseStatus;
+  final String designerPhaseStatus;
+  final String commercePhaseStatus;
+  final String contractorPhaseStatus;
+  final String propertyStagingPhaseStatus;
+  final int totalActiveHandoffs;
+  final int totalParticipants;
+  final List<EcosystemHandoffRecordModel> handoffs;
+  final List<EcosystemAuditEventModel> recentAuditEvents;
+
+  WorkflowOrchestrationSummaryModel({
+    required this.projectId,
+    required this.projectName,
+    this.homeownerPhaseStatus = 'COMPLETED',
+    this.designerPhaseStatus = 'ACTIVE',
+    this.commercePhaseStatus = 'NOT_STARTED',
+    this.contractorPhaseStatus = 'NOT_STARTED',
+    this.propertyStagingPhaseStatus = 'NOT_STARTED',
+    this.totalActiveHandoffs = 0,
+    this.totalParticipants = 0,
+    this.handoffs = const [],
+    this.recentAuditEvents = const [],
+  });
+
+  factory WorkflowOrchestrationSummaryModel.fromMap(Map<String, dynamic> map) {
+    return WorkflowOrchestrationSummaryModel(
+      projectId: map['project_id'] as String? ?? '',
+      projectName: map['project_name'] as String? ?? 'Project Workspace',
+      homeownerPhaseStatus: map['homeowner_phase_status'] as String? ?? 'COMPLETED',
+      designerPhaseStatus: map['designer_phase_status'] as String? ?? 'ACTIVE',
+      commercePhaseStatus: map['commerce_phase_status'] as String? ?? 'NOT_STARTED',
+      contractorPhaseStatus: map['contractor_phase_status'] as String? ?? 'NOT_STARTED',
+      propertyStagingPhaseStatus: map['property_staging_phase_status'] as String? ?? 'NOT_STARTED',
+      totalActiveHandoffs: (map['total_active_handoffs'] as num?)?.toInt() ?? 0,
+      totalParticipants: (map['total_participants'] as num?)?.toInt() ?? 0,
+      handoffs: ((map['handoffs'] as List<dynamic>?) ?? [])
+          .map((e) => EcosystemHandoffRecordModel.fromMap(e as Map<String, dynamic>))
+          .toList(),
+      recentAuditEvents: ((map['recent_audit_events'] as List<dynamic>?) ?? [])
+          .map((e) => EcosystemAuditEventModel.fromMap(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'project_id': projectId,
+      'project_name': projectName,
+      'homeowner_phase_status': homeownerPhaseStatus,
+      'designer_phase_status': designerPhaseStatus,
+      'commerce_phase_status': commercePhaseStatus,
+      'contractor_phase_status': contractorPhaseStatus,
+      'property_staging_phase_status': propertyStagingPhaseStatus,
+      'total_active_handoffs': totalActiveHandoffs,
+      'total_participants': totalParticipants,
+      'handoffs': handoffs.map((e) => e.toMap()).toList(),
+      'recent_audit_events': recentAuditEvents.map((e) => e.toMap()).toList(),
+    };
+  }
+}
+
+class RoleScopedProjectViewModel {
+  final String projectId;
+  final EcosystemRole role;
+  final String projectName;
+  final String? propertyAddress;
+  final List<String> accessibleSections;
+  final List<String> redactedFields;
+  final Map<String, dynamic> dataPayload;
+
+  RoleScopedProjectViewModel({
+    required this.projectId,
+    required this.role,
+    required this.projectName,
+    this.propertyAddress,
+    this.accessibleSections = const [],
+    this.redactedFields = const [],
+    this.dataPayload = const {},
+  });
+
+  factory RoleScopedProjectViewModel.fromMap(Map<String, dynamic> map) {
+    return RoleScopedProjectViewModel(
+      projectId: map['project_id'] as String? ?? '',
+      role: EcosystemRole.fromCode(map['role'] as String?),
+      projectName: map['project_name'] as String? ?? 'Project Workspace',
+      propertyAddress: map['property_address'] as String?,
+      accessibleSections: (map['accessible_sections'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [],
+      redactedFields: (map['redacted_fields'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [],
+      dataPayload: map['data_payload'] != null
+          ? Map<String, dynamic>.from(map['data_payload'] as Map)
+          : const {},
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'project_id': projectId,
+      'role': role.code,
+      'project_name': projectName,
+      'property_address': propertyAddress,
+      'accessible_sections': accessibleSections,
+      'redacted_fields': redactedFields,
+      'data_payload': dataPayload,
+    };
+  }
+}
+
+
+
 
 
 

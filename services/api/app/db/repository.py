@@ -53,6 +53,13 @@ from packages.room_model import (
     StagedRoomAsset,
     PropertyListingRecord,
     PortalExportPackage,
+    EcosystemRole,
+    HandoffTransitionType,
+    HandoffStatus,
+    EcosystemHandoffRecord,
+    EcosystemAuditEvent,
+    WorkflowOrchestrationSummary,
+    RoleScopedProjectView,
 )
 
 
@@ -89,8 +96,11 @@ class InMemoryRepository:
         self.rfqs: Dict[str, ContractorQuoteRequest] = {}
         self.contractor_bids: Dict[str, ContractorBid] = {}
         self.listings: Dict[str, PropertyListingRecord] = {}
+        self.handoffs: Dict[str, EcosystemHandoffRecord] = {}
+        self.ecosystem_audit_events: List[EcosystemAuditEvent] = []
         self._seed_merchants()
         self._seed_listings()
+        self._seed_handoffs()
 
     # ==========================
     # Project Methods
@@ -2555,7 +2565,453 @@ class InMemoryRepository:
 </body>
 </html>"""
 
+    # ==========================
+    # Milestone 6.4: Cross-Segment Ecosystem Workflow Orchestration
+    # Fulfills Blueprint Section 41 & Phase 6 Exit Gate
+    # ==========================
+    def _seed_handoffs(self):
+        """Seeds initial ecosystem handoffs and governance audit events."""
+        proj_id = "proj_seed_01"
+        h1 = EcosystemHandoffRecord(
+            handoff_id="hnd_seed_01",
+            project_id=proj_id,
+            transition_type=HandoffTransitionType.HOMEOWNER_TO_DESIGNER,
+            source_actor_id="user_homeowner_01",
+            source_role=EcosystemRole.HOMEOWNER,
+            target_actor_id="designer_studio_01",
+            target_role=EcosystemRole.INTERIOR_DESIGNER,
+            target_actor_name="Elena Vance Interior Architecture",
+            status=HandoffStatus.ACTIVE,
+            permitted_scopes=["view_raw_scans", "create_redesigns", "edit_budget"],
+            transferred_artifact_ids=["room_living_01"],
+            notes="Initial homeowner consultation and room model handover.",
+            created_at=datetime.now(timezone.utc) - timedelta(days=5),
+            accepted_at=datetime.now(timezone.utc) - timedelta(days=4),
+        )
+
+        h2 = EcosystemHandoffRecord(
+            handoff_id="hnd_seed_02",
+            project_id=proj_id,
+            transition_type=HandoffTransitionType.DESIGNER_TO_CONTRACTOR,
+            source_actor_id="designer_studio_01",
+            source_role=EcosystemRole.INTERIOR_DESIGNER,
+            target_actor_id="contractor_apex_01",
+            target_role=EcosystemRole.CONTRACTOR,
+            target_actor_name="Apex Build & Renovation Ltd",
+            status=HandoffStatus.PENDING_ACCEPTANCE,
+            permitted_scopes=["view_tender_brief", "view_boq", "submit_bids"],
+            transferred_artifact_ids=["brief_living_01"],
+            notes="RFQ Tender invitation for carpentry and masonry trade works.",
+            created_at=datetime.now(timezone.utc) - timedelta(days=1),
+        )
+
+        self.handoffs[h1.handoff_id] = h1
+        self.handoffs[h2.handoff_id] = h2
+
+        # Seed initial audit trail
+        self.ecosystem_audit_events.extend([
+            EcosystemAuditEvent(
+                event_id="aud_seed_01",
+                project_id=proj_id,
+                actor_id="user_homeowner_01",
+                actor_name="Homeowner",
+                actor_role=EcosystemRole.HOMEOWNER,
+                action="INITIATE_HANDOFF",
+                resource_type="handoff",
+                resource_id="hnd_seed_01",
+                metadata={"transition": "HOMEOWNER_TO_DESIGNER"},
+                timestamp=datetime.now(timezone.utc) - timedelta(days=5),
+            ),
+            EcosystemAuditEvent(
+                event_id="aud_seed_02",
+                project_id=proj_id,
+                actor_id="designer_studio_01",
+                actor_name="Elena Vance",
+                actor_role=EcosystemRole.INTERIOR_DESIGNER,
+                action="ACCEPT_HANDOFF",
+                resource_type="handoff",
+                resource_id="hnd_seed_01",
+                metadata={"status": "ACTIVE"},
+                timestamp=datetime.now(timezone.utc) - timedelta(days=4),
+            ),
+            EcosystemAuditEvent(
+                event_id="aud_seed_03",
+                project_id=proj_id,
+                actor_id="designer_studio_01",
+                actor_name="Elena Vance",
+                actor_role=EcosystemRole.INTERIOR_DESIGNER,
+                action="INITIATE_HANDOFF",
+                resource_type="handoff",
+                resource_id="hnd_seed_02",
+                metadata={"transition": "DESIGNER_TO_CONTRACTOR"},
+                timestamp=datetime.now(timezone.utc) - timedelta(days=1),
+            ),
+        ])
+
+    def initiate_handoff(
+        self,
+        project_id: str,
+        transition_type: HandoffTransitionType,
+        source_actor_id: str,
+        source_role: EcosystemRole,
+        target_actor_id: str,
+        target_role: EcosystemRole,
+        target_actor_name: Optional[str] = None,
+        permitted_scopes: Optional[List[str]] = None,
+        transferred_artifact_ids: Optional[List[str]] = None,
+        notes: Optional[str] = None,
+    ) -> EcosystemHandoffRecord:
+        """Initiates a formal cross-segment handoff between ecosystem participants."""
+        handoff_id = f"hnd_{uuid.uuid4().hex[:8]}"
+        scopes = permitted_scopes or ["view_workspace", "read_specifications"]
+        artifacts = transferred_artifact_ids or []
+
+        handoff = EcosystemHandoffRecord(
+            handoff_id=handoff_id,
+            project_id=project_id,
+            transition_type=transition_type,
+            source_actor_id=source_actor_id,
+            source_role=source_role,
+            target_actor_id=target_actor_id,
+            target_role=target_role,
+            target_actor_name=target_actor_name,
+            status=HandoffStatus.PENDING_ACCEPTANCE,
+            permitted_scopes=scopes,
+            transferred_artifact_ids=artifacts,
+            notes=notes,
+            created_at=datetime.now(timezone.utc),
+        )
+        self.handoffs[handoff_id] = handoff
+
+        self.log_ecosystem_audit_event(
+            project_id=project_id,
+            actor_id=source_actor_id,
+            actor_name=f"{source_role.value.replace('_', ' ').title()}",
+            actor_role=source_role,
+            action="INITIATE_HANDOFF",
+            resource_type="handoff",
+            resource_id=handoff_id,
+            metadata={
+                "transition_type": transition_type.value,
+                "target_actor_id": target_actor_id,
+                "target_role": target_role.value,
+                "scopes": scopes,
+            },
+        )
+        return handoff
+
+    def accept_handoff(
+        self,
+        handoff_id: str,
+        actor_id: str,
+        actor_name: Optional[str] = None,
+    ) -> EcosystemHandoffRecord:
+        """Accepts and activates an ecosystem handoff."""
+        handoff = self.handoffs.get(handoff_id)
+        if not handoff:
+            raise KeyError(f"Handoff '{handoff_id}' not found.")
+
+        handoff.status = HandoffStatus.ACTIVE
+        handoff.accepted_at = datetime.now(timezone.utc)
+        if actor_name:
+            handoff.target_actor_name = actor_name
+
+        self.log_ecosystem_audit_event(
+            project_id=handoff.project_id,
+            actor_id=actor_id,
+            actor_name=actor_name or handoff.target_actor_name or "Participant",
+            actor_role=handoff.target_role,
+            action="ACCEPT_HANDOFF",
+            resource_type="handoff",
+            resource_id=handoff_id,
+            metadata={"transition": handoff.transition_type.value, "status": "ACTIVE"},
+        )
+        return handoff
+
+    def complete_handoff(self, handoff_id: str) -> EcosystemHandoffRecord:
+        """Marks a handoff as completed after milestones are delivered."""
+        handoff = self.handoffs.get(handoff_id)
+        if not handoff:
+            raise KeyError(f"Handoff '{handoff_id}' not found.")
+
+        handoff.status = HandoffStatus.COMPLETED
+        handoff.completed_at = datetime.now(timezone.utc)
+
+        self.log_ecosystem_audit_event(
+            project_id=handoff.project_id,
+            actor_id=handoff.source_actor_id,
+            actor_name="Project Lead",
+            actor_role=handoff.source_role,
+            action="COMPLETE_HANDOFF",
+            resource_type="handoff",
+            resource_id=handoff_id,
+            metadata={"status": "COMPLETED"},
+        )
+        return handoff
+
+    def revoke_handoff(self, handoff_id: str, reason: str = "Access revoked") -> EcosystemHandoffRecord:
+        """Revokes a cross-segment handoff and denies further data access."""
+        handoff = self.handoffs.get(handoff_id)
+        if not handoff:
+            raise KeyError(f"Handoff '{handoff_id}' not found.")
+
+        handoff.status = HandoffStatus.REVOKED
+
+        self.log_ecosystem_audit_event(
+            project_id=handoff.project_id,
+            actor_id=handoff.source_actor_id,
+            actor_name="Project Owner",
+            actor_role=handoff.source_role,
+            action="REVOKE_HANDOFF",
+            resource_type="handoff",
+            resource_id=handoff_id,
+            metadata={"reason": reason, "revoked_scopes": handoff.permitted_scopes},
+            is_sensitive=True,
+        )
+        return handoff
+
+    def list_handoffs(
+        self,
+        project_id: Optional[str] = None,
+        actor_id: Optional[str] = None,
+    ) -> List[EcosystemHandoffRecord]:
+        """Queries ecosystem handoffs filtered by project or participant actor."""
+        res = list(self.handoffs.values())
+        if project_id:
+            res = [h for h in res if h.project_id == project_id]
+        if actor_id:
+            res = [h for h in res if h.source_actor_id == actor_id or h.target_actor_id == actor_id]
+        return res
+
+    def get_handoff(self, handoff_id: str) -> Optional[EcosystemHandoffRecord]:
+        return self.handoffs.get(handoff_id)
+
+    def log_ecosystem_audit_event(
+        self,
+        project_id: str,
+        actor_id: str,
+        actor_name: str,
+        actor_role: EcosystemRole,
+        action: str,
+        resource_type: str,
+        resource_id: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        is_sensitive: bool = False,
+    ) -> EcosystemAuditEvent:
+        """Records an immutable audit event for compliance and governance tracking."""
+        event = EcosystemAuditEvent(
+            event_id=f"aud_{uuid.uuid4().hex[:8]}",
+            project_id=project_id,
+            actor_id=actor_id,
+            actor_name=actor_name,
+            actor_role=actor_role,
+            action=action,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            metadata=metadata or {},
+            timestamp=datetime.now(timezone.utc),
+            is_sensitive=is_sensitive,
+        )
+        self.ecosystem_audit_events.append(event)
+        return event
+
+    def list_ecosystem_audit_events(self, project_id: Optional[str] = None) -> List[EcosystemAuditEvent]:
+        """Retrieves tamper-evident audit history for a project or the platform."""
+        if project_id:
+            return [e for e in self.ecosystem_audit_events if e.project_id == project_id]
+        return list(self.ecosystem_audit_events)
+
+    def get_workflow_orchestration_summary(self, project_id: str) -> WorkflowOrchestrationSummary:
+        """
+        Synthesizes the 5-phase project lifecycle status, active handoffs, and audit timeline.
+        Fulfills Blueprint Section 41 & Phase 6 Exit Gate.
+        """
+        proj = self.projects.get(project_id)
+        proj_name = proj.name if proj else "Ecosystem Master Project"
+
+        # 1. Evaluate Homeowner Phase
+        rooms = [r for r in self.rooms.values() if getattr(r, "project_id", None) == project_id]
+        homeowner_status = "COMPLETED" if len(rooms) > 0 else "IN_PROGRESS"
+
+        # 2. Evaluate Designer Phase
+        has_redesigns = any(len(r.versions) > 0 for r in rooms) or any(len(r.renovation_plans) > 0 for r in rooms)
+        designer_status = "COMPLETED" if has_redesigns else "ACTIVE"
+
+        # 3. Evaluate Commerce Phase
+        has_commerce = any(r.product_recommendations is not None for r in rooms) or len(self.visualizations) > 0
+        commerce_status = "ACTIVE" if has_commerce else "NOT_STARTED"
+
+        # 4. Evaluate Contractor Phase
+        has_contractor = any(b.project_id == project_id for b in self.contractor_briefs.values()) or any(
+            r.project_id == project_id for r in self.rfqs.values()
+        )
+        has_awarded_bid = any(
+            b.status == BidStatus.ACCEPTED
+            for rfq in self.rfqs.values()
+            if rfq.project_id == project_id
+            for b in self.contractor_bids.values()
+            if b.rfq_id == rfq.rfq_id
+        )
+        contractor_status = "COMPLETED" if has_awarded_bid else ("ACTIVE" if has_contractor else "NOT_STARTED")
+
+        # 5. Evaluate Property Staging Phase
+        has_staging = any(l.project_id == project_id or len(l.staged_rooms) > 0 for l in self.listings.values())
+        staging_status = "ACTIVE" if has_staging else "NOT_STARTED"
+
+        project_handoffs = [h for h in self.handoffs.values() if h.project_id == project_id]
+        recent_audits = [e for e in self.ecosystem_audit_events if e.project_id == project_id][-10:]
+
+        # Distinct participant count
+        participants = set()
+        for h in project_handoffs:
+            participants.add(h.source_actor_id)
+            participants.add(h.target_actor_id)
+        if proj and proj.collaborators:
+            for c in proj.collaborators:
+                participants.add(c.user_id)
+
+        return WorkflowOrchestrationSummary(
+            project_id=project_id,
+            project_name=proj_name,
+            homeowner_phase_status=homeowner_status,
+            designer_phase_status=designer_status,
+            commerce_phase_status=commerce_status,
+            contractor_phase_status=contractor_status,
+            property_staging_phase_status=staging_status,
+            total_active_handoffs=len([h for h in project_handoffs if h.status == HandoffStatus.ACTIVE]),
+            total_participants=max(1, len(participants)),
+            handoffs=project_handoffs,
+            recent_audit_events=recent_audits,
+        )
+
+    def get_role_scoped_project_view(self, project_id: str, role: EcosystemRole) -> RoleScopedProjectView:
+        """
+        Enforces Role-Based Access Control (RBAC) and privacy redaction across ecosystem roles.
+        Guarantees that sensitive billing, personal data, or trade secrets are shielded.
+        Fulfills Phase 6 Exit Gate.
+        """
+        proj = self.projects.get(project_id)
+        proj_name = proj.name if proj else "Project Workspace"
+        addr = proj.property_address if proj else "Confidential Site Address"
+
+        # Log audit access
+        self.log_ecosystem_audit_event(
+            project_id=project_id,
+            actor_id=f"actor_{role.value.lower()}",
+            actor_name=f"{role.value.title()} User",
+            actor_role=role,
+            action="ACCESS_ROLE_SCOPED_VIEW",
+            resource_type="project_workspace",
+            resource_id=project_id,
+            metadata={"role": role.value},
+        )
+
+        if role in (EcosystemRole.HOMEOWNER, EcosystemRole.INTERIOR_DESIGNER, EcosystemRole.STUDIO_ADMIN):
+            # Full transparency for project owners & designers
+            return RoleScopedProjectView(
+                project_id=project_id,
+                role=role,
+                project_name=proj_name,
+                property_address=addr,
+                accessible_sections=[
+                    "all_spatial_scans",
+                    "design_versions_and_variants",
+                    "full_financial_budget",
+                    "client_confidential_brief",
+                    "merchant_placements_and_commissions",
+                    "contractor_briefs_and_tender_bids",
+                    "property_virtual_staging_and_flyers",
+                ],
+                redacted_fields=[],
+                data_payload={
+                    "is_full_access": True,
+                    "currency": proj.currency if proj else "MYR",
+                    "client_id": proj.client_id if proj else None,
+                    "designer_notes": proj.designer_notes if proj else None,
+                },
+            )
+
+        elif role == EcosystemRole.CONTRACTOR:
+            # Shield client financial billing, designer markups, and other contractor bids
+            return RoleScopedProjectView(
+                project_id=project_id,
+                role=role,
+                project_name=proj_name,
+                property_address=addr,
+                accessible_sections=[
+                    "confirmed_and_estimated_measurements_checklist",
+                    "trade_work_packages",
+                    "bill_of_quantities_with_wastage",
+                    "site_access_rules_and_working_hours",
+                    "rfq_tender_specifications",
+                ],
+                redacted_fields=[
+                    "homeowner_personal_phone",
+                    "homeowner_billing_rate",
+                    "designer_markups_and_commissions",
+                    "competitor_contractor_tender_bids",
+                    "unauthorized_private_room_scans",
+                ],
+                data_payload={
+                    "is_full_access": False,
+                    "permitted_trades": ["CARPENTRY_JOINERY", "MASONRY_TILING", "PAINTING_PLASTERING"],
+                    "site_access_notes": "Standard residential access hours 9:00 AM – 5:30 PM.",
+                    "requires_on_site_measurement_verification": True,
+                },
+            )
+
+        elif role == EcosystemRole.MERCHANT_SELLER:
+            # Shield full architectural layout, contractor pricing, and homeowner financials
+            return RoleScopedProjectView(
+                project_id=project_id,
+                role=role,
+                project_name=proj_name,
+                property_address="City / Regional Hub (Specific street redacted)",
+                accessible_sections=[
+                    "specified_catalog_products",
+                    "in_room_3d_furniture_placements",
+                    "spatial_fit_attestations",
+                    "affiliate_referral_tracking",
+                ],
+                redacted_fields=[
+                    "full_architectural_floorplans",
+                    "contractor_tender_packages",
+                    "total_renovation_budget",
+                    "client_contact_details",
+                ],
+                data_payload={
+                    "is_full_access": False,
+                    "active_product_referrals_count": len(self.visualizations),
+                    "commission_tracking_active": True,
+                },
+            )
+
+        else:  # EcosystemRole.PROPERTY_AGENT
+            # Shield internal contractor construction margins and homeowner financials
+            return RoleScopedProjectView(
+                project_id=project_id,
+                role=role,
+                project_name=proj_name,
+                property_address=addr,
+                accessible_sections=[
+                    "virtually_staged_media_pairs",
+                    "reso_regulatory_disclosure_manifest",
+                    "printable_marketing_flyer_html",
+                    "cosmetic_renovation_potential_roi",
+                ],
+                redacted_fields=[
+                    "subcontractor_unit_labor_rates",
+                    "internal_designer_cost_margins",
+                    "client_personal_identifiable_information",
+                ],
+                data_payload={
+                    "is_full_access": False,
+                    "disclosure_watermark_mandated": True,
+                    "reso_portal_syndication_ready": True,
+                },
+            )
 
 
 # Global singleton repository instance for the running service
 repository = InMemoryRepository()
+

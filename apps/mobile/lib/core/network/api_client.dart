@@ -1014,6 +1014,43 @@ class ApiClient {
     throw Exception('Failed to load printable property marketing flyer: ${response.statusCode}');
   }
 
+  // Milestone 6.4: Cross-Segment Workflow Orchestration API Methods
+  static Future<dynamic> initiateHandoff(Map<String, dynamic> data) async {
+    return post('/orchestration/handoffs', data);
+  }
+
+  static Future<dynamic> acceptHandoff(String handoffId, Map<String, dynamic> data) async {
+    return post('/orchestration/handoffs/$handoffId/accept', data);
+  }
+
+  static Future<dynamic> completeHandoff(String handoffId) async {
+    return post('/orchestration/handoffs/$handoffId/complete', {});
+  }
+
+  static Future<dynamic> revokeHandoff(String handoffId, {String? reason}) async {
+    return post('/orchestration/handoffs/$handoffId/revoke', {'reason': reason ?? 'Access revoked'});
+  }
+
+  static Future<dynamic> listHandoffs({String? projectId, String? actorId}) async {
+    final queryParams = <String>[];
+    if (projectId != null && projectId.isNotEmpty) queryParams.add('project_id=${Uri.encodeComponent(projectId)}');
+    if (actorId != null && actorId.isNotEmpty) queryParams.add('actor_id=${Uri.encodeComponent(actorId)}');
+    final queryStr = queryParams.isNotEmpty ? '?${queryParams.join('&')}' : '';
+    return get('/orchestration/handoffs$queryStr');
+  }
+
+  static Future<dynamic> getWorkflowOrchestrationSummary(String projectId) async {
+    return get('/projects/$projectId/orchestration-summary');
+  }
+
+  static Future<dynamic> getProjectAuditLog(String projectId) async {
+    return get('/projects/$projectId/audit-log');
+  }
+
+  static Future<dynamic> getRoleScopedProjectView(String projectId, String role) async {
+    return get('/projects/$projectId/role-view?role=${Uri.encodeComponent(role)}');
+  }
+
 
   static dynamic _handleResponse(http.Response response) {
     if (response.statusCode >= 200 && response.statusCode < 300) {

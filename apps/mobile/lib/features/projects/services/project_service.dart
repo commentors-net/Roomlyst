@@ -1160,6 +1160,55 @@ class ProjectService {
   static Future<String> fetchPropertyMarketingFlyerHtml(String listingId) async {
     return ApiClient.getPropertyMarketingFlyerHtml(listingId);
   }
+
+  // ==========================
+  // Milestone 6.4: Cross-Segment Ecosystem Orchestration
+  // ==========================
+  static Future<EcosystemHandoffRecordModel> initiateEcosystemHandoff(Map<String, dynamic> data) async {
+    final res = await ApiClient.initiateHandoff(data);
+    return EcosystemHandoffRecordModel.fromMap(res as Map<String, dynamic>);
+  }
+
+  static Future<EcosystemHandoffRecordModel> acceptEcosystemHandoff(String handoffId, Map<String, dynamic> data) async {
+    final res = await ApiClient.acceptHandoff(handoffId, data);
+    return EcosystemHandoffRecordModel.fromMap(res as Map<String, dynamic>);
+  }
+
+  static Future<EcosystemHandoffRecordModel> completeEcosystemHandoff(String handoffId) async {
+    final res = await ApiClient.completeHandoff(handoffId);
+    return EcosystemHandoffRecordModel.fromMap(res as Map<String, dynamic>);
+  }
+
+  static Future<EcosystemHandoffRecordModel> revokeEcosystemHandoff(String handoffId, {String? reason}) async {
+    final res = await ApiClient.revokeHandoff(handoffId, reason: reason);
+    return EcosystemHandoffRecordModel.fromMap(res as Map<String, dynamic>);
+  }
+
+  static Future<List<EcosystemHandoffRecordModel>> fetchEcosystemHandoffs({String? projectId, String? actorId}) async {
+    final res = await ApiClient.listHandoffs(projectId: projectId, actorId: actorId);
+    if (res is List) {
+      return res.map((e) => EcosystemHandoffRecordModel.fromMap(e as Map<String, dynamic>)).toList();
+    }
+    return [];
+  }
+
+  static Future<WorkflowOrchestrationSummaryModel> fetchWorkflowOrchestrationSummary(String projectId) async {
+    final res = await ApiClient.getWorkflowOrchestrationSummary(projectId);
+    return WorkflowOrchestrationSummaryModel.fromMap(res as Map<String, dynamic>);
+  }
+
+  static Future<List<EcosystemAuditEventModel>> fetchProjectAuditLog(String projectId) async {
+    final res = await ApiClient.getProjectAuditLog(projectId);
+    if (res is List) {
+      return res.map((e) => EcosystemAuditEventModel.fromMap(e as Map<String, dynamic>)).toList();
+    }
+    return [];
+  }
+
+  static Future<RoleScopedProjectViewModel> fetchRoleScopedProjectView(String projectId, String role) async {
+    final res = await ApiClient.getRoleScopedProjectView(projectId, role);
+    return RoleScopedProjectViewModel.fromMap(res as Map<String, dynamic>);
+  }
 }
 
 

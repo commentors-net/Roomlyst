@@ -103,6 +103,13 @@ from packages.room_model import (
     StagedRoomAsset,
     PropertyListingRecord,
     PortalExportPackage,
+    EcosystemRole,
+    HandoffTransitionType,
+    HandoffStatus,
+    EcosystemHandoffRecord,
+    EcosystemAuditEvent,
+    WorkflowOrchestrationSummary,
+    RoleScopedProjectView,
 )
 from services.ai_worker.pipelines.virtual_stager import virtual_stager
 from services.ai_worker.pipelines.generation import LocalRedesignGenerator
@@ -3786,6 +3793,154 @@ def apply_staging_watermark(
         position=wm_pos,
     )
     return Response(content=watermarked_bytes, media_type="image/jpeg")
+
+
+# =====================================================================
+# Milestone 6.4: Cross-Segment Ecosystem Workflow Orchestration Endpoints
+# Fulfills Blueprint Section 41 & Phase 6 Exit Gate
+# =====================================================================
+
+class InitiateHandoffRequest(BaseModel):
+    project_id: str
+    transition_type: str
+    source_actor_id: str
+    source_role: str
+    target_actor_id: str
+    target_role: str
+    target_actor_name: Optional[str] = None
+    permitted_scopes: Optional[List[str]] = None
+    transferred_artifact_ids: Optional[List[str]] = None
+    notes: Optional[str] = None
+
+
+class AcceptHandoffRequest(BaseModel):
+    actor_id: str
+    actor_name: Optional[str] = None
+
+
+class RevokeHandoffRequest(BaseModel):
+    reason: Optional[str] = "Access revoked by project owner"
+
+
+@router.post("/orchestration/handoffs", response_model=EcosystemHandoffRecord, status_code=status.HTTP_201_CREATED)
+def initiate_ecosystem_handoff(payload: InitiateHandoffRequest):
+    """
+    Fulfills Blueprint Section 41 & Milestone 6.4:
+    Initiates a formal cross-segment workflow transition between ecosystem participants.
+    """
+    try:
+        ttype = HandoffTransitionType(payload.transition_type)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid transition type '{payload.transition_type}'.")
+
+    try:
+        srole = EcosystemRole(payload.source_role)
+        trole = EcosystemRole(payload.target_role)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid ecosystem role: {str(e)}")
+
+    handoff = repository.initiate_handoff(
+        project_id=payload.project_id,
+        transition_type=ttype,
+        source_actor_id=payload.source_actor_id,
+        source_role=srole,
+        target_actor_id=payload.target_actor_id,
+        target_role=trole,
+        target_actor_name=payload.target_actor_name,
+        permitted_scopes=payload.permitted_scopes,
+        transferred_artifact_ids=payload.transferred_artifact_ids,
+        notes=payload.notes,
+    )
+    return handoff
+
+
+@router.post("/orchestration/handoffs/{handoff_id}/accept", response_model=EcosystemHandoffRecord)
+def accept_ecosystem_handoff(handoff_id: str, payload: AcceptHandoffRequest):
+    """
+    Fulfills Milestone 6.4:
+    Accepts an ecosystem handoff, transitioning its status to ACTIVE and granting scoped access.
+    """
+    try:
+        handoff = repository.accept_handoff(
+            handoff_id=handoff_id,
+            actor_id=payload.actor_id,
+            actor_name=payload.actor_name,
+        )
+        return handoff
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/orchestration/handoffs/{handoff_id}/complete", response_model=EcosystemHandoffRecord)
+def complete_ecosystem_handoff(handoff_id: str):
+    """
+    Fulfills Milestone 6.4:
+    Marks an ecosystem handoff as completed upon delivery of required scope.
+    """
+    try:
+        handoff = repository.complete_handoff(handoff_id=handoff_id)
+        return handoff
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/orchestration/handoffs/{handoff_id}/revoke", response_model=EcosystemHandoffRecord)
+def revoke_ecosystem_handoff(handoff_id: str, payload: Optional[RevokeHandoffRequest] = None):
+    """
+    Fulfills Milestone 6.4 & Phase 6 Exit Gate:
+    Revokes access rights for an ecosystem handoff and writes a sensitive audit trail entry.
+    """
+    reason = payload.reason if payload else "Access revoked by project owner"
+    try:
+        handoff = repository.revoke_handoff(handoff_id=handoff_id, reason=reason)
+        return handoff
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/orchestration/handoffs", response_model=List[EcosystemHandoffRecord])
+def list_ecosystem_handoffs(
+    project_id: Optional[str] = None,
+    actor_id: Optional[str] = None,
+):
+    """
+    Fulfills Milestone 6.4:
+    Lists active and historical ecosystem handoffs, optionally filtered by project or participant.
+    """
+    return repository.list_handoffs(project_id=project_id, actor_id=actor_id)
+
+
+@router.get("/projects/{project_id}/orchestration-summary", response_model=WorkflowOrchestrationSummary)
+def get_project_orchestration_summary(project_id: str):
+    """
+    Fulfills Blueprint Section 41 & Phase 6 Exit Gate:
+    Retrieves the comprehensive 5-phase lifecycle status, participants count, and audit activity.
+    """
+    return repository.get_workflow_orchestration_summary(project_id)
+
+
+@router.get("/projects/{project_id}/audit-log", response_model=List[EcosystemAuditEvent])
+def get_project_audit_log(project_id: str):
+    """
+    Fulfills Milestone 6.4:
+    Retrieves the tamper-evident ecosystem audit log for a project.
+    """
+    return repository.list_ecosystem_audit_events(project_id=project_id)
+
+
+@router.get("/projects/{project_id}/role-view", response_model=RoleScopedProjectView)
+def get_role_scoped_project_view(project_id: str, role: str):
+    """
+    Fulfills Phase 6 Exit Gate:
+    Enforces role-based privacy redaction on project workspace data.
+    """
+    try:
+        erole = EcosystemRole(role.upper())
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid ecosystem role '{role}'.")
+
+    return repository.get_role_scoped_project_view(project_id=project_id, role=erole)
+
 
 
 

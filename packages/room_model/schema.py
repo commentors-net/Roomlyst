@@ -2316,6 +2316,111 @@ class PropertyListingRecord(BaseModel):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
+# =====================================================================
+# Milestone 6.4: Cross-Segment Ecosystem Workflow Orchestration Models
+# Fulfills Blueprint Section 41 & Phase 6 Exit Gate
+# =====================================================================
+
+class EcosystemRole(str, Enum):
+    """Ecosystem participant roles for permissions and data governance."""
+    HOMEOWNER = "HOMEOWNER"
+    INTERIOR_DESIGNER = "INTERIOR_DESIGNER"
+    CONTRACTOR = "CONTRACTOR"
+    MERCHANT_SELLER = "MERCHANT_SELLER"
+    PROPERTY_AGENT = "PROPERTY_AGENT"
+    STUDIO_ADMIN = "STUDIO_ADMIN"
+
+
+class HandoffTransitionType(str, Enum):
+    """Valid workflow handoff transitions across ecosystem participants."""
+    HOMEOWNER_TO_DESIGNER = "HOMEOWNER_TO_DESIGNER"
+    DESIGNER_TO_MERCHANT = "DESIGNER_TO_MERCHANT"
+    DESIGNER_TO_CONTRACTOR = "DESIGNER_TO_CONTRACTOR"
+    DESIGNER_TO_AGENT = "DESIGNER_TO_AGENT"
+
+
+class HandoffStatus(str, Enum):
+    """Lifecycle state of an ecosystem handoff."""
+    DRAFT = "DRAFT"
+    PENDING_ACCEPTANCE = "PENDING_ACCEPTANCE"
+    ACTIVE = "ACTIVE"
+    COMPLETED = "COMPLETED"
+    REVOKED = "REVOKED"
+
+
+class EcosystemHandoffRecord(BaseModel):
+    """
+    Formal cross-segment handoff transaction (Milestone 6.4).
+    Fulfills Blueprint Section 41 (Milestone 6.4).
+    """
+    handoff_id: str = Field(default_factory=lambda: f"hnd_{uuid.uuid4().hex[:8]}")
+    project_id: str
+    transition_type: HandoffTransitionType
+    source_actor_id: str
+    source_role: EcosystemRole
+    target_actor_id: str
+    target_role: EcosystemRole
+    target_actor_name: Optional[str] = None
+    status: HandoffStatus = HandoffStatus.PENDING_ACCEPTANCE
+    permitted_scopes: List[str] = Field(default_factory=list)
+    transferred_artifact_ids: List[str] = Field(default_factory=list)
+    notes: Optional[str] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    accepted_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+
+
+class EcosystemAuditEvent(BaseModel):
+    """
+    Immutable audit trail event tracking cross-boundary data access & modifications (Milestone 6.4).
+    Fulfills Blueprint Section 41 (Milestone 6.4).
+    """
+    event_id: str = Field(default_factory=lambda: f"aud_{uuid.uuid4().hex[:8]}")
+    project_id: str
+    actor_id: str
+    actor_name: str
+    actor_role: EcosystemRole
+    action: str
+    resource_type: str
+    resource_id: Optional[str] = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    is_sensitive: bool = False
+
+
+class WorkflowOrchestrationSummary(BaseModel):
+    """
+    Aggregates the 5 project lifecycle stages and cross-organization participants (Milestone 6.4).
+    Fulfills Blueprint Section 41 & Phase 6 Exit Gate.
+    """
+    project_id: str
+    project_name: str
+    homeowner_phase_status: str = "COMPLETED"  # NOT_STARTED, IN_PROGRESS, COMPLETED
+    designer_phase_status: str = "ACTIVE"
+    commerce_phase_status: str = "NOT_STARTED"
+    contractor_phase_status: str = "NOT_STARTED"
+    property_staging_phase_status: str = "NOT_STARTED"
+    total_active_handoffs: int = 0
+    total_participants: int = 0
+    handoffs: List[EcosystemHandoffRecord] = Field(default_factory=list)
+    recent_audit_events: List[EcosystemAuditEvent] = Field(default_factory=list)
+
+
+class RoleScopedProjectView(BaseModel):
+    """
+    Role-specific project data view with enforced privacy redaction (Milestone 6.4).
+    Fulfills Phase 6 Exit Gate & Blueprint Section 41.
+    """
+    project_id: str
+    role: EcosystemRole
+    project_name: str
+    property_address: Optional[str] = None
+    accessible_sections: List[str] = Field(default_factory=list)
+    redacted_fields: List[str] = Field(default_factory=list)
+    data_payload: Dict[str, Any] = Field(default_factory=dict)
+
+
+
 
 
 
