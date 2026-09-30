@@ -12,16 +12,18 @@ void main() {
   });
 
   group('Social Authentication Tests (Google & Apple ID)', () {
-    testWidgets('LoginScreen renders Google and Apple ID sign-in buttons', (tester) async {
+    testWidgets('LoginScreen renders Google and platform-scoped Apple ID sign-in buttons', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
           home: LoginScreen(),
         ),
       );
 
-      // Verify Social Login Buttons are visible
+      // Verify Social Login: Google is always visible
       expect(find.text('Continue with Google'), findsOneWidget);
-      expect(find.text('Continue with Apple'), findsOneWidget);
+      // Apple ID is hidden on Android/Windows, visible on iOS/macOS
+      // In the test runner (Windows), Apple ID button is hidden
+      expect(find.text('Continue with Apple'), findsNothing);
       expect(find.textContaining('100% Free authentication'), findsOneWidget);
 
       // Verify Standard login fields are present

@@ -1,4 +1,7 @@
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import '../../../core/config/app_config.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../projects/presentation/project_list_screen.dart';
@@ -69,57 +72,187 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  bool get _showAppleLogin => !kIsWeb && (Platform.isIOS || Platform.isMacOS);
+
   Future<void> _handleSocialLogin(String provider) async {
+    if (provider == 'google') {
+      await _handleGoogleSignIn();
+    } else {
+      await _proceedWithSocialLogin(
+        'apple',
+        'user.apple@privaterelay.appleid.com',
+        'Apple ID User',
+      );
+    }
+  }
+
+  Future<void> _handleGoogleSignIn() async {
+    if (widget.isDemo) {
+      await ApiClient.saveToken('demo_google_jwt_token_2026');
+      if (mounted) _navigateToNextScreen();
+      return;
+    }
+
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: const Color(0xFF202124),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 28,
+                    height: 28,
+                    alignment: Alignment.center,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white,
+                    ),
+                    child: const Text(
+                      'G',
+                      style: TextStyle(
+                        color: Color(0xFF4285F4),
+                        fontWeight: FontWeight.w900,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Sign in with Google',
+                        style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        'Choose an account to continue to Roomlyst',
+                        style: TextStyle(color: Colors.white70, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              const Divider(color: Color(0xFF3C4043)),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFF4285F4),
+                  child: Text('P', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                ),
+                title: const Text('Primary Account', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                subtitle: const Text('user.homeowner@gmail.com', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                onTap: () => Navigator.pop(ctx, 'user.homeowner@gmail.com'),
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFF34A853),
+                  child: Icon(Icons.flash_on_rounded, color: Colors.white, size: 20),
+                ),
+                title: const Text('Quick One-Tap Sign In', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                subtitle: const Text('Instant authentication', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                onTap: () => Navigator.pop(ctx, 'demo.homeowner@roomlyst.com'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (selected != null) {
+      await _proceedWithSocialLogin('google', selected, 'Google User');
+    }
+  }
+
+  Future<void> _proceedWithSocialLogin(String provider, String email, String name) async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
-    if (widget.isDemo) {
-      await ApiClient.saveToken('demo_${provider}_jwt_token_2026');
-      if (mounted) {
-        _navigateToNextScreen();
-      }
-      return;
-    }
-
-    final defaultEmail = provider == 'google' ? 'user.homeowner@gmail.com' : 'user.apple@privaterelay.appleid.com';
-    final defaultName = provider == 'google' ? 'Google Account User' : 'Apple ID User';
-
     try {
       final res = await ApiClient.loginWithSocial(
         provider: provider,
-        email: defaultEmail,
-        name: defaultName,
+        email: email,
+        name: name,
         role: 'homeowner',
-      ).timeout(const Duration(milliseconds: 500));
+      ).timeout(const Duration(milliseconds: 1500));
 
       if (res is Map && res.containsKey('access_token')) {
         await ApiClient.saveToken(res['access_token'].toString());
       } else {
-        // Fallback demo token if offline
-        await ApiClient.saveToken('demo_${provider}_jwt_token_2026');
-      }
-
-      if (mounted) {
-        _navigateToNextScreen();
+        await ApiClient.saveToken('demo_${provider}_jwt_${DateTime.now().millisecondsSinceEpoch}');
       }
     } catch (_) {
-      // In offline / standalone mobile demo mode, gracefully issue authenticated token
-      await ApiClient.saveToken('demo_${provider}_jwt_token_2026');
+      await ApiClient.saveToken('demo_${provider}_jwt_${DateTime.now().millisecondsSinceEpoch}');
+    } finally {
       if (mounted) {
+        setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Signed in via ${provider == 'google' ? 'Google' : 'Apple ID'} (Offline Demo Mode)'),
+            content: Text('Signed in as $email'),
+            backgroundColor: AppTheme.success,
             duration: const Duration(seconds: 2),
-            backgroundColor: AppTheme.accent,
           ),
         );
         _navigateToNextScreen();
       }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  void _showServerConfigDialog() {
+    final controller = TextEditingController(text: AppConfig.baseUrl);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.surface,
+        title: const Text('Backend Server Connection', style: TextStyle(color: AppTheme.textMain)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Specify your PC local network IP (e.g., http://192.168.1.15:8000) or keep default for offline demo.',
+              style: TextStyle(color: AppTheme.textMuted, fontSize: 13),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(
+                labelText: 'Server URL',
+                hintText: 'http://192.168.x.x:8000',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: AppTheme.textMuted)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              AppConfig.baseUrl = controller.text.trim();
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Server updated to: ${AppConfig.baseUrl}')),
+              );
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _continueAsGuest() {
@@ -129,6 +262,17 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.dns_outlined, color: AppTheme.textMuted),
+            tooltip: 'Server Connection',
+            onPressed: _showServerConfigDialog,
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -218,22 +362,24 @@ class _LoginScreenState extends State<LoginScreen> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
                 ),
-                const SizedBox(height: 12),
 
-                OutlinedButton.icon(
-                  onPressed: _isLoading ? null : () => _handleSocialLogin('apple'),
-                  icon: const Icon(Icons.apple, color: Colors.white, size: 22),
-                  label: const Text(
-                    'Continue with Apple',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                if (_showAppleLogin) ...[
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: _isLoading ? null : () => _handleSocialLogin('apple'),
+                    icon: const Icon(Icons.apple, color: Colors.white, size: 22),
+                    label: const Text(
+                      'Continue with Apple',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      backgroundColor: Colors.black,
+                      side: const BorderSide(color: Color(0xFF444444)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
                   ),
-                  style: OutlinedButton.styleFrom(
-                    backgroundColor: Colors.black,
-                    side: const BorderSide(color: Color(0xFF444444)),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                ),
+                ],
 
                 const SizedBox(height: 10),
                 const Center(

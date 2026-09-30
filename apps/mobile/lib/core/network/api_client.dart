@@ -34,38 +34,40 @@ class ApiClient {
     return headers;
   }
 
+  static const Duration defaultTimeout = Duration(milliseconds: 2500);
+
   static Future<dynamic> get(String endpoint) async {
     final url = Uri.parse('${AppConfig.fullApiUrl}$endpoint');
     final headers = await _buildHeaders();
-    final response = await http.get(url, headers: headers);
+    final response = await http.get(url, headers: headers).timeout(defaultTimeout);
     return _handleResponse(response);
   }
 
   static Future<dynamic> post(String endpoint, Map<String, dynamic> data) async {
     final url = Uri.parse('${AppConfig.fullApiUrl}$endpoint');
     final headers = await _buildHeaders();
-    final response = await http.post(url, headers: headers, body: jsonEncode(data));
+    final response = await http.post(url, headers: headers, body: jsonEncode(data)).timeout(defaultTimeout);
     return _handleResponse(response);
   }
 
   static Future<dynamic> patch(String endpoint, dynamic data) async {
     final url = Uri.parse('${AppConfig.fullApiUrl}$endpoint');
     final headers = await _buildHeaders();
-    final response = await http.patch(url, headers: headers, body: jsonEncode(data));
+    final response = await http.patch(url, headers: headers, body: jsonEncode(data)).timeout(defaultTimeout);
     return _handleResponse(response);
   }
 
   static Future<dynamic> put(String endpoint, Map<String, dynamic> data) async {
     final url = Uri.parse('${AppConfig.fullApiUrl}$endpoint');
     final headers = await _buildHeaders();
-    final response = await http.put(url, headers: headers, body: jsonEncode(data));
+    final response = await http.put(url, headers: headers, body: jsonEncode(data)).timeout(defaultTimeout);
     return _handleResponse(response);
   }
 
   static Future<dynamic> delete(String endpoint) async {
     final url = Uri.parse('${AppConfig.fullApiUrl}$endpoint');
     final headers = await _buildHeaders();
-    final response = await http.delete(url, headers: headers);
+    final response = await http.delete(url, headers: headers).timeout(defaultTimeout);
     return _handleResponse(response);
   }
 
@@ -249,7 +251,7 @@ class ApiClient {
       ),
     );
 
-    final streamedResponse = await request.send();
+    final streamedResponse = await request.send().timeout(const Duration(seconds: 4));
     final response = await http.Response.fromStream(streamedResponse);
     return _handleResponse(response);
   }
@@ -299,7 +301,7 @@ class ApiClient {
       );
     }
 
-    final streamedResponse = await request.send();
+    final streamedResponse = await request.send().timeout(const Duration(seconds: 4));
     final response = await http.Response.fromStream(streamedResponse);
     return _handleResponse(response);
   }
