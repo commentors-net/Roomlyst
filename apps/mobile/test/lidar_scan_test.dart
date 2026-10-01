@@ -222,5 +222,38 @@ void main() {
       expect(find.text('Canonical Spatial Report'), findsOneWidget);
       expect(find.text('Verified ✓'), findsOneWidget);
     });
+
+    testWidgets('Renders Simulation mode on non-LiDAR device without hardware', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: LiDARScanScreen(
+            roomId: 'room_budget_android',
+            roomName: 'Bed Room',
+            deviceTier: 'TIER_1_LIDAR',
+            isHardwareSupported: false,
+            autoFetch: false,
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(find.text('Bed Room • Spatial Scan'), findsOneWidget);
+      expect(find.text('Interactive LiDAR Mesh Simulator'), findsOneWidget);
+      expect(find.text('SIMULATION'), findsOneWidget);
+      expect(find.text('Simulate LiDAR Spatial Scan'), findsOneWidget);
+      expect(
+        find.textContaining('Hardware LiDAR is not present on this device'),
+        findsOneWidget,
+      );
+
+      // Scroll and tap Simulate LiDAR Spatial Scan
+      await tester.ensureVisible(find.text('Simulate LiDAR Spatial Scan'));
+      await tester.tap(find.text('Simulate LiDAR Spatial Scan'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Rescan Room'), findsOneWidget);
+      expect(find.text('Complete & Normalize'), findsOneWidget);
+    });
   });
 }

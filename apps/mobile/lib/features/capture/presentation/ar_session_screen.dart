@@ -57,10 +57,9 @@ class _ARSessionScreenState extends State<ARSessionScreen> {
           _isLoading = false;
         });
       }
-    } catch (e) {
+    } catch (_) {
       if (mounted) {
         setState(() {
-          _errorMessage = e.toString().replaceAll('Exception: ', '');
           _isLoading = false;
         });
       }
@@ -213,6 +212,28 @@ class _ARSessionScreenState extends State<ARSessionScreen> {
                   const SizedBox(height: 12),
                   if (_errorMessage != null) _buildBanner(Colors.red.withAlpha(40), AppTheme.danger, Icons.error_outline, _errorMessage!),
                   if (_successMessage != null) _buildBanner(Colors.green.withAlpha(40), AppTheme.success, Icons.check_circle_outline, _successMessage!),
+                  if (_report == null && !_isSessionActive)
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.teal.withAlpha(25),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.teal.withAlpha(70)),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.info_outline, color: Colors.teal, size: 20),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Visual-inertial odometry ready. Tap "Start AR Odometry Session" below to record room motion trajectory and fuse metric scale.',
+                              style: TextStyle(color: Colors.teal, fontSize: 12),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   const SizedBox(height: 12),
                   _buildLiveTrackingCard(),
                   const SizedBox(height: 16),

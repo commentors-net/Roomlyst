@@ -1,5 +1,7 @@
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../capability/services/capability_service.dart';
 import '../../projects/domain/project.dart';
 import '../../projects/services/project_service.dart';
 
@@ -9,6 +11,7 @@ class LiDARScanScreen extends StatefulWidget {
   final String deviceTier; // 'TIER_1_LIDAR' or 'TIER_2_AR_DEPTH'
   final NativeSpatialScanReportModel? initialReport;
   final bool autoFetch;
+  final bool? isHardwareSupported;
 
   const LiDARScanScreen({
     super.key,
@@ -17,6 +20,7 @@ class LiDARScanScreen extends StatefulWidget {
     this.deviceTier = 'TIER_1_LIDAR',
     this.initialReport,
     this.autoFetch = true,
+    this.isHardwareSupported,
   });
 
   @override
@@ -30,6 +34,7 @@ class _LiDARScanScreenState extends State<LiDARScanScreen> {
   bool _isScanning = false;
   String? _errorMessage;
   String? _successMessage;
+  bool _hardwareSupported = false;
 
   // Live native scan state
   final List<NativeSurfaceScanModel> _surfaces = [];
@@ -41,6 +46,7 @@ class _LiDARScanScreenState extends State<LiDARScanScreen> {
   void initState() {
     super.initState();
     _report = widget.initialReport;
+    _hardwareSupported = widget.isHardwareSupported ?? true;
     if (_report == null && widget.autoFetch) {
       _loadReport();
     }
@@ -285,7 +291,9 @@ class _LiDARScanScreenState extends State<LiDARScanScreen> {
   @override
   Widget build(BuildContext context) {
     final isApple = widget.deviceTier == 'TIER_1_LIDAR';
-    final hardwareLabel = isApple ? 'Apple RoomPlan LiDAR' : 'Android Hardware-Depth / ToF';
+    final hardwareLabel = _hardwareSupported
+        ? (isApple ? 'Apple RoomPlan LiDAR' : 'Android Hardware-Depth / ToF')
+        : 'Interactive LiDAR Mesh Simulator';
 
     return Scaffold(
       appBar: AppBar(
@@ -306,6 +314,10 @@ class _LiDARScanScreenState extends State<LiDARScanScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildHardwareBadge(hardwareLabel, isApple),
+                  if (!_hardwareSupported) ...[
+                    const SizedBox(height: 12),
+                    _buildUnsupportedHardwareBanner(),
+                  ],
                   const SizedBox(height: 16),
                   if (_errorMessage != null) _buildErrorBanner(_errorMessage!),
                   if (_successMessage != null) _buildSuccessBanner(_successMessage!),
@@ -322,20 +334,24 @@ class _LiDARScanScreenState extends State<LiDARScanScreen> {
   }
 
   Widget _buildHardwareBadge(String label, bool isLidar) {
+    final badgeColor = !_hardwareSupported
+        ? Colors.orange
+        : (isLidar ? Colors.blue : Colors.purple);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: isLidar ? Colors.blue.withValues(alpha: 0.1) : Colors.purple.withValues(alpha: 0.1),
+        color: badgeColor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isLidar ? Colors.blue.withValues(alpha: 0.3) : Colors.purple.withValues(alpha: 0.3),
+          color: badgeColor.withValues(alpha: 0.3),
         ),
       ),
       child: Row(
         children: [
           Icon(
-            isLidar ? Icons.radar : Icons.sensors,
-            color: isLidar ? Colors.blue : Colors.purple,
+            !_hardwareSupported ? Icons.science_outlined : (isLidar ? Icons.radar : Icons.sensors),
+            color: badgeColor,
             size: 28,
           ),
           const SizedBox(width: 12),
@@ -348,9 +364,11 @@ class _LiDARScanScreenState extends State<LiDARScanScreen> {
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                 ),
                 Text(
-                  isLidar
-                      ? 'Direct time-of-flight laser meshing • Sub-centimeter exact accuracy'
-                      : 'Hardware-depth infrared ToF sensor • High-confidence metric scale',
+                  !_hardwareSupported
+                      ? 'No hardware laser detected (${Platform.isAndroid ? "Android" : "iOS"}) • Interactive demo mode'
+                      : (isLidar
+                          ? 'Direct time-of-flight laser meshing • Sub-centimeter exact accuracy'
+                          : 'Hardware-depth infrared ToF sensor • High-confidence metric scale'),
                   style: TextStyle(
                     fontSize: 12,
                     color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
@@ -362,12 +380,43 @@ class _LiDARScanScreenState extends State<LiDARScanScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: Colors.green.withValues(alpha: 0.2),
+              color: (!_hardwareSupported ? Colors.orange : Colors.green).withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(6),
             ),
-            child: const Text(
-              'EXACT',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green),
+            child: Text(
+              !_hardwareSupported ? 'SIMULATION' : 'EXACT',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: !_hardwareSupported ? Colors.orange.shade800 : Colors.green,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUnsupportedHardwareBanner() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.amber.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.orange.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.info_outline, color: Colors.orange, size: 22),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Hardware LiDAR is not present on this device. Tap "Simulate LiDAR Spatial Scan" below to generate live wireframe surfaces and normalize them into your room model.',
+              style: TextStyle(
+                color: Colors.orange.shade900,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
         ],
@@ -433,6 +482,25 @@ class _LiDARScanScreenState extends State<LiDARScanScreen> {
                 ),
               ),
             ),
+            if (_surfaces.isEmpty && _report == null)
+              Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  margin: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.75),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.white24),
+                  ),
+                  child: Text(
+                    _hardwareSupported
+                        ? 'Tap "Start Spatial Scan" below to stream live LiDAR mesh'
+                        : 'Tap "Simulate LiDAR Spatial Scan" below to generate room mesh',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                  ),
+                ),
+              ),
             // Live status overlay
             Positioned(
               top: 12,
@@ -501,6 +569,10 @@ class _LiDARScanScreenState extends State<LiDARScanScreen> {
   }
 
   Widget _buildScanControls() {
+    final startLabel = _surfaces.isEmpty
+        ? (_hardwareSupported ? 'Start Spatial Scan' : 'Simulate LiDAR Spatial Scan')
+        : 'Rescan Room';
+
     return Column(
       children: [
         Row(
@@ -509,7 +581,7 @@ class _LiDARScanScreenState extends State<LiDARScanScreen> {
               child: ElevatedButton.icon(
                 onPressed: _isProcessing ? null : _startOrSimulateScan,
                 icon: const Icon(Icons.play_arrow),
-                label: Text(_surfaces.isEmpty ? 'Start Spatial Scan' : 'Rescan Room'),
+                label: Text(startLabel),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),

@@ -12,16 +12,20 @@ import '../../renovation/presentation/material_takeoff_screen.dart';
 import '../../renovation/presentation/renovation_budget_planner_screen.dart';
 import '../../renovation/presentation/product_recommendations_screen.dart';
 import '../../renovation/presentation/renovation_plan_screen.dart';
+import '../../capability/domain/device_capability.dart';
+import '../../capability/services/capability_service.dart';
 import '../../workspace/presentation/client_presentation_screen.dart';
 
 class RoomReviewScreen extends StatefulWidget {
   final RoomModelData room;
   final String projectId;
+  final DeviceCapabilityProfile? capability;
 
   const RoomReviewScreen({
     super.key,
     required this.room,
     required this.projectId,
+    this.capability,
   });
 
   @override
@@ -30,6 +34,7 @@ class RoomReviewScreen extends StatefulWidget {
 
 class _RoomReviewScreenState extends State<RoomReviewScreen> {
   late RoomModelData _currentRoom;
+  DeviceCapabilityProfile? _deviceCapability;
   String _selectedStyle = 'Warm Modern Minimalist';
   String _selectedCurrency = 'MYR';
   String _selectedTier = 'MODERATE';
@@ -66,6 +71,12 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
   void initState() {
     super.initState();
     _currentRoom = widget.room;
+    _deviceCapability = widget.capability;
+    if (_deviceCapability == null) {
+      CapabilityService.detectDeviceCapabilities().then((cap) {
+        if (mounted) setState(() => _deviceCapability = cap);
+      });
+    }
     _budgetPlan = widget.room.budgetPlan;
     _productRecommendations = widget.room.productRecommendations;
     if (widget.room.renovationPlans.isNotEmpty) {
@@ -146,7 +157,15 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
     setState(() => _isReconstructing = true);
     try {
       final report = await ProjectService.runSfmPipeline(roomId: _currentRoom.id);
-      final updatedRoom = await ProjectService.fetchRoomModel(_currentRoom.id);
+      RoomModelData updatedRoom;
+      try {
+        updatedRoom = await ProjectService.fetchRoomModel(_currentRoom.id);
+      } catch (_) {
+        updatedRoom = _currentRoom.copyWith(
+          reconstructionReport: report,
+          spatialPlanes: report.extractedPlanes.isNotEmpty ? report.extractedPlanes : _currentRoom.spatialPlanes,
+        );
+      }
       if (mounted) {
         setState(() {
           _currentRoom = updatedRoom;
@@ -969,6 +988,9 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
   Widget _buildNativeSpatialSection() {
     final spatialReport = _currentRoom.nativeSpatialReport;
     final hasReport = spatialReport != null;
+    final hasLidar = _deviceCapability?.hasLiDAR ?? false;
+    final hasHardwareDepth = (_deviceCapability?.hasHardwareDepth ?? false) || (_deviceCapability?.hasARCoreDepth ?? false);
+    final isHardwareSupported = hasLidar || hasHardwareDepth;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
@@ -1010,6 +1032,23 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
+                )
+              else if (!isHardwareSupported)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withAlpha(30),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: Colors.amber.withAlpha(90), width: 0.8),
+                  ),
+                  child: const Text(
+                    'SIMULATION / DEMO',
+                    style: TextStyle(
+                      color: Colors.orange,
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
             ],
           ),
@@ -1018,6 +1057,12 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
             Text(
               '${spatialReport.framework} · ${spatialReport.surfacesCount} surfaces · ${spatialReport.openingsCount} openings · ${spatialReport.objectsCount} objects · ${(spatialReport.confidenceScore * 100).toStringAsFixed(0)}% confidence (Exact sub-cm scale).',
               style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
+            ),
+            const SizedBox(height: 12),
+          ] else if (!isHardwareSupported) ...[
+            const Text(
+              'This device lacks hardware LiDAR/ToF sensors (available on iPhone Pro / specialized depth hardware). You can run the interactive simulation to benchmark sub-centimeter planar meshing.',
+              style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
             ),
             const SizedBox(height: 12),
           ] else ...[
@@ -1032,7 +1077,11 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
             child: OutlinedButton.icon(
               icon: const Icon(Icons.radar_outlined, size: 16),
               label: Text(
-                hasReport ? 'View Native Spatial Scan / Rescan' : 'Open Hardware LiDAR & Depth Scanner',
+                hasReport
+                    ? 'View Native Spatial Scan / Rescan'
+                    : (!isHardwareSupported
+                        ? 'Simulate Hardware LiDAR & Spatial Mesh (Demo)'
+                        : 'Open Hardware LiDAR & Depth Scanner'),
                 style: const TextStyle(fontSize: 12),
               ),
               onPressed: () async {
@@ -1042,7 +1091,9 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
                     builder: (_) => LiDARScanScreen(
                       roomId: _currentRoom.id,
                       roomName: _currentRoom.name,
+                      deviceTier: hasLidar ? 'TIER_1_LIDAR' : (hasHardwareDepth ? 'TIER_2_AR_DEPTH' : 'TIER_1_LIDAR'),
                       initialReport: spatialReport,
+                      isHardwareSupported: isHardwareSupported,
                     ),
                   ),
                 );

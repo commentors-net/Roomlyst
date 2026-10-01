@@ -1530,6 +1530,62 @@ class RoomModelData {
           .toList(),
     );
   }
+
+  RoomModelData copyWith({
+    String? id,
+    String? name,
+    String? roomType,
+    String? status,
+    String? originalImageUrl,
+    List<DetectedElement>? openings,
+    List<DetectedElement>? surfaces,
+    List<DetectedElement>? objects,
+    List<MeasurementModel>? measurements,
+    ScaleCalibrationModel? scaleCalibration,
+    CoverageReportModel? coverageReport,
+    GeometryModel? geometry,
+    FeasibilityReportModel? feasibilityReport,
+    BudgetPlanModel? budgetPlan,
+    VideoScanReportModel? videoScanReport,
+    MultiViewReconstructionReportModel? reconstructionReport,
+    List<SpatialPlaneModel>? spatialPlanes,
+    ARAssistedScanReportModel? arAssistedReport,
+    NativeSpatialScanReportModel? nativeSpatialReport,
+    ScanOrchestrationEvaluationModel? orchestrationEvaluation,
+    MaterialTakeoffReportModel? materialTakeoff,
+    ProductRecommendationReportModel? productRecommendations,
+    List<RenovationPlanVersionModel>? renovationPlans,
+    List<ProductPlacementModel>? visualizations,
+    List<DesignVersionModel>? versions,
+  }) {
+    return RoomModelData(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      roomType: roomType ?? this.roomType,
+      status: status ?? this.status,
+      originalImageUrl: originalImageUrl ?? this.originalImageUrl,
+      openings: openings ?? this.openings,
+      surfaces: surfaces ?? this.surfaces,
+      objects: objects ?? this.objects,
+      measurements: measurements ?? this.measurements,
+      scaleCalibration: scaleCalibration ?? this.scaleCalibration,
+      coverageReport: coverageReport ?? this.coverageReport,
+      geometry: geometry ?? this.geometry,
+      feasibilityReport: feasibilityReport ?? this.feasibilityReport,
+      budgetPlan: budgetPlan ?? this.budgetPlan,
+      videoScanReport: videoScanReport ?? this.videoScanReport,
+      reconstructionReport: reconstructionReport ?? this.reconstructionReport,
+      spatialPlanes: spatialPlanes ?? this.spatialPlanes,
+      arAssistedReport: arAssistedReport ?? this.arAssistedReport,
+      nativeSpatialReport: nativeSpatialReport ?? this.nativeSpatialReport,
+      orchestrationEvaluation: orchestrationEvaluation ?? this.orchestrationEvaluation,
+      materialTakeoff: materialTakeoff ?? this.materialTakeoff,
+      productRecommendations: productRecommendations ?? this.productRecommendations,
+      renovationPlans: renovationPlans ?? this.renovationPlans,
+      visualizations: visualizations ?? this.visualizations,
+      versions: versions ?? this.versions,
+    );
+  }
 }
 
 class RedesignVariantModel {

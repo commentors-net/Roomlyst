@@ -449,6 +449,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
               builder: (_) => RoomReviewScreen(
                 room: roomModel,
                 projectId: widget.projectId,
+                capability: widget.capability,
               ),
             ),
           );
@@ -502,6 +503,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
             builder: (_) => RoomReviewScreen(
               room: fallbackRoom,
               projectId: widget.projectId,
+              capability: widget.capability,
             ),
           ),
         );
