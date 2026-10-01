@@ -6,6 +6,7 @@ import '../../../core/config/app_config.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../projects/presentation/project_list_screen.dart';
+import '../../settings/presentation/server_settings_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   final bool isDemo;
@@ -24,6 +25,20 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isRegister = false;
   bool _isLoading = false;
   String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkExistingToken();
+  }
+
+  Future<void> _checkExistingToken() async {
+    if (widget.isDemo) return;
+    final token = await ApiClient.getToken();
+    if (token != null && token.isNotEmpty && mounted) {
+      _navigateToNextScreen();
+    }
+  }
 
   void _navigateToNextScreen() {
     if (widget.onLoginSuccess != null) {
@@ -179,49 +194,12 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _showServerConfigDialog() {
-    final controller = TextEditingController(text: AppConfig.baseUrl);
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.surface,
-        title: const Text('Backend Server Connection', style: TextStyle(color: AppTheme.textMain)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Specify your PC local network IP (e.g., http://192.168.1.15:8000) or keep default for offline demo.',
-              style: TextStyle(color: AppTheme.textMuted, fontSize: 13),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: controller,
-              decoration: const InputDecoration(
-                labelText: 'Server URL',
-                hintText: 'http://192.168.x.x:8000',
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: AppTheme.textMuted)),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              AppConfig.baseUrl = controller.text.trim();
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Server updated to: ${AppConfig.baseUrl}')),
-              );
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
+  Future<void> _openServerSettings() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ServerSettingsScreen()),
     );
+    if (mounted) setState(() {});
   }
 
   void _continueAsGuest() {
@@ -236,9 +214,9 @@ class _LoginScreenState extends State<LoginScreen> {
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.dns_outlined, color: AppTheme.textMuted),
-            tooltip: 'Server Connection',
-            onPressed: _showServerConfigDialog,
+            icon: const Icon(Icons.settings_outlined, color: AppTheme.textMuted),
+            tooltip: 'Server & App Settings',
+            onPressed: _openServerSettings,
           ),
         ],
       ),
@@ -281,7 +259,41 @@ class _LoginScreenState extends State<LoginScreen> {
                   textAlign: TextAlign.center,
                   style: TextStyle(color: AppTheme.textMuted, fontSize: 14),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 10),
+
+                // Active Server Selector Badge
+                Center(
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(20),
+                    onTap: _openServerSettings,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppTheme.surface,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: AppTheme.surfaceBorder),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            AppConfig.serverType == 'local' ? Icons.wifi_rounded : Icons.cloud_outlined,
+                            size: 14,
+                            color: AppConfig.serverType == 'local' ? AppTheme.accent : AppTheme.primary,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            '${AppConfig.serverType == 'local' ? 'LAN' : 'Cloud'}: ${AppConfig.baseUrl}',
+                            style: const TextStyle(fontSize: 11, color: AppTheme.textMuted, fontWeight: FontWeight.w500),
+                          ),
+                          const SizedBox(width: 4),
+                          const Icon(Icons.tune_rounded, size: 12, color: AppTheme.textMuted),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
 
                 if (_errorMessage != null) ...[
                   Container(

@@ -5,6 +5,7 @@ import '../../auth/presentation/login_screen.dart';
 import '../../capability/domain/device_capability.dart';
 import '../../capability/services/capability_service.dart';
 import '../../capture/presentation/capture_screen.dart';
+import '../../settings/presentation/server_settings_screen.dart';
 import '../../workspace/presentation/client_directory_screen.dart';
 import '../../workspace/presentation/project_workspace_screen.dart';
 import '../domain/project.dart';
@@ -194,7 +195,21 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
             },
           ),
           IconButton(
+            icon: const Icon(Icons.settings_outlined, color: AppTheme.textMuted),
+            tooltip: 'Server & App Settings',
+            onPressed: () async {
+              final updated = await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ServerSettingsScreen()),
+              );
+              if (updated == true) {
+                _loadData();
+              }
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.logout, color: AppTheme.textMuted),
+            tooltip: 'Sign Out',
             onPressed: () async {
               await ApiClient.clearToken();
               if (context.mounted) {
