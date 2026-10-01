@@ -50,6 +50,9 @@ class _RenovationPlanScreenState extends State<RenovationPlanScreen> {
           }
           _isLoading = false;
         });
+        if (plans.isEmpty) {
+          _generateNewPlan();
+        }
       }
     } catch (e) {
       if (mounted) {

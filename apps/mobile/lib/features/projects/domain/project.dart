@@ -1,5 +1,5 @@
 // Project and Room Domain Models for Flutter.
-
+import '../../../core/config/app_config.dart';
 
 class ProjectModel {
   final String id;
@@ -676,6 +676,8 @@ class VideoKeyframeModel {
       estimatedCoveragePct: (map['estimated_coverage_pct'] as num?)?.toDouble() ?? 0.0,
     );
   }
+
+  String get displayImageUrl => AppConfig.resolveUrl(imageUrl) ?? imageUrl;
 }
 
 class VideoScanReportModel {
@@ -1462,6 +1464,8 @@ class RoomModelData {
   List<RedesignVariantModel> get redesignVariants =>
       versions.isNotEmpty ? versions.last.variants : const [];
 
+  String? get displayOriginalImageUrl => AppConfig.resolveUrl(originalImageUrl);
+
   factory RoomModelData.fromMap(Map<String, dynamic> map) {
     final rawOpenings = (map['openings'] as List<dynamic>?) ?? [];
     final rawSurfaces = (map['surfaces'] as List<dynamic>?) ?? [];
@@ -1618,6 +1622,7 @@ class RedesignVariantModel {
   });
 
   String get id => variantId;
+  String get displayImageUrl => AppConfig.resolveUrl(imageUrl) ?? imageUrl;
 
   factory RedesignVariantModel.fromMap(Map<String, dynamic> map) {
     return RedesignVariantModel(
@@ -1758,8 +1763,8 @@ class VariantComparisonModel {
       variantBTitle: map['variant_b_title'] as String? ?? '',
       variantAStyle: map['variant_a_style'] as String? ?? '',
       variantBStyle: map['variant_b_style'] as String? ?? '',
-      variantAImageUrl: map['variant_a_image_url'] as String? ?? '',
-      variantBImageUrl: map['variant_b_image_url'] as String? ?? '',
+      variantAImageUrl: AppConfig.resolveUrl(map['variant_a_image_url'] as String?) ?? '',
+      variantBImageUrl: AppConfig.resolveUrl(map['variant_b_image_url'] as String?) ?? '',
       costA: (map['cost_a'] as num?)?.toDouble(),
       costB: (map['cost_b'] as num?)?.toDouble(),
       costDelta: (map['cost_delta'] as num?)?.toDouble(),
@@ -2324,7 +2329,7 @@ class CatalogProductModel {
       retailer: map['retailer'] as String? ?? '',
       retailerUrl: map['retailer_url'] as String?,
       sellerId: map['seller_id'] as String?,
-      imageUrl: map['image_url'] as String?,
+      imageUrl: AppConfig.resolveUrl(map['image_url'] as String?),
       model3dUrl: map['model_3d_url'] as String?,
       availability: map['availability'] as String? ?? 'IN_STOCK',
       leadTimeDays: (map['lead_time_days'] as num?)?.toInt() ?? 7,
@@ -3300,9 +3305,9 @@ class ReviewSessionModel {
       roomId: map['room_id'] as String? ?? '',
       roomName: map['room_name'] as String? ?? 'Room Design',
       roomType: map['room_type'] as String? ?? 'living_room',
-      originalImageUrl: map['original_image_url'] as String?,
+      originalImageUrl: AppConfig.resolveUrl(map['original_image_url'] as String?),
       selectedVariantId: map['selected_variant_id'] as String?,
-      selectedVariantImageUrl: map['selected_variant_image_url'] as String?,
+      selectedVariantImageUrl: AppConfig.resolveUrl(map['selected_variant_image_url'] as String?),
       selectedVariantStyle: map['selected_variant_style'] as String?,
       approvalStatus: map['approval_status'] as String? ?? 'PENDING_REVIEW',
       latestApproval: map['latest_approval'] != null
@@ -3567,7 +3572,7 @@ class RoomSheetSummaryModel {
       selectedVariantId: map['selected_variant_id'] as String?,
       selectedVariantTitle: map['selected_variant_title'] as String?,
       selectedVariantStyle: map['selected_variant_style'] as String?,
-      selectedVariantImageUrl: map['selected_variant_image_url'] as String?,
+      selectedVariantImageUrl: AppConfig.resolveUrl(map['selected_variant_image_url'] as String?),
       estimatedBudget: (map['estimated_budget'] as num?)?.toDouble() ?? 0.0,
       materialTakeoffItemCount: map['material_takeoff_item_count'] as int? ?? 0,
       curatedProductCount: map['curated_product_count'] as int? ?? 0,
@@ -3908,7 +3913,7 @@ class ProductPlacementModel {
       boundingBox: map['bounding_box'] != null
           ? ProductDimensionsModel.fromMap(map['bounding_box'] as Map<String, dynamic>)
           : ProductDimensionsModel(widthM: 1.0, depthM: 1.0, heightM: 1.0),
-      overlayImageUrl: map['overlay_image_url'] as String?,
+      overlayImageUrl: AppConfig.resolveUrl(map['overlay_image_url'] as String?),
       model3dUrl: map['model_3d_url'] as String?,
       isLocked: map['is_locked'] as bool? ?? false,
     );
@@ -4691,8 +4696,8 @@ class VirtualStagingDisclosureModel {
       regulatoryFramework: map['regulatory_framework'] as String? ?? 'RESO Standard / BOVAEP / CEA Guidelines',
       agentLicenseNo: map['agent_license_no'] as String?,
       agencyName: map['agency_name'] as String?,
-      originalImageUrl: map['original_image_url'] as String?,
-      stagedImageUrl: map['staged_image_url'] as String?,
+      originalImageUrl: AppConfig.resolveUrl(map['original_image_url'] as String?),
+      stagedImageUrl: AppConfig.resolveUrl(map['staged_image_url'] as String?),
       stagedAt: map['staged_at'] as String?,
     );
   }
@@ -4793,9 +4798,9 @@ class StagedRoomAssetModel {
       roomName: map['room_name'] as String? ?? 'Room',
       stagingType: StagingType.fromCode(map['staging_type'] as String?),
       styleTheme: map['style_theme'] as String? ?? 'Warm Contemporary',
-      originalImageUrl: map['original_image_url'] as String? ?? '',
-      stagedImageUrl: map['staged_image_url'] as String? ?? '',
-      watermarkedImageUrl: map['watermarked_image_url'] as String? ?? '',
+      originalImageUrl: AppConfig.resolveUrl(map['original_image_url'] as String?) ?? '',
+      stagedImageUrl: AppConfig.resolveUrl(map['staged_image_url'] as String?) ?? '',
+      watermarkedImageUrl: AppConfig.resolveUrl(map['watermarked_image_url'] as String?) ?? '',
       disclosure: map['disclosure'] != null
           ? VirtualStagingDisclosureModel.fromMap(map['disclosure'] as Map<String, dynamic>)
           : VirtualStagingDisclosureModel(),

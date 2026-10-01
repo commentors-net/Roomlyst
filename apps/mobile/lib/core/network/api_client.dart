@@ -311,13 +311,14 @@ class ApiClient {
     int? totalChunks,
     int? totalBytes,
     String videoFormat = 'mp4',
+    String? filename,
   }) async {
     final payload = <String, dynamic>{
       'room_id': roomId,
-      'video_format': videoFormat,
+      'filename': filename ?? 'room_scan.$videoFormat',
+      'total_chunks': totalChunks ?? 1,
+      'file_size_bytes': totalBytes ?? 0,
     };
-    if (totalChunks != null) payload['total_chunks'] = totalChunks;
-    if (totalBytes != null) payload['total_bytes'] = totalBytes;
     return post('/scan/video/init', payload);
   }
 
@@ -348,10 +349,15 @@ class ApiClient {
 
   static Future<dynamic> completeVideoScanSession({
     required String sessionId,
+    String? roomId,
   }) async {
-    return post('/scan/video/complete', {
+    final payload = <String, dynamic>{
       'session_id': sessionId,
-    });
+    };
+    if (roomId != null) {
+      payload['room_id'] = roomId;
+    }
+    return post('/scan/video/complete', payload);
   }
 
   static Future<dynamic> sampleAndAnalyzeVideo({
@@ -1068,6 +1074,50 @@ class ApiClient {
     if (name != null) payload['name'] = name;
     if (idToken != null) payload['id_token'] = idToken;
     return post('/auth/social-login', payload);
+  }
+
+  // =====================================================================
+  // AI Evaluation API Methods (Ollama, Gemini, OpenAI, Claude)
+  // =====================================================================
+
+  static Future<dynamic> getAiStatus() async {
+    return get('/ai/status');
+  }
+
+  static Future<dynamic> updateAiConfig({
+    String? provider,
+    String? ollamaUrl,
+    String? ollamaBaseUrl,
+    String? defaultModel,
+    String? model,
+  }) async {
+    final payload = <String, dynamic>{};
+    final url = ollamaUrl ?? ollamaBaseUrl;
+    final m = defaultModel ?? model;
+    if (url != null) payload['ollama_url'] = url;
+    if (m != null) payload['default_model'] = m;
+    if (provider != null) payload['provider'] = provider;
+    return post('/ai/config', payload);
+  }
+
+  static Future<dynamic> evaluateRoomAi(
+    String roomId, {
+    String? provider,
+    String? model,
+    String? selectedVariantId,
+    String? customPrompt,
+    String? prompt,
+    String? ollamaUrl,
+  }) async {
+    final payload = <String, dynamic>{
+      'provider': provider ?? AppConfig.aiProvider,
+      'model': model ?? AppConfig.aiModel,
+      'ollama_url': ollamaUrl ?? AppConfig.ollamaUrl,
+    };
+    if (selectedVariantId != null) payload['selected_variant_id'] = selectedVariantId;
+    final effectivePrompt = customPrompt ?? prompt;
+    if (effectivePrompt != null) payload['custom_prompt'] = effectivePrompt;
+    return post('/rooms/$roomId/ai-evaluation', payload);
   }
 
 

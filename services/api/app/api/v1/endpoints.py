@@ -126,6 +126,7 @@ from services.ai_worker.pipelines.native_spatial_normalizer import NativeSpatial
 from services.ai_worker.pipelines.material_estimator import material_estimator
 from services.ai_worker.pipelines.product_recommender import product_recommender
 from services.ai_worker.pipelines.renovation_plan_builder import renovation_plan_builder
+from services.ai_worker.pipelines.ai_evaluator import ai_evaluator, AIEvaluationReport
 from ...core.rate_limit import rate_limit_general, rate_limit_generation
 from ...core.sanitizer import sanitize_image
 from ...db.models import Project, Room
@@ -1810,7 +1811,7 @@ async def sample_and_analyze_video(
     return res_data
 
 
-@router.get("/rooms/{room_id}/video-scan-report", response_model=VideoScanReport)
+@router.get("/rooms/{room_id}/video-scan-report", response_model=Optional[VideoScanReport])
 def get_video_scan_report(
     room_id: str,
     db: Session = Depends(get_db),
@@ -1827,9 +1828,6 @@ def get_video_scan_report(
 
     if not room_model:
         raise HTTPException(status_code=404, detail="Room not found")
-
-    if not room_model.video_scan_report:
-        raise HTTPException(status_code=404, detail="No video scan report available for this room")
 
     return room_model.video_scan_report
 
@@ -2065,7 +2063,7 @@ def fuse_ar_motion(
     return res_data
 
 
-@router.get("/rooms/{room_id}/ar-report", response_model=ARAssistedScanReport)
+@router.get("/rooms/{room_id}/ar-report", response_model=Optional[ARAssistedScanReport])
 def get_ar_scan_report(
     room_id: str,
     db: Session = Depends(get_db),
@@ -2082,9 +2080,6 @@ def get_ar_scan_report(
 
     if not room_model:
         raise HTTPException(status_code=404, detail="Room not found")
-
-    if not room_model.ar_assisted_report:
-        raise HTTPException(status_code=404, detail="No AR-assisted scan report available for this room")
 
     return room_model.ar_assisted_report
 
@@ -3942,8 +3937,77 @@ def get_role_scoped_project_view(project_id: str, role: str):
     return repository.get_role_scoped_project_view(project_id=project_id, role=erole)
 
 
+# =====================================================================
+# AI Evaluation & Multi-Provider LLM Intelligence Endpoints
+# (Ollama Local, Gemini, OpenAI, Claude)
+# =====================================================================
+
+class AIEvaluationRequest(BaseModel):
+    provider: Optional[str] = "ollama"
+    model: Optional[str] = None
+    selected_variant_id: Optional[str] = None
+    custom_prompt: Optional[str] = None
+    ollama_url: Optional[str] = None
 
 
+class AIConfigUpdateRequest(BaseModel):
+    ollama_url: Optional[str] = None
+    default_model: Optional[str] = None
 
 
+@router.get("/ai/status")
+async def get_ai_status():
+    """
+    Checks connection to local Ollama (e.g. http://192.168.0.200:11434) and configured AI providers.
+    """
+    return await ai_evaluator.get_provider_status()
 
+
+@router.post("/ai/config")
+def update_ai_config(req: AIConfigUpdateRequest):
+    """
+    Updates runtime AI evaluation settings (Ollama base URL or default model).
+    """
+    ai_evaluator.configure(ollama_url=req.ollama_url, default_model=req.default_model)
+    return {
+        "status": "UPDATED",
+        "ollama_url": ai_evaluator.ollama_base_url,
+        "default_model": ai_evaluator.default_ollama_model,
+    }
+
+
+@router.post("/rooms/{room_id}/ai-evaluation", response_model=AIEvaluationReport)
+async def evaluate_room_ai(
+    room_id: str,
+    req: Optional[AIEvaluationRequest] = None,
+    db: Session = Depends(get_db),
+):
+    """
+    Performs AI evaluation of the room layout, aesthetics, structural feasibility, and budget
+    using local Ollama, Gemini, OpenAI, or Claude.
+    """
+    db_room = db.query(Room).filter(Room.id == room_id).first()
+    room_model = None
+    if db_room and db_room.room_model_data:
+        room_model = CanonicalRoomModel.model_validate(db_room.room_model_data)
+    elif room_id in repository.rooms:
+        room_model = repository.rooms[room_id]
+
+    if not room_model:
+        raise HTTPException(status_code=404, detail="Room not found")
+
+    p = (req.provider if req else None) or "ollama"
+    m = req.model if req else None
+    var_id = req.selected_variant_id if req else None
+    prompt = req.custom_prompt if req else None
+    o_url = req.ollama_url if req else None
+
+    report = await ai_evaluator.evaluate_room(
+        room=room_model,
+        selected_variant_id=var_id,
+        provider=p,
+        model=m,
+        custom_prompt=prompt,
+        ollama_url=o_url,
+    )
+    return report

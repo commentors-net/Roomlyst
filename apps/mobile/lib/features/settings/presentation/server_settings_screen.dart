@@ -22,12 +22,26 @@ class _ServerSettingsScreenState extends State<ServerSettingsScreen> {
   bool _testSuccess = false;
   String? _currentToken;
 
+  // AI Evaluation Settings
+  late String _selectedAiProvider;
+  late TextEditingController _ollamaUrlController;
+  late TextEditingController _aiModelController;
+  bool _isTestingAi = false;
+  String? _aiTestResult;
+  bool _aiTestSuccess = false;
+  List<String> _availableOllamaModels = [];
+
   @override
   void initState() {
     super.initState();
     _selectedType = AppConfig.serverType;
     final initialUrl = _selectedType == 'local' ? AppConfig.localUrl : AppConfig.webUrl;
     _urlController = TextEditingController(text: initialUrl);
+
+    _selectedAiProvider = AppConfig.aiProvider;
+    _ollamaUrlController = TextEditingController(text: AppConfig.ollamaUrl);
+    _aiModelController = TextEditingController(text: AppConfig.aiModel);
+
     _checkCurrentSession();
   }
 
@@ -41,6 +55,8 @@ class _ServerSettingsScreenState extends State<ServerSettingsScreen> {
   @override
   void dispose() {
     _urlController.dispose();
+    _ollamaUrlController.dispose();
+    _aiModelController.dispose();
     super.dispose();
   }
 
@@ -98,6 +114,53 @@ class _ServerSettingsScreenState extends State<ServerSettingsScreen> {
     }
   }
 
+  Future<void> _testAiConnection() async {
+    setState(() {
+      _isTestingAi = true;
+      _aiTestResult = null;
+    });
+
+    try {
+      // First update backend with current chosen AI provider/url so status reflects it
+      try {
+        await ApiClient.updateAiConfig(
+          provider: _selectedAiProvider,
+          ollamaBaseUrl: _ollamaUrlController.text.trim(),
+          model: _aiModelController.text.trim(),
+        );
+      } catch (_) {}
+
+      final status = await ApiClient.getAiStatus();
+      final ollamaReachable = status['ollama_reachable'] == true;
+      final provider = status['provider'] ?? _selectedAiProvider;
+      final activeModel = status['active_model'] ?? _aiModelController.text;
+      final ollamaModels = (status['ollama_models'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [];
+
+      setState(() {
+        _availableOllamaModels = ollamaModels;
+        if (_selectedAiProvider == 'ollama') {
+          if (ollamaReachable) {
+            _aiTestSuccess = true;
+            _aiTestResult = 'Ollama is online!\nActive Model: $activeModel\nAvailable: ${ollamaModels.join(', ')}';
+          } else {
+            _aiTestSuccess = false;
+            _aiTestResult = 'Ollama at ${_ollamaUrlController.text.trim()} is unreachable.\nEnsure Ollama is running and accessible on your LAN.';
+          }
+        } else {
+          _aiTestSuccess = true;
+          _aiTestResult = 'Cloud Provider ($provider) configured.\nActive Model: $activeModel';
+        }
+      });
+    } catch (e) {
+      setState(() {
+        _aiTestSuccess = false;
+        _aiTestResult = 'AI Test Error: ${e.toString().replaceAll('Exception: ', '')}';
+      });
+    } finally {
+      if (mounted) setState(() => _isTestingAi = false);
+    }
+  }
+
   Future<void> _saveSettings() async {
     final rawUrl = _urlController.text.trim().replaceAll(RegExp(r'/+$'), '');
     if (rawUrl.isEmpty) {
@@ -112,10 +175,25 @@ class _ServerSettingsScreenState extends State<ServerSettingsScreen> {
       url: rawUrl,
     );
 
+    await AppConfig.setAiConfig(
+      provider: _selectedAiProvider,
+      url: _ollamaUrlController.text.trim(),
+      model: _aiModelController.text.trim(),
+    );
+
+    // Sync with backend if server is reachable
+    try {
+      await ApiClient.updateAiConfig(
+        provider: _selectedAiProvider,
+        ollamaBaseUrl: _ollamaUrlController.text.trim(),
+        model: _aiModelController.text.trim(),
+      );
+    } catch (_) {}
+
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Server configuration saved: $rawUrl'),
+          content: Text('Settings saved successfully (Server: $rawUrl, AI: $_selectedAiProvider)'),
           backgroundColor: AppTheme.success,
         ),
       );
@@ -289,6 +367,16 @@ class _ServerSettingsScreenState extends State<ServerSettingsScreen> {
             children: [
               if (_selectedType == 'local') ...[
                 ActionChip(
+                  avatar: const Icon(Icons.dns, size: 14, color: AppTheme.accent),
+                  label: const Text('Home Server (192.168.0.200:8000)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  onPressed: () {
+                    setState(() {
+                      _urlController.text = 'http://192.168.0.200:8000';
+                      _testResult = null;
+                    });
+                  },
+                ),
+                ActionChip(
                   avatar: const Icon(Icons.laptop, size: 14, color: AppTheme.accent),
                   label: const Text('Host PC (192.168.0.5:8000)', style: TextStyle(fontSize: 11)),
                   onPressed: () {
@@ -383,6 +471,253 @@ class _ServerSettingsScreenState extends State<ServerSettingsScreen> {
                       style: TextStyle(
                         fontSize: 12,
                         color: _testSuccess ? AppTheme.success : Colors.redAccent,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          const SizedBox(height: 28),
+
+          // AI Evaluation & LLM Provider Section
+          const Divider(color: AppTheme.surfaceBorder),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              const Icon(Icons.auto_awesome, color: AppTheme.primary, size: 22),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'AI Evaluation & LLM Engine',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppTheme.primary.withAlpha(30),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  _selectedAiProvider.toUpperCase(),
+                  style: const TextStyle(color: AppTheme.primary, fontSize: 10, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Configure the model used for aesthetic room evaluation, structural feasibility critique, contractor risk warnings, and value ROI scoring.',
+            style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
+          ),
+          const SizedBox(height: 14),
+
+          // Provider selector chips
+          const Text('Select AI Engine Provider', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.accent)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            children: [
+              ChoiceChip(
+                label: const Text('Ollama (Local/LAN)'),
+                selected: _selectedAiProvider == 'ollama',
+                selectedColor: AppTheme.primary,
+                labelStyle: TextStyle(
+                  color: _selectedAiProvider == 'ollama' ? Colors.white : AppTheme.textMuted,
+                  fontSize: 12,
+                  fontWeight: _selectedAiProvider == 'ollama' ? FontWeight.bold : FontWeight.normal,
+                ),
+                onSelected: (val) {
+                  if (val) {
+                    setState(() {
+                      _selectedAiProvider = 'ollama';
+                      if (_aiModelController.text.isEmpty || _aiModelController.text.contains('gemini') || _aiModelController.text.contains('gpt') || _aiModelController.text.contains('claude')) {
+                        _aiModelController.text = 'llama3.2:latest';
+                      }
+                      _aiTestResult = null;
+                    });
+                  }
+                },
+              ),
+              ChoiceChip(
+                label: const Text('Google Gemini'),
+                selected: _selectedAiProvider == 'gemini',
+                selectedColor: AppTheme.primary,
+                labelStyle: TextStyle(
+                  color: _selectedAiProvider == 'gemini' ? Colors.white : AppTheme.textMuted,
+                  fontSize: 12,
+                  fontWeight: _selectedAiProvider == 'gemini' ? FontWeight.bold : FontWeight.normal,
+                ),
+                onSelected: (val) {
+                  if (val) {
+                    setState(() {
+                      _selectedAiProvider = 'gemini';
+                      _aiModelController.text = 'gemini-1.5-flash';
+                      _aiTestResult = null;
+                    });
+                  }
+                },
+              ),
+              ChoiceChip(
+                label: const Text('OpenAI'),
+                selected: _selectedAiProvider == 'openai',
+                selectedColor: AppTheme.primary,
+                labelStyle: TextStyle(
+                  color: _selectedAiProvider == 'openai' ? Colors.white : AppTheme.textMuted,
+                  fontSize: 12,
+                  fontWeight: _selectedAiProvider == 'openai' ? FontWeight.bold : FontWeight.normal,
+                ),
+                onSelected: (val) {
+                  if (val) {
+                    setState(() {
+                      _selectedAiProvider = 'openai';
+                      _aiModelController.text = 'gpt-4o-mini';
+                      _aiTestResult = null;
+                    });
+                  }
+                },
+              ),
+              ChoiceChip(
+                label: const Text('Anthropic Claude'),
+                selected: _selectedAiProvider == 'claude',
+                selectedColor: AppTheme.primary,
+                labelStyle: TextStyle(
+                  color: _selectedAiProvider == 'claude' ? Colors.white : AppTheme.textMuted,
+                  fontSize: 12,
+                  fontWeight: _selectedAiProvider == 'claude' ? FontWeight.bold : FontWeight.normal,
+                ),
+                onSelected: (val) {
+                  if (val) {
+                    setState(() {
+                      _selectedAiProvider = 'claude';
+                      _aiModelController.text = 'claude-3-5-haiku-20241022';
+                      _aiTestResult = null;
+                    });
+                  }
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // Ollama URL field if Ollama chosen
+          if (_selectedAiProvider == 'ollama') ...[
+            const Text('Ollama Server URL', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.accent)),
+            const SizedBox(height: 6),
+            TextField(
+              controller: _ollamaUrlController,
+              decoration: InputDecoration(
+                hintText: 'http://192.168.0.200:11434',
+                prefixIcon: const Icon(Icons.memory, color: AppTheme.primary),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.clear, size: 18),
+                  onPressed: () => _ollamaUrlController.clear(),
+                ),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              keyboardType: TextInputType.url,
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 8,
+              children: [
+                ActionChip(
+                  avatar: const Icon(Icons.dns, size: 13, color: AppTheme.accent),
+                  label: const Text('192.168.0.200:11434', style: TextStyle(fontSize: 11)),
+                  onPressed: () => setState(() => _ollamaUrlController.text = 'http://192.168.0.200:11434'),
+                ),
+                ActionChip(
+                  avatar: const Icon(Icons.laptop, size: 13, color: AppTheme.accent),
+                  label: const Text('192.168.0.5:11434', style: TextStyle(fontSize: 11)),
+                  onPressed: () => setState(() => _ollamaUrlController.text = 'http://192.168.0.5:11434'),
+                ),
+                ActionChip(
+                  avatar: const Icon(Icons.computer, size: 13, color: AppTheme.accent),
+                  label: const Text('localhost:11434', style: TextStyle(fontSize: 11)),
+                  onPressed: () => setState(() => _ollamaUrlController.text = 'http://127.0.0.1:11434'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+          ],
+
+          // Model Name field
+          const Text('Model Name', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.accent)),
+          const SizedBox(height: 6),
+          TextField(
+            controller: _aiModelController,
+            decoration: InputDecoration(
+              hintText: _selectedAiProvider == 'ollama' ? 'llama3.2:latest' : 'Model Identifier',
+              prefixIcon: const Icon(Icons.psychology_outlined, color: AppTheme.primary),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          ),
+          if (_selectedAiProvider == 'ollama') ...[
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 8,
+              children: (_availableOllamaModels.isNotEmpty
+                      ? _availableOllamaModels
+                      : const ['llama3.2:latest', 'qwen2.5-coder:3b'])
+                  .map((m) => ActionChip(
+                        label: Text(m, style: const TextStyle(fontSize: 11)),
+                        onPressed: () => setState(() => _aiModelController.text = m),
+                      ))
+                  .toList(),
+            ),
+          ],
+          const SizedBox(height: 14),
+
+          // Test AI Engine Button
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              side: const BorderSide(color: AppTheme.primary),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: _isTestingAi ? null : _testAiConnection,
+            icon: _isTestingAi
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primary),
+                  )
+                : const Icon(Icons.smart_toy_outlined, color: AppTheme.primary),
+            label: Text(
+              _isTestingAi ? 'Querying AI Engine...' : 'Test AI Engine Connection (/ai/status)',
+              style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.primary),
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          // AI Test Result Box
+          if (_aiTestResult != null)
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: _aiTestSuccess ? AppTheme.success.withAlpha(20) : Colors.red.withAlpha(20),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: _aiTestSuccess ? AppTheme.success : Colors.red,
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    _aiTestSuccess ? Icons.check_circle : Icons.error_outline,
+                    color: _aiTestSuccess ? AppTheme.success : Colors.red,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      _aiTestResult!,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: _aiTestSuccess ? AppTheme.success : Colors.redAccent,
                         fontWeight: FontWeight.w500,
                       ),
                     ),

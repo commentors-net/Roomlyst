@@ -117,6 +117,9 @@ class _ClientPresentationScreenState extends State<ClientPresentationScreen> {
           bestVariantId = matched.id;
           bestVariantUrl = matched.imageUrl;
           bestVariantStyle = matched.style;
+        } else if (roomData.originalImageUrl != null && roomData.originalImageUrl!.isNotEmpty) {
+          bestVariantUrl = roomData.originalImageUrl;
+          bestVariantStyle = 'Current Layout';
         }
 
         if (mounted) {
@@ -998,6 +1001,53 @@ class _ClientPresentationScreenState extends State<ClientPresentationScreen> {
     );
   }
 
+  Future<void> _generateVariantsForPresentation() async {
+    if (widget.roomId == null) return;
+    setState(() => _isLoading = true);
+    try {
+      final variants = await ProjectService.generateRedesigns(
+        roomId: widget.roomId!,
+        styles: ['Warm Modern Minimalist', 'Japandi Clean Organic', 'Contemporary Scandinavian'],
+        budgetAmount: 15000.0,
+      );
+      if (variants.isNotEmpty && mounted) {
+        setState(() {
+          _selectedVariantId = variants.first.id;
+          _selectedVariantImageUrl = variants.first.imageUrl;
+          _selectedVariantStyle = variants.first.style;
+          if (_roomModel != null) {
+            _roomModel = _roomModel!.copyWith(
+              versions: [
+                DesignVersionModel(
+                  id: 'ver_${DateTime.now().millisecondsSinceEpoch}',
+                  roomId: widget.roomId!,
+                  versionNumber: 1,
+                  variants: variants,
+                ),
+              ],
+            );
+          }
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${variants.length} redesign concepts generated!'),
+            backgroundColor: AppTheme.primary,
+          ),
+        );
+      } else {
+        setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to generate variants: $e')),
+        );
+      }
+    }
+  }
+
   Widget _buildVariantSelectorBar() {
     List<Map<String, dynamic>> variants = [];
 
@@ -1014,7 +1064,35 @@ class _ClientPresentationScreenState extends State<ClientPresentationScreen> {
       }).toList();
     }
 
-    if (variants.isEmpty) return const SizedBox.shrink();
+    if (variants.isEmpty) {
+      if (widget.roomId != null) {
+        return Container(
+          height: 56,
+          color: AppTheme.surface,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'No redesign concepts yet',
+                  style: TextStyle(color: AppTheme.textMuted, fontSize: 12),
+                ),
+              ),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primary,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+                onPressed: _generateVariantsForPresentation,
+                icon: const Icon(Icons.auto_awesome, size: 16),
+                label: const Text('Generate Redesigns', style: TextStyle(fontSize: 12)),
+              ),
+            ],
+          ),
+        );
+      }
+      return const SizedBox.shrink();
+    }
 
     return Container(
       height: 60,

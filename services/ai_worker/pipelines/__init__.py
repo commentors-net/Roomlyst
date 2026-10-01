@@ -27,6 +27,7 @@ from .native_spatial_normalizer import NativeSpatialNormalizer
 from .material_estimator import MaterialEstimatorEngine, material_estimator
 from .product_recommender import ProductRecommendationEngine, product_recommender
 from .renovation_plan_builder import RenovationPlanBuilder, renovation_plan_builder
+from .ai_evaluator import AIEvaluator, ai_evaluator, AIEvaluationReport
 
 __all__ = [
     "DepthProviderBase",
@@ -57,5 +58,8 @@ __all__ = [
     "product_recommender",
     "RenovationPlanBuilder",
     "renovation_plan_builder",
+    "AIEvaluator",
+    "ai_evaluator",
+    "AIEvaluationReport",
 ]
 

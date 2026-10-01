@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/config/app_config.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../projects/domain/project.dart';
@@ -44,6 +45,8 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
   bool _isCalibrating = false;
   bool _isCalculatingBudget = false;
   bool _isReconstructing = false;
+  bool _isEvaluatingAi = false;
+  Map<String, dynamic>? _aiEvaluation;
   BudgetPlanModel? _budgetPlan;
   ProductRecommendationReportModel? _productRecommendations;
   RenovationPlanVersionModel? _latestPlan;
@@ -190,6 +193,40 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
       }
     } finally {
       if (mounted) setState(() => _isReconstructing = false);
+    }
+  }
+
+  Future<void> _runAiEvaluation() async {
+    setState(() => _isEvaluatingAi = true);
+    try {
+      final res = await ApiClient.evaluateRoomAi(
+        _currentRoom.id,
+        provider: AppConfig.aiProvider,
+        model: AppConfig.aiModel,
+        prompt: _promptController.text.isNotEmpty ? _promptController.text : null,
+      );
+      if (mounted) {
+        setState(() {
+          _aiEvaluation = res['evaluation'] as Map<String, dynamic>?;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppTheme.success,
+            content: Text('AI Evaluation complete via ${res['provider']} (${res['model']})!'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppTheme.danger,
+            content: Text('AI Evaluation error: ${e.toString().replaceAll("Exception: ", "")}'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isEvaluatingAi = false);
     }
   }
 
@@ -1935,6 +1972,230 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
     );
   }
 
+  Widget _buildAiEvaluationSection() {
+    final eval = _aiEvaluation;
+    final hasEval = eval != null;
+
+    final aestheticScore = eval != null ? (eval['aesthetic_score'] as num?)?.toDouble() ?? 8.0 : 0.0;
+    final feasibilityScore = eval != null ? (eval['feasibility_score'] as num?)?.toDouble() ?? 8.5 : 0.0;
+    final valueRoi = eval != null ? (eval['estimated_value_add_percent'] as num?)?.toDouble() ?? 12.0 : 0.0;
+    final critique = eval != null ? eval['aesthetic_critique']?.toString() ?? '' : '';
+    final feasibilityCritique = eval != null ? eval['feasibility_critique']?.toString() ?? '' : '';
+    final tradeInsights = eval != null ? eval['trade_insights']?.toString() ?? '' : '';
+    final recs = eval != null && eval['recommendations'] is List
+        ? (eval['recommendations'] as List).map((r) => r.toString()).toList()
+        : <String>[];
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: hasEval ? AppTheme.primary.withAlpha(90) : AppTheme.surfaceBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.auto_awesome, color: AppTheme.primary, size: 20),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'AI Architectural & Feasibility Evaluation',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppTheme.textMain),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppTheme.primary.withAlpha(25),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: AppTheme.primary.withAlpha(80), width: 0.8),
+                ),
+                child: Text(
+                  AppConfig.aiProvider.toUpperCase(),
+                  style: const TextStyle(
+                    color: AppTheme.primary,
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (hasEval) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.surfaceBorder.withAlpha(40),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Aesthetic', style: TextStyle(fontSize: 10, color: AppTheme.textMuted)),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${aestheticScore.toStringAsFixed(1)} / 10',
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.accent),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.surfaceBorder.withAlpha(40),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Feasibility', style: TextStyle(fontSize: 10, color: AppTheme.textMuted)),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${feasibilityScore.toStringAsFixed(1)} / 10',
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.success),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.surfaceBorder.withAlpha(40),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Value ROI', style: TextStyle(fontSize: 10, color: AppTheme.textMuted)),
+                        const SizedBox(height: 2),
+                        Text(
+                          '+${valueRoi.toStringAsFixed(1)}%',
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.amberAccent),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            if (critique.isNotEmpty) ...[
+              Text(
+                critique,
+                style: const TextStyle(fontSize: 12, color: AppTheme.textMain, height: 1.35),
+              ),
+              const SizedBox(height: 8),
+            ],
+            if (feasibilityCritique.isNotEmpty || tradeInsights.isNotEmpty) ...[
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceBorder.withAlpha(30),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppTheme.surfaceBorder),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (feasibilityCritique.isNotEmpty) ...[
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.build_circle_outlined, size: 14, color: AppTheme.accent),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              feasibilityCritique,
+                              style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (tradeInsights.isNotEmpty) const SizedBox(height: 6),
+                    ],
+                    if (tradeInsights.isNotEmpty)
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.lightbulb_outline, size: 14, color: Colors.amber),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              tradeInsights,
+                              style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                            ),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+            if (recs.isNotEmpty) ...[
+              const Text('Expert Recommendations:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.accent)),
+              const SizedBox(height: 4),
+              ...recs.take(3).map((r) => Padding(
+                    padding: const EdgeInsets.only(bottom: 3),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.arrow_right, size: 16, color: AppTheme.primary),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(r, style: const TextStyle(fontSize: 11, color: AppTheme.textMain)),
+                        ),
+                      ],
+                    ),
+                  )),
+              const SizedBox(height: 8),
+            ],
+          ] else ...[
+            Text(
+              'Evaluate structural feasibility, design harmony, trade execution risk, and ROI potential using ${AppConfig.aiProvider == "ollama" ? "local Ollama (${AppConfig.aiModel})" : AppConfig.aiProvider}.',
+              style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
+            ),
+            const SizedBox(height: 10),
+          ],
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: AppTheme.primary),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+              ),
+              onPressed: _isEvaluatingAi ? null : _runAiEvaluation,
+              icon: _isEvaluatingAi
+                  ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primary))
+                  : const Icon(Icons.auto_awesome, size: 16, color: AppTheme.primary),
+              label: Text(
+                _isEvaluatingAi
+                    ? 'Evaluating via ${AppConfig.aiProvider}...'
+                    : (hasEval ? 'Re-run AI Evaluation' : 'Run AI Design & Feasibility Evaluation'),
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primary),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1981,6 +2242,45 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (_currentRoom.originalImageUrl != null && _currentRoom.originalImageUrl!.isNotEmpty) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Stack(
+                  children: [
+                    Image.network(
+                      _currentRoom.originalImageUrl!,
+                      width: double.infinity,
+                      height: 190,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        height: 120,
+                        color: AppTheme.surfaceBorder,
+                        child: const Center(
+                          child: Icon(Icons.broken_image_outlined, color: AppTheme.textMuted, size: 36),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 8,
+                      left: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.65),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          _currentRoom.name,
+                          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+
             // Spatial Measurements & Scale Calibration Section
             const Text(
               'Spatial Measurements & Scale',
@@ -2103,6 +2403,15 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
             ),
             const SizedBox(height: 8),
             _buildClientPresentationSection(),
+            const SizedBox(height: 16),
+
+            // AI Architectural & Feasibility Evaluation
+            const Text(
+              'AI Architectural Evaluation & LLM Insights',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppTheme.accent),
+            ),
+            const SizedBox(height: 8),
+            _buildAiEvaluationSection(),
             const SizedBox(height: 24),
 
             const Divider(color: AppTheme.surfaceBorder),
