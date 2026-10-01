@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "427212681311",
+    "project_id": "leave-tracker-2025",
+    "storage_bucket": "leave-tracker-2025.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:427212681311:android:0b4771b19134f10e0e6bea",
+        "android_client_info": {
+          "package_name": "com.foodvision.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "427212681311-ihqk4pg17qlj04lceo10mvuad99dh9qe.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.foodvision.app",
+            "certificate_hash": "76f0402154e65d2ee62e0d5e677fa2d56bb4ca98"
+          }
+        },
+        {
+          "client_id": "427212681311-kul00siih4415tijeo2jnapjmt2mk5g5.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDpAmYmO2Uo-C-mnSk_PwxsVgFdrYwEoGg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "427212681311-h6dn1ekq5dkplvbq7mkk5hll1l7ld7jk.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "427212681311-r4fp73b627365lbmtlnue8712i74ioe7.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.foodvision.app"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

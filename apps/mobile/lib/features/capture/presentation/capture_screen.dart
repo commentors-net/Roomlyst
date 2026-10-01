@@ -575,423 +575,523 @@ class _CaptureScreenState extends State<CaptureScreen> {
         ],
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Orchestration Status Banner (Milestone 3.5)
-              Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: AppTheme.surface,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: _orchestrator.isManualOverride
-                        ? Colors.purpleAccent.withValues(alpha: 0.5)
-                        : AppTheme.accent.withValues(alpha: 0.4),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      _orchestrator.isManualOverride ? Icons.tune : Icons.auto_awesome,
-                      color: _orchestrator.isManualOverride ? Colors.purpleAccent : AppTheme.accent,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Text(
-                                _orchestrator.currentTierName,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                                decoration: BoxDecoration(
-                                  color: _orchestrator.isManualOverride
-                                      ? Colors.purple.withValues(alpha: 0.25)
-                                      : AppTheme.accent.withValues(alpha: 0.18),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  _orchestrator.isManualOverride ? 'OVERRIDE' : 'AUTO',
-                                  style: TextStyle(
-                                    color: _orchestrator.isManualOverride
-                                        ? Colors.purpleAccent
-                                        : AppTheme.accent,
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            _orchestrator.currentAccuracyAssurance,
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.65),
-                              fontSize: 11,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: _openOrchestrationDialog,
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      child: const Text(
-                        'Change',
-                        style: TextStyle(color: AppTheme.accent, fontSize: 11, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // Workflow Mode Switcher (Milestone 2.1)
-              Container(
-                decoration: BoxDecoration(
-                  color: AppTheme.surface,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppTheme.surfaceBorder),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: InkWell(
-                        onTap: () => setState(() => _mode = CaptureWorkflowMode.multiCornerScan),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          decoration: BoxDecoration(
-                            color: _mode == CaptureWorkflowMode.multiCornerScan
-                                ? AppTheme.primary.withValues(alpha: 0.2)
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.view_in_ar,
-                                size: 16,
-                                color: _mode == CaptureWorkflowMode.multiCornerScan
-                                    ? AppTheme.primary
-                                    : AppTheme.textMuted,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                'Multi-Corner Scan',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: _mode == CaptureWorkflowMode.multiCornerScan
-                                      ? AppTheme.primary
-                                      : AppTheme.textMuted,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: InkWell(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => VideoScanScreen(
-                                projectId: widget.projectId,
-                                projectName: widget.projectName,
-                                capability: widget.capability,
-                              ),
-                            ),
-                          );
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          decoration: BoxDecoration(
-                            color: Colors.transparent,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.videocam,
-                                size: 16,
-                                color: AppTheme.primary,
-                              ),
-                              SizedBox(width: 4),
-                              Text(
-                                'Video Sweep',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppTheme.primary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: InkWell(
-                        onTap: () => setState(() => _mode = CaptureWorkflowMode.singlePhoto),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          decoration: BoxDecoration(
-                            color: _mode == CaptureWorkflowMode.singlePhoto
-                                ? AppTheme.primary.withValues(alpha: 0.2)
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.photo_camera,
-                                size: 16,
-                                color: _mode == CaptureWorkflowMode.singlePhoto
-                                    ? AppTheme.primary
-                                    : AppTheme.textMuted,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                'Single Photo',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: _mode == CaptureWorkflowMode.singlePhoto
-                                      ? AppTheme.primary
-                                      : AppTheme.textMuted,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              // Coverage Indicator (Multi-Corner Mode)
-              if (_mode == CaptureWorkflowMode.multiCornerScan) ...[
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.surface,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppTheme.surfaceBorder),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Room Coverage: ${_coveragePct.toInt()}%',
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                          ),
-                          Text(
-                            '${_multiFrames.length} of 4 Corners',
-                            style: const TextStyle(fontSize: 12, color: AppTheme.accent),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      LinearProgressIndicator(
-                        value: _coveragePct / 100.0,
-                        backgroundColor: Colors.black26,
-                        color: _coveragePct >= 85.0
-                            ? AppTheme.success
-                            : _coveragePct >= 40.0
-                                ? AppTheme.accent
-                                : AppTheme.primary,
-                        minHeight: 6,
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        _coverageGuidance,
-                        style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-              ],
-
-              // Viewfinder / Interactive Capture Stage
-              Expanded(
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.black,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppTheme.surfaceBorder, width: 2),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(14),
-                    child: _mode == CaptureWorkflowMode.singlePhoto
-                        ? (_singleImageBytes != null
-                            ? _buildSingleImagePreview()
-                            : _buildSingleViewfinder())
-                        : _buildMultiViewStage(),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              // Thumbnail Tray for Multi-View Captures
-              if (_mode == CaptureWorkflowMode.multiCornerScan && _multiFrames.isNotEmpty) ...[
-                SizedBox(
-                  height: 68,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: _multiFrames.length,
-                    itemBuilder: (context, idx) {
-                      final isSelected = (_selectedFrameIndex ?? (_multiFrames.length - 1)) == idx;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: GestureDetector(
-                          onTap: () {
-                            setState(() => _selectedFrameIndex = idx);
-                            _showImagePreviewDialog(
-                              _multiFrames[idx],
-                              _viewpointLabels[idx],
-                              frameIndex: idx,
-                            );
-                          },
-                          child: Stack(
-                            children: [
-                              Container(
-                                width: 68,
-                                height: 68,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: isSelected ? AppTheme.accent : Colors.white24,
-                                    width: isSelected ? 2 : 1,
-                                  ),
-                                ),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(7),
-                                  child: Image.memory(_multiFrames[idx], fit: BoxFit.cover),
-                                ),
-                              ),
-                              Positioned(
-                                top: 2,
-                                right: 2,
-                                child: GestureDetector(
-                                  onTap: () => _removeFrame(idx),
-                                  child: Container(
-                                    padding: const EdgeInsets.all(2),
-                                    decoration: const BoxDecoration(
-                                      color: Colors.red,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(Icons.close, size: 12, color: Colors.white),
-                                  ),
-                                ),
-                              ),
-                              Positioned(
-                                bottom: 2,
-                                left: 2,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black87,
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text('C${idx + 1}', style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold)),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 10),
-              ],
-
-              // Status Bar
-              Text(
-                _statusText,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: AppTheme.textMuted, fontSize: 12),
-              ),
-              const SizedBox(height: 10),
-
-              // Action Buttons
-              if (_mode == CaptureWorkflowMode.multiCornerScan) ...[
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: _isAnalyzing || _multiFrames.length >= 4 ? null : _captureNextCorner,
-                        icon: const Icon(Icons.add_a_photo, size: 18),
-                        label: Text(_multiFrames.isEmpty ? 'Capture Corner 1' : 'Next Corner (${_multiFrames.length + 1}/4)'),
-                      ),
-                    ),
-                    if (_multiFrames.isNotEmpty) ...[
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: _isAnalyzing ? null : _uploadAndAnalyze,
-                          icon: _isAnalyzing
-                              ? const SizedBox(
-                                  width: 14,
-                                  height: 14,
-                                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                                )
-                              : const Icon(Icons.auto_awesome, size: 18),
-                          label: Text(_isAnalyzing ? 'Analyzing...' : 'Analyze Room (${_multiFrames.length})'),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ] else ...[
-                if (_singleImageBytes != null) ...[
-                  ElevatedButton(
-                    onPressed: _isAnalyzing ? null : _uploadAndAnalyze,
-                    child: _isAnalyzing
-                        ? const Text('Analyzing Room...')
-                        : const Text('Analyze Single Photo'),
-                  ),
-                  const SizedBox(height: 6),
-                  TextButton(
-                    onPressed: _isAnalyzing ? null : () => setState(() => _singleImageBytes = null),
-                    child: const Text('Recapture Photo', style: TextStyle(color: AppTheme.textMuted)),
-                  ),
-                ],
-              ],
-            ],
-          ),
+        child: OrientationBuilder(
+          builder: (context, orientation) {
+            final isLandscape = orientation == Orientation.landscape;
+            return isLandscape ? _buildLandscapeLayout() : _buildPortraitLayout();
+          },
         ),
       ),
     );
+  }
+
+  Widget _buildPortraitLayout() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildOrchestrationBanner(),
+          _buildWorkflowModeSwitcher(),
+          const SizedBox(height: 12),
+          if (_mode == CaptureWorkflowMode.multiCornerScan) ...[
+            _buildCoverageIndicator(),
+            const SizedBox(height: 12),
+          ],
+          Expanded(child: _buildViewfinderStage()),
+          const SizedBox(height: 12),
+          if (_mode == CaptureWorkflowMode.multiCornerScan && _multiFrames.isNotEmpty) ...[
+            _buildThumbnailTray(),
+            const SizedBox(height: 10),
+          ],
+          _buildStatusBar(),
+          const SizedBox(height: 10),
+          _buildActionButtons(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLandscapeLayout() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Left: Viewfinder Stage (Large display for camera alignment)
+          Expanded(
+            flex: 3,
+            child: _buildViewfinderStage(),
+          ),
+          const SizedBox(width: 12),
+
+          // Right: Dedicated Controls & Shutter Panel
+          Expanded(
+            flex: 2,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildWorkflowModeSwitcher(compact: true),
+                  const SizedBox(height: 8),
+                  if (_mode == CaptureWorkflowMode.multiCornerScan) ...[
+                    _buildCoverageIndicator(compact: true),
+                    const SizedBox(height: 8),
+                  ],
+                  if (_mode == CaptureWorkflowMode.multiCornerScan && _multiFrames.isNotEmpty) ...[
+                    _buildThumbnailTray(isLandscape: true),
+                    const SizedBox(height: 8),
+                  ],
+                  _buildStatusBar(),
+                  const SizedBox(height: 8),
+                  _buildActionButtons(isLandscape: true),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOrchestrationBanner({bool compact = false}) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: EdgeInsets.symmetric(horizontal: 14, vertical: compact ? 6 : 10),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: _orchestrator.isManualOverride
+              ? Colors.purpleAccent.withValues(alpha: 0.5)
+              : AppTheme.accent.withValues(alpha: 0.4),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            _orchestrator.isManualOverride ? Icons.tune : Icons.auto_awesome,
+            color: _orchestrator.isManualOverride ? Colors.purpleAccent : AppTheme.accent,
+            size: compact ? 16 : 20,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      _orchestrator.currentTierName,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: compact ? 11 : 12,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                      decoration: BoxDecoration(
+                        color: _orchestrator.isManualOverride
+                            ? Colors.purple.withValues(alpha: 0.25)
+                            : AppTheme.accent.withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        _orchestrator.isManualOverride ? 'OVERRIDE' : 'AUTO',
+                        style: TextStyle(
+                          color: _orchestrator.isManualOverride
+                              ? Colors.purpleAccent
+                              : AppTheme.accent,
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (!compact) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    _orchestrator.currentAccuracyAssurance,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.65),
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: _openOrchestrationDialog,
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: const Text(
+              'Change',
+              style: TextStyle(color: AppTheme.accent, fontSize: 11, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWorkflowModeSwitcher({bool compact = false}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.surfaceBorder),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: InkWell(
+              onTap: () => setState(() => _mode = CaptureWorkflowMode.multiCornerScan),
+              child: Container(
+                padding: EdgeInsets.symmetric(vertical: compact ? 7 : 10),
+                decoration: BoxDecoration(
+                  color: _mode == CaptureWorkflowMode.multiCornerScan
+                      ? AppTheme.primary.withValues(alpha: 0.2)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.view_in_ar,
+                      size: compact ? 14 : 16,
+                      color: _mode == CaptureWorkflowMode.multiCornerScan
+                          ? AppTheme.primary
+                          : AppTheme.textMuted,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      compact ? 'Corners' : 'Multi-Corner',
+                      style: TextStyle(
+                        fontSize: compact ? 11 : 12,
+                        fontWeight: FontWeight.w700,
+                        color: _mode == CaptureWorkflowMode.multiCornerScan
+                            ? AppTheme.primary
+                            : AppTheme.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => VideoScanScreen(
+                      projectId: widget.projectId,
+                      projectName: widget.projectName,
+                      capability: widget.capability,
+                    ),
+                  ),
+                );
+              },
+              child: Container(
+                padding: EdgeInsets.symmetric(vertical: compact ? 7 : 10),
+                decoration: BoxDecoration(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.videocam,
+                      size: compact ? 14 : 16,
+                      color: AppTheme.primary,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Video',
+                      style: TextStyle(
+                        fontSize: compact ? 11 : 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: InkWell(
+              onTap: () => setState(() => _mode = CaptureWorkflowMode.singlePhoto),
+              child: Container(
+                padding: EdgeInsets.symmetric(vertical: compact ? 7 : 10),
+                decoration: BoxDecoration(
+                  color: _mode == CaptureWorkflowMode.singlePhoto
+                      ? AppTheme.primary.withValues(alpha: 0.2)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.photo_camera,
+                      size: compact ? 14 : 16,
+                      color: _mode == CaptureWorkflowMode.singlePhoto
+                          ? AppTheme.primary
+                          : AppTheme.textMuted,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      compact ? 'Single' : 'Single Photo',
+                      style: TextStyle(
+                        fontSize: compact ? 11 : 12,
+                        fontWeight: FontWeight.w700,
+                        color: _mode == CaptureWorkflowMode.singlePhoto
+                            ? AppTheme.primary
+                            : AppTheme.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCoverageIndicator({bool compact = false}) {
+    return Container(
+      padding: EdgeInsets.all(compact ? 8 : 12),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.surfaceBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Coverage: ${_coveragePct.toInt()}%',
+                style: TextStyle(fontSize: compact ? 11 : 13, fontWeight: FontWeight.bold),
+              ),
+              Text(
+                '${_multiFrames.length}/4 Corners',
+                style: TextStyle(fontSize: compact ? 11 : 12, color: AppTheme.accent),
+              ),
+            ],
+          ),
+          SizedBox(height: compact ? 4 : 8),
+          LinearProgressIndicator(
+            value: _coveragePct / 100.0,
+            backgroundColor: Colors.black26,
+            color: _coveragePct >= 85.0
+                ? AppTheme.success
+                : _coveragePct >= 40.0
+                    ? AppTheme.accent
+                    : AppTheme.primary,
+            minHeight: compact ? 4 : 6,
+            borderRadius: BorderRadius.circular(3),
+          ),
+          if (!compact) ...[
+            const SizedBox(height: 8),
+            Text(
+              _coverageGuidance,
+              style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildViewfinderStage() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.black,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.surfaceBorder, width: 2),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: _mode == CaptureWorkflowMode.singlePhoto
+            ? (_singleImageBytes != null
+                ? _buildSingleImagePreview()
+                : _buildSingleViewfinder())
+            : _buildMultiViewStage(),
+      ),
+    );
+  }
+
+  Widget _buildThumbnailTray({bool isLandscape = false}) {
+    final height = isLandscape ? 56.0 : 68.0;
+    return SizedBox(
+      height: height,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: _multiFrames.length,
+        itemBuilder: (context, idx) {
+          final isSelected = (_selectedFrameIndex ?? (_multiFrames.length - 1)) == idx;
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: GestureDetector(
+              onTap: () {
+                setState(() => _selectedFrameIndex = idx);
+                _showImagePreviewDialog(
+                  _multiFrames[idx],
+                  _viewpointLabels[idx],
+                  frameIndex: idx,
+                );
+              },
+              child: Stack(
+                children: [
+                  Container(
+                    width: height,
+                    height: height,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: isSelected ? AppTheme.accent : Colors.white24,
+                        width: isSelected ? 2 : 1,
+                      ),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(7),
+                      child: Image.memory(_multiFrames[idx], fit: BoxFit.cover),
+                    ),
+                  ),
+                  Positioned(
+                    top: 2,
+                    right: 2,
+                    child: GestureDetector(
+                      onTap: () => _removeFrame(idx),
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.close, size: 11, color: Colors.white),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 2,
+                    left: 2,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: Colors.black87,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text('C${idx + 1}', style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildStatusBar() {
+    return Text(
+      _statusText,
+      textAlign: TextAlign.center,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(color: AppTheme.textMuted, fontSize: 11),
+    );
+  }
+
+  Widget _buildActionButtons({bool isLandscape = false}) {
+    if (_mode == CaptureWorkflowMode.multiCornerScan) {
+      final captureBtn = OutlinedButton.icon(
+        onPressed: _isAnalyzing || _multiFrames.length >= 4 ? null : _captureNextCorner,
+        icon: const Icon(Icons.add_a_photo, size: 16),
+        label: Text(
+          _multiFrames.isEmpty ? 'Capture Corner 1' : 'Next Corner (${_multiFrames.length + 1}/4)',
+          style: const TextStyle(fontSize: 12),
+        ),
+      );
+
+      final analyzeBtn = _multiFrames.isNotEmpty
+          ? ElevatedButton.icon(
+              onPressed: _isAnalyzing ? null : _uploadAndAnalyze,
+              icon: _isAnalyzing
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                    )
+                  : const Icon(Icons.auto_awesome, size: 16),
+              label: Text(
+                _isAnalyzing ? 'Analyzing...' : 'Analyze Room (${_multiFrames.length})',
+                style: const TextStyle(fontSize: 12),
+              ),
+            )
+          : null;
+
+      if (isLandscape) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            captureBtn,
+            if (analyzeBtn != null) ...[
+              const SizedBox(height: 6),
+              analyzeBtn,
+            ],
+          ],
+        );
+      } else {
+        return Row(
+          children: [
+            Expanded(child: captureBtn),
+            if (analyzeBtn != null) ...[
+              const SizedBox(width: 8),
+              Expanded(child: analyzeBtn),
+            ],
+          ],
+        );
+      }
+    } else {
+      if (_singleImageBytes != null) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ElevatedButton(
+              onPressed: _isAnalyzing ? null : _uploadAndAnalyze,
+              child: _isAnalyzing
+                  ? const Text('Analyzing Room...')
+                  : const Text('Analyze Single Photo'),
+            ),
+            const SizedBox(height: 4),
+            TextButton(
+              onPressed: _isAnalyzing ? null : () => setState(() => _singleImageBytes = null),
+              child: const Text('Recapture Photo', style: TextStyle(color: AppTheme.textMuted, fontSize: 12)),
+            ),
+          ],
+        );
+      }
+      return const SizedBox.shrink();
+    }
   }
 
   Widget _buildSingleImagePreview() {

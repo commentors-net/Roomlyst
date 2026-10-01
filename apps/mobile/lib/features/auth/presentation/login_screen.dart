@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
@@ -18,6 +19,8 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController(text: 'homeowner@roomlyst.com');
   final _passwordController = TextEditingController(text: 'Password123!');
+  final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
+  bool _googleSignInInitialized = false;
   bool _isRegister = false;
   bool _isLoading = false;
   String? _errorMessage;
@@ -86,6 +89,24 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _ensureGoogleSignInInitialized() async {
+    if (_googleSignInInitialized) return;
+
+    final String? iosClientId = (!kIsWeb && Platform.isIOS)
+        ? '427212681311-r4fp73b627365lbmtlnue8712i74ioe7.apps.googleusercontent.com'
+        : null;
+
+    try {
+      await _googleSignIn.initialize(
+        clientId: iosClientId,
+        serverClientId: '427212681311-h6dn1ekq5dkplvbq7mkk5hll1l7ld7jk.apps.googleusercontent.com',
+      );
+      _googleSignInInitialized = true;
+    } catch (e) {
+      debugPrint('Google Sign-In initialization error: $e');
+    }
+  }
+
   Future<void> _handleGoogleSignIn() async {
     if (widget.isDemo) {
       await ApiClient.saveToken('demo_google_jwt_token_2026');
@@ -93,84 +114,32 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    final selected = await showModalBottomSheet<String>(
-      context: context,
-      backgroundColor: const Color(0xFF202124),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 28,
-                    height: 28,
-                    alignment: Alignment.center,
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.white,
-                    ),
-                    child: const Text(
-                      'G',
-                      style: TextStyle(
-                        color: Color(0xFF4285F4),
-                        fontWeight: FontWeight.w900,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Sign in with Google',
-                        style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                      Text(
-                        'Choose an account to continue to Roomlyst',
-                        style: TextStyle(color: Colors.white70, fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              const Divider(color: Color(0xFF3C4043)),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const CircleAvatar(
-                  backgroundColor: Color(0xFF4285F4),
-                  child: Text('P', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                ),
-                title: const Text('Primary Account', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                subtitle: const Text('user.homeowner@gmail.com', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                onTap: () => Navigator.pop(ctx, 'user.homeowner@gmail.com'),
-              ),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const CircleAvatar(
-                  backgroundColor: Color(0xFF34A853),
-                  child: Icon(Icons.flash_on_rounded, color: Colors.white, size: 20),
-                ),
-                title: const Text('Quick One-Tap Sign In', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                subtitle: const Text('Instant authentication', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                onTap: () => Navigator.pop(ctx, 'demo.homeowner@roomlyst.com'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    setState(() => _isLoading = true);
 
-    if (selected != null) {
-      await _proceedWithSocialLogin('google', selected, 'Google User');
+    try {
+      await _ensureGoogleSignInInitialized();
+      final GoogleSignInAccount googleUser = await _googleSignIn.authenticate(
+        scopeHint: ['email'],
+      );
+
+      final email = googleUser.email;
+      final name = googleUser.displayName ?? email.split('@').first;
+
+      await _proceedWithSocialLogin('google', email, name);
+    } catch (e) {
+      debugPrint('Google sign-in error or cancelled: $e');
+      if (mounted) {
+        setState(() => _isLoading = false);
+        final err = e.toString().toLowerCase();
+        if (!err.contains('cancel') && !err.contains('dismissed')) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Google Sign-In: ${e.toString().replaceAll("Exception: ", "")}'),
+              backgroundColor: AppTheme.danger,
+            ),
+          );
+        }
+      }
     }
   }
 
