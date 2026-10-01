@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  roomlyst-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: roomlyst-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+      - DATABASE_URL=sqlite:////app/storage/roomlyst.db
+      - SECRET_KEY=change-this-to-a-secure-random-secret-key-in-production
+      - STORAGE_BACKEND=local
+      - LOCAL_STORAGE_PATH=storage
+    volumes:
+      - roomlyst_data:/app/storage
+
+volumes:
+  roomlyst_data:
