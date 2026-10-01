@@ -76,3 +76,5 @@ storage/uploads/*
 !storage/uploads/.gitkeep
 storage/outputs/*
 !storage/outputs/.gitkeep
+
+docs/
