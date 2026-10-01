@@ -1,7 +1,6 @@
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../capability/services/capability_service.dart';
 import '../../projects/domain/project.dart';
 import '../../projects/services/project_service.dart';
 

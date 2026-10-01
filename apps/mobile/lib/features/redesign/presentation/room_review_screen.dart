@@ -507,13 +507,15 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 6,
+                  runSpacing: 4,
                   children: [
                     Text(
                       meas.readableType,
                       style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                     ),
-                    const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
@@ -526,8 +528,7 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
                         style: TextStyle(color: badgeColor, fontSize: 9, fontWeight: FontWeight.bold),
                       ),
                     ),
-                    if (isExact) ...[
-                      const SizedBox(width: 4),
+                    if (isExact)
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                         decoration: BoxDecoration(
@@ -539,7 +540,6 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
                           style: TextStyle(color: AppTheme.success, fontSize: 9, fontWeight: FontWeight.bold),
                         ),
                       ),
-                    ],
                   ],
                 ),
                 const SizedBox(height: 4),
@@ -665,16 +665,23 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  const Icon(Icons.architecture_outlined, color: AppTheme.accent, size: 20),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Geometry & Shape ($shapeName)',
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppTheme.textMain),
-                  ),
-                ],
+              Expanded(
+                child: Row(
+                  children: [
+                    const Icon(Icons.architecture_outlined, color: AppTheme.accent, size: 20),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        'Geometry & Shape ($shapeName)',
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppTheme.textMain),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
@@ -719,20 +726,24 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
               Expanded(
                 child: Text(
                   report?.overallFeasible == false
-                      ? 'Feasibility Warnings (${report?.warningIssuesCount ?? 0} warning, ${report?.criticalIssuesCount ?? 0} critical)'
+                      ? 'Feasibility (${report?.warningIssuesCount ?? 0} warn, ${report?.criticalIssuesCount ?? 0} crit)'
                       : 'Physical Clearances Pass',
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 13,
                     color: report?.overallFeasible == false ? AppTheme.warning : AppTheme.success,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              if (report?.minWalkwayClearanceM != null)
+              if (report?.minWalkwayClearanceM != null) ...[
+                const SizedBox(width: 8),
                 Text(
-                  'Min Walkway: ${report!.minWalkwayClearanceM!.toStringAsFixed(2)}m',
+                  'Min: ${report!.minWalkwayClearanceM!.toStringAsFixed(2)}m',
                   style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textMuted),
                 ),
+              ],
             ],
           ),
           const SizedBox(height: 6),
@@ -805,17 +816,24 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Row(
-                children: [
-                  Icon(Icons.view_in_ar, color: AppTheme.primary, size: 20),
-                  SizedBox(width: 8),
-                  Text(
-                    'Multi-View 3D Reconstruction',
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppTheme.textMain),
-                  ),
-                ],
+              const Expanded(
+                child: Row(
+                  children: [
+                    Icon(Icons.view_in_ar, color: AppTheme.primary, size: 20),
+                    SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        'Multi-View 3D Reconstruction',
+                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppTheme.textMain),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              if (hasReconstruction)
+              if (hasReconstruction) ...[
+                const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
@@ -832,6 +850,7 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
                     ),
                   ),
                 ),
+              ],
             ],
           ),
           const SizedBox(height: 8),
@@ -908,17 +927,24 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Icon(Icons.track_changes, color: Colors.teal.shade700, size: 20),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'AR Non-LiDAR Motion Fusion',
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppTheme.textMain),
-                  ),
-                ],
+              Expanded(
+                child: Row(
+                  children: [
+                    Icon(Icons.track_changes, color: Colors.teal.shade700, size: 20),
+                    const SizedBox(width: 8),
+                    const Flexible(
+                      child: Text(
+                        'AR Non-LiDAR Motion Fusion',
+                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppTheme.textMain),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              if (hasReport)
+              if (hasReport) ...[
+                const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
@@ -935,6 +961,7 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
                     ),
                   ),
                 ),
+              ],
             ],
           ),
           const SizedBox(height: 8),
@@ -1006,16 +1033,23 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Icon(Icons.radar, color: Colors.blue.shade600, size: 20),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Hardware LiDAR & Native Spatial Mesh',
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppTheme.textMain),
-                  ),
-                ],
+              Expanded(
+                child: Row(
+                  children: [
+                    Icon(Icons.radar, color: Colors.blue.shade600, size: 20),
+                    const SizedBox(width: 8),
+                    const Flexible(
+                      child: Text(
+                        'Hardware LiDAR & Spatial Mesh',
+                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppTheme.textMain),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               if (hasReport)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -1130,19 +1164,26 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Row(
-                children: [
-                  Icon(Icons.account_balance_wallet_outlined, color: AppTheme.accent, size: 20),
-                  SizedBox(width: 8),
-                  Text(
-                    'Budget Intelligence',
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
-                  ),
-                ],
+              const Expanded(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.account_balance_wallet_outlined, color: AppTheme.accent, size: 20),
+                    SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        'Budget Intelligence',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              if (_budgetPlan != null)
+              if (_budgetPlan != null) ...[
+                const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
@@ -1162,6 +1203,7 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
                     ),
                   ),
                 ),
+              ],
             ],
           ),
           const SizedBox(height: 12),
@@ -1337,9 +1379,16 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(item.categoryName, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                        Expanded(
+                          child: Text(
+                            item.categoryName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
                         Text(
                           '$symbol ${item.estimatedCost.toStringAsFixed(0)} / $symbol ${item.allocatedAmount.toStringAsFixed(0)}',
                           style: TextStyle(
@@ -1475,18 +1524,25 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Row(
-                children: [
-                  Icon(Icons.inventory_2_outlined, color: AppTheme.accent, size: 20),
-                  SizedBox(width: 8),
-                  Text(
-                    'Material & Quantity Takeoff',
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppTheme.textMain),
-                  ),
-                ],
+              const Expanded(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.inventory_2_outlined, color: AppTheme.accent, size: 20),
+                    SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        'Material Takeoff',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppTheme.textMain),
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                 decoration: BoxDecoration(
@@ -1494,7 +1550,7 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  isExact ? 'EXACT (±3-8%)' : 'APPROXIMATE (±12-18%)',
+                  isExact ? 'EXACT (±3-8%)' : 'APPROX (±12-18%)',
                   style: TextStyle(
                     color: isExact ? AppTheme.success : AppTheme.warning,
                     fontSize: 9,
@@ -1589,19 +1645,26 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Row(
-                children: [
-                  Icon(Icons.chair_outlined, color: AppTheme.primary, size: 20),
-                  SizedBox(width: 8),
-                  Text(
-                    'Curated Product Catalogue',
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppTheme.textMain),
-                  ),
-                ],
+              const Expanded(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.chair_outlined, color: AppTheme.primary, size: 20),
+                    SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        'Product Catalogue',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppTheme.textMain),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              if (recs != null)
+              if (recs != null) ...[
+                const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
@@ -1618,6 +1681,7 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
                     ),
                   ),
                 ),
+              ],
             ],
           ),
           const SizedBox(height: 8),
@@ -1702,13 +1766,24 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
         children: [
           Row(
             children: [
-              const Icon(Icons.assignment_turned_in_outlined, size: 16, color: AppTheme.primary),
-              const SizedBox(width: 8),
-              const Text(
-                'Consolidated Renovation Plan & Brief',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppTheme.textMain),
+              const Expanded(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.assignment_turned_in_outlined, size: 16, color: AppTheme.primary),
+                    SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        'Renovation Plan & Brief',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppTheme.textMain),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              const Spacer(),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
@@ -1735,15 +1810,22 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
           ),
           if (plan != null) ...[
             const SizedBox(height: 8),
-            Row(
+            Wrap(
+              spacing: 12,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Icon(Icons.verified, size: 14, color: Colors.greenAccent.shade400),
-                const SizedBox(width: 4),
-                Text(
-                  '${plan.confirmedCount} Confirmed Measurements',
-                  style: const TextStyle(fontSize: 11, color: AppTheme.textMain, fontWeight: FontWeight.w500),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.verified, size: 14, color: Colors.greenAccent.shade400),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${plan.confirmedCount} Confirmed Measurements',
+                      style: const TextStyle(fontSize: 11, color: AppTheme.textMain, fontWeight: FontWeight.w500),
+                    ),
+                  ],
                 ),
-                const Spacer(),
                 if (plan.unverifiedCount > 0)
                   Text(
                     '${plan.unverifiedCount} Site Check Required',
@@ -1957,12 +2039,16 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
 
             // Renovation Budget & Trade-Offs Section (Milestone 2.4 & 4.2)
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'Renovation Budget & Trade-Offs',
-                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppTheme.accent),
+                const Expanded(
+                  child: Text(
+                    'Renovation Budget & Trade-Offs',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppTheme.accent),
+                  ),
                 ),
+                const SizedBox(width: 8),
                 TextButton(
                   onPressed: () {
                     Navigator.push(
