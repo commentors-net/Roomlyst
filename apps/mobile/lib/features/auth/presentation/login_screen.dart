@@ -114,7 +114,7 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       await _googleSignIn.initialize(
         clientId: iosClientId,
-        serverClientId: '427212681311-h6dn1ekq5dkplvbq7mkk5hll1l7ld7jk.apps.googleusercontent.com',
+        serverClientId: '507253336299-ok7hpji28he4lcjefu5iu6ci0sec0avf.apps.googleusercontent.com',
       );
       _googleSignInInitialized = true;
     } catch (e) {
