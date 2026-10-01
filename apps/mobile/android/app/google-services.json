@@ -9,7 +9,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:427212681311:android:0b4771b19134f10e0e6bea",
         "android_client_info": {
-          "package_name": "com.foodvision.app"
+          "package_name": "com.roomlyst.app"
         }
       },
       "oauth_client": [
@@ -17,7 +17,7 @@
           "client_id": "427212681311-ihqk4pg17qlj04lceo10mvuad99dh9qe.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "com.foodvision.app",
+            "package_name": "com.roomlyst.app",
             "certificate_hash": "76f0402154e65d2ee62e0d5e677fa2d56bb4ca98"
           }
         },
@@ -42,7 +42,7 @@
               "client_id": "427212681311-r4fp73b627365lbmtlnue8712i74ioe7.apps.googleusercontent.com",
               "client_type": 2,
               "ios_info": {
-                "bundle_id": "com.foodvision.app"
+                "bundle_id": "com.roomlyst.app"
               }
             }
           ]
