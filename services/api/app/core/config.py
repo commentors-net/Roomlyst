@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     S3_SECRET_KEY: Optional[str] = None
     S3_REGION: str = "us-east-1"
 
+    # Cookie security
+    COOKIE_SECURE: bool = False
+
     # Redis (For distributed task worker)
     REDIS_URL: str = "redis://localhost:6379/0"
 

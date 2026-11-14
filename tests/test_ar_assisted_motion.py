@@ -303,6 +303,18 @@ def test_api_fuse_ar_motion_end_to_end(client, base_room, sample_ar_poses, sampl
     assert report_data["has_depth_from_motion"] is True
 
 
+def test_api_get_ar_report_non_ar_room_returns_null(client, base_room):
+    """Verifies that an authorized, existing room without AR scan returns 200 with null."""
+    # Room exists without an ar_assisted_report
+    base_room.ar_assisted_report = None
+    repository.rooms[base_room.id] = base_room
+
+    resp = client.get(f"/api/v1/rooms/{base_room.id}/ar-report")
+    assert resp.status_code == 200
+    assert resp.json() is None
+
+
 def test_api_get_ar_report_not_found(client):
     resp = client.get("/api/v1/rooms/non_existent_room_9999/ar-report")
     assert resp.status_code == 404
+

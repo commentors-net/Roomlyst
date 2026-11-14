@@ -343,6 +343,7 @@ class _ServerSettingsScreenState extends State<ServerSettingsScreen> {
           ),
           const SizedBox(height: 8),
           TextField(
+            key: const Key('server_url_input'),
             controller: _urlController,
             decoration: InputDecoration(
               hintText: _selectedType == 'local' ? 'http://192.168.0.5:8000' : 'https://api.roomlyst.com',

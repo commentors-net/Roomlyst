@@ -65,6 +65,7 @@ from packages.room_model import (
 
 class ProjectRecord(BaseModel):
     id: str = Field(default_factory=lambda: f"proj_{uuid.uuid4().hex[:8]}")
+    user_id: Optional[str] = None
     name: str
     currency: str = "MYR"
     room_ids: List[str] = Field(default_factory=list)
@@ -113,8 +114,10 @@ class InMemoryRepository:
         property_address: Optional[str] = None,
         status: ProjectStatus = ProjectStatus.BRIEFING,
         designer_notes: Optional[str] = None,
+        user_id: Optional[str] = None,
     ) -> ProjectRecord:
         proj = ProjectRecord(
+            user_id=user_id,
             name=name,
             currency=currency,
             client_id=client_id,
@@ -132,8 +135,16 @@ class InMemoryRepository:
     def get_project(self, project_id: str) -> Optional[ProjectRecord]:
         return self.projects.get(project_id)
 
-    def list_projects(self, client_id: Optional[str] = None) -> List[ProjectRecord]:
+    def list_projects(
+        self, client_id: Optional[str] = None, user_id: Optional[str] = None
+    ) -> List[ProjectRecord]:
         all_projs = list(self.projects.values())
+        if user_id:
+            all_projs = [
+                p for p in all_projs
+                if p.user_id == user_id
+                or any(c.user_id == user_id for c in p.collaborators)
+            ]
         if client_id:
             return [p for p in all_projs if p.client_id == client_id]
         return all_projs

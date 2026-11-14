@@ -91,7 +91,7 @@ def test_room_analyzer_and_redesign_pipeline(tmp_path):
     generator = LocalRedesignGenerator(output_dir=str(tmp_path))
     res = generator.generate_redesigns(img, room, constraints, count=3)
 
-    assert res.provider == "roomlyst-controlnet-pipeline"
+    assert res.provider in ("roomlyst-controlnet-pipeline", "roomlyst-algorithmic-preview-compositor")
     assert len(room.versions) == 1
     assert len(room.versions[0].variants) == 3
     for v in room.versions[0].variants:

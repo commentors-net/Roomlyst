@@ -121,7 +121,7 @@ def test_upload_endpoint_strips_gps_exif(client):
     response = client.post("/api/v1/rooms/upload-and-analyze", files=files, data=data)
     assert response.status_code == 200
 
-    saved_url = response.json()["original_image_url"].lstrip("/")
+    saved_url = response.json()["original_image_url"].lstrip("/").split("?")[0]
     assert os.path.exists(saved_url)
 
     with open(saved_url, "rb") as f:
@@ -368,3 +368,192 @@ def test_admin_elevated_media_access_is_audited(client, admin_token):
         and "CS-4091" in a["reason"]
         for a in audits
     )
+
+
+# =====================================================================
+# 7. Media Security, Negative Tests & Cross-User Isolation (Prompt 04 Task 2 & 6)
+# =====================================================================
+
+def test_unauthenticated_media_access_rejected(client):
+    """Prompt 04 Task 2: Unauthenticated media request without signature or bearer is rejected."""
+    storage = get_storage_provider()
+    storage.upload_file("uploads/secret_photo.jpg", b"sensitive user photo")
+    resp = client.get("/storage/uploads/secret_photo.jpg")
+    assert resp.status_code == 401
+
+
+def test_invalid_and_expired_signed_media_urls_rejected(client):
+    """Prompt 04 Task 2: Signed media requests with bad signature or expired timestamp are rejected."""
+    storage = get_storage_provider()
+    storage.upload_file("uploads/secret_photo.jpg", b"sensitive user photo")
+
+    # Invalid signature
+    resp_bad = client.get("/storage/uploads/secret_photo.jpg?sig=forged_signature&exp=9999999999")
+    assert resp_bad.status_code == 403
+
+    # Expired signature
+    expired_url = storage.get_signed_url("uploads/secret_photo.jpg", expires_in=-3600)
+    resp_expired = client.get(expired_url)
+    assert resp_expired.status_code == 403
+
+
+def test_media_path_traversal_blocked(client, user_token):
+    """Prompt 04 Task 2: Directory traversal attempts are blocked."""
+    resp = client.get("/storage/../services/api/app/main.py", headers={"Authorization": f"Bearer {user_token}"})
+    assert resp.status_code in (400, 403, 404)
+
+
+def test_cross_user_media_isolation(client, user_token):
+    """Prompt 04 Task 2: User B cannot download media assets owned by User A."""
+    storage = get_storage_provider()
+    storage.upload_file("uploads/user_a_room.jpg", b"user a room bytes")
+
+    with SessionLocal() as db:
+        # User A project
+        proj_a = Project(id="proj_user_a", user_id="usr_homeowner_test", name="User A House")
+        room_a = Room(id="room_user_a", project_id=proj_a.id, name="Living Room")
+        asset_a = MediaAsset(id="med_user_a_01", room_id=room_a.id, storage_key="uploads/user_a_room.jpg", asset_type="original_photo")
+        db.merge(proj_a)
+        db.merge(room_a)
+        db.merge(asset_a)
+
+        # User B
+        user_b = User(id="usr_other_b", email="other@roomlyst.com", hashed_password=hash_password("Pass123!"), role="homeowner", is_active=True)
+        db.merge(user_b)
+        db.commit()
+
+    token_b = create_access_token(subject="usr_other_b", claims={"role": "homeowner"})
+
+    # User B attempts to access User A's media download endpoint
+    resp_b = client.get(f"/api/v1/media/{asset_a.id}/signed-url", headers={"Authorization": f"Bearer {token_b}"})
+    assert resp_b.status_code == 403
+
+    # User A accesses their own media download endpoint
+    resp_a = client.get(f"/api/v1/media/{asset_a.id}/signed-url", headers={"Authorization": f"Bearer {user_token}"})
+    assert resp_a.status_code == 200
+    assert "signed_url" in resp_a.json()
+
+
+def test_valid_signed_url_serves_media_content(client):
+    """Prompt 04 Task 2: Valid signed URL successfully serves the raw media bytes."""
+    storage = get_storage_provider()
+    test_bytes = b"authentic Roomlyst room scan jpeg content"
+    storage.upload_file("uploads/test_signed_media.jpg", test_bytes)
+
+    signed_url = storage.get_signed_url("uploads/test_signed_media.jpg", expires_in=3600)
+    resp = client.get(signed_url)
+    assert resp.status_code == 200
+    assert resp.content == test_bytes
+
+
+def test_persistence_across_in_memory_repository_reset(client, user_token):
+    """
+    Prompt 04 Task 6:
+    Verify project and room data persist in SQLite database and remain recoverable
+    even if the in-memory repository cache is completely cleared (simulating an API process restart).
+    """
+    import services.api.app.api.v1.endpoints as ep
+
+    with SessionLocal() as db:
+        proj = Project(id="proj_persist_test", user_id="usr_homeowner_test", name="Persist Project")
+        room = Room(id="room_persist_test", project_id=proj.id, name="Persist Room", room_type="living_room")
+        db.merge(proj)
+        db.merge(room)
+        db.commit()
+
+    # Clear in-memory repository cache to simulate API restart
+    ep.repository.projects.clear()
+    ep.repository.rooms.clear()
+
+    # Request project list via API with user token
+    resp = client.get("/api/v1/projects", headers={"Authorization": f"Bearer {user_token}"})
+    assert resp.status_code == 200
+    projects = resp.json()
+    assert any(p["id"] == "proj_persist_test" for p in projects)
+
+    # Request room model via API
+    resp_room = client.get("/api/v1/rooms/room_persist_test/model", headers={"Authorization": f"Bearer {user_token}"})
+    assert resp_room.status_code == 200
+    assert resp_room.json()["id"] == "room_persist_test"
+
+
+def test_project_cascading_deletion_and_media_invalidation(client, user_token):
+    """
+    Prompt 05 Task 4 & 5:
+    Deleting a project cascades to delete its rooms, database records,
+    and associated physical storage files, invalidating any media access.
+    """
+    storage = get_storage_provider()
+    storage_key = "uploads/proj_del_test_photo.jpg"
+    storage.upload_file(storage_key, b"disposable project room photo bytes")
+
+    with SessionLocal() as db:
+        proj = Project(id="proj_del_test", user_id="usr_homeowner_test", name="To Delete")
+        room = Room(id="room_del_test", project_id=proj.id, name="To Delete Room")
+        asset = MediaAsset(id="med_del_test", room_id=room.id, storage_key=storage_key, asset_type="original_photo")
+        db.merge(proj)
+        db.merge(room)
+        db.merge(asset)
+        db.commit()
+
+    # Verify media access works before deletion
+    signed_url = storage.get_signed_url(storage_key, expires_in=3600)
+    resp_pre = client.get(signed_url)
+    assert resp_pre.status_code == 200
+
+    # Delete project with owner token
+    del_resp = client.delete(f"/api/v1/projects/{proj.id}", headers={"Authorization": f"Bearer {user_token}"})
+    assert del_resp.status_code == 200
+    assert del_resp.json()["status"] == "deleted"
+
+    # Verify project and room are gone from DB
+    with SessionLocal() as db:
+        assert db.query(Project).filter(Project.id == proj.id).first() is None
+        assert db.query(Room).filter(Room.id == room.id).first() is None
+        assert db.query(MediaAsset).filter(MediaAsset.id == asset.id).first() is None
+
+    # Verify media file was deleted from disk and access returns 404
+    resp_post = client.get(signed_url)
+    assert resp_post.status_code == 404
+
+
+def test_cross_user_project_deletion_blocked(client, user_token):
+    """
+    Prompt 05 Task 4 & 5:
+    User B cannot delete User A's project.
+    """
+    with SessionLocal() as db:
+        proj = Project(id="proj_user_a_locked", user_id="usr_homeowner_test", name="User A Protected")
+        db.merge(proj)
+        user_b = User(id="usr_b_attacker", email="attacker@roomlyst.com", hashed_password=hash_password("Pass123!"), role="homeowner", is_active=True)
+        db.merge(user_b)
+        db.commit()
+
+    token_b = create_access_token(subject="usr_b_attacker", claims={"role": "homeowner"})
+
+    # User B attempts to delete User A's project
+    del_resp = client.delete(f"/api/v1/projects/{proj.id}", headers={"Authorization": f"Bearer {token_b}"})
+    assert del_resp.status_code == 403
+
+
+def test_media_alternate_encoding_path_traversal_blocked(client, user_token):
+    """
+    Prompt 05 Task 5:
+    Path traversal with encoded sequences (%2e%2e%2f) is blocked.
+    """
+    resp = client.get("/storage/%2e%2e%2fservices%2fapi%2fapp%2fmain.py", headers={"Authorization": f"Bearer {user_token}"})
+    assert resp.status_code in (400, 403, 404)
+
+
+def test_health_endpoint_contract(client):
+    """
+    Prompt 05 Task 3:
+    Direct LAN health endpoint contract verification.
+    """
+    resp = client.get("/health")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "healthy"
+    assert data["service"] == "roomlyst-api"
+
+

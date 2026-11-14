@@ -4,15 +4,16 @@ Adheres to Blueprint Section 22 and 24.
 """
 
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
 
 from ...core.dependencies import get_current_active_user
-from ...core.security import create_access_token, hash_password, verify_password
-from ...db.models import User
+from ...core.security import create_access_token, decode_guest_token, hash_password, verify_password
+from ...db.models import Project, User
+from ...db.repository import repository
 from ...db.session import get_db
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -152,3 +153,63 @@ def get_current_user_profile(user: User = Depends(get_current_active_user)):
         is_active=user.is_active,
         created_at=user.created_at,
     )
+
+
+class MigrateGuestRequest(BaseModel):
+    guest_token: str = Field(..., description="Cryptographically signed server-issued guest token")
+
+
+class MigrateGuestResponse(BaseModel):
+    status: str
+    migrated_projects_count: int
+    migrated_project_ids: List[str]
+
+
+@router.post("/migrate-guest-projects", response_model=MigrateGuestResponse)
+def migrate_guest_projects(
+    req: MigrateGuestRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Fulfills Prompt 07 Section A: Secure guest-to-account project migration.
+    Reassigns projects created during an ephemeral guest session to the authenticated user account,
+    requiring the authentic, server-signed guest token as proof of session ownership.
+    Prevents claiming arbitrary user projects, demo projects, or legacy usr_default records.
+    """
+    payload = decode_guest_token(req.guest_token)
+    if not payload or "sub" not in payload:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid, tampered, or expired guest session token",
+        )
+
+    guest_user_id = str(payload["sub"])
+    if not guest_user_id.startswith("usr_guest_") or guest_user_id == "usr_default":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot migrate non-guest or protected identity records",
+        )
+
+    # 1. Migrate in SQL database
+    db_projects = db.query(Project).filter(Project.user_id == guest_user_id).all()
+    migrated_ids: List[str] = []
+    for dp in db_projects:
+        dp.user_id = current_user.id
+        migrated_ids.append(dp.id)
+
+    # 2. Migrate in memory repository
+    for proj in repository.projects.values():
+        if proj.user_id == guest_user_id:
+            proj.user_id = current_user.id
+            if proj.id not in migrated_ids:
+                migrated_ids.append(proj.id)
+
+    db.commit()
+
+    return MigrateGuestResponse(
+        status="migrated",
+        migrated_projects_count=len(migrated_ids),
+        migrated_project_ids=migrated_ids,
+    )
+

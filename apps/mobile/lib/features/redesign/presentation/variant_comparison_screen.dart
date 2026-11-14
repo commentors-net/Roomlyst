@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/config/app_config.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../projects/domain/project.dart';
 
@@ -226,6 +227,7 @@ class VariantComparisonScreen extends StatelessWidget {
             children: [
               Image.network(
                 _formatImageUrl(imageUrl),
+                headers: ApiClient.authHeaders,
                 height: 130,
                 width: double.infinity,
                 fit: BoxFit.cover,

@@ -262,7 +262,7 @@ class AIEvaluator:
         """
         Sends generation request to Ollama endpoint.
         """
-        async with httpx.AsyncClient(timeout=15.0) as client:
+        async with httpx.AsyncClient(timeout=2.5) as client:
             # Check available models on Ollama if default model fails
             target_model = model
             try:
@@ -327,7 +327,7 @@ class AIEvaluator:
                 "temperature": 0.2,
             },
         }
-        async with httpx.AsyncClient(timeout=15.0) as client:
+        async with httpx.AsyncClient(timeout=2.5) as client:
             resp = await client.post(url, json=payload)
             if resp.status_code == 200:
                 data = resp.json()
@@ -353,7 +353,7 @@ class AIEvaluator:
             "response_format": {"type": "json_object"},
             "temperature": 0.2,
         }
-        async with httpx.AsyncClient(timeout=15.0) as client:
+        async with httpx.AsyncClient(timeout=2.5) as client:
             resp = await client.post(url, json=payload, headers=headers)
             if resp.status_code == 200:
                 data = resp.json()
@@ -376,7 +376,7 @@ class AIEvaluator:
             "max_tokens": 1024,
             "temperature": 0.2,
         }
-        async with httpx.AsyncClient(timeout=15.0) as client:
+        async with httpx.AsyncClient(timeout=2.5) as client:
             resp = await client.post(url, json=payload, headers=headers)
             if resp.status_code == 200:
                 data = resp.json()

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../projects/domain/project.dart';
 import '../../projects/services/project_service.dart';
@@ -762,6 +763,7 @@ class _PropertyStagingScreenState extends State<PropertyStagingScreen> {
                 width: double.infinity,
                 child: Image.network(
                   room.originalImageUrl,
+                  headers: ApiClient.authHeaders,
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) => Container(
                     color: Colors.black26,
@@ -778,6 +780,7 @@ class _PropertyStagingScreenState extends State<PropertyStagingScreen> {
                   width: double.infinity,
                   child: Image.network(
                     room.watermarkedImageUrl,
+                    headers: ApiClient.authHeaders,
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) => Container(
                       color: Colors.black54,

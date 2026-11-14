@@ -4,20 +4,22 @@ import '../domain/project.dart';
 
 class ProjectService {
   static Future<List<ProjectModel>> fetchProjects({String? clientId}) async {
-    try {
-      final endpoint = clientId != null ? '/projects?client_id=${Uri.encodeComponent(clientId)}' : '/projects';
-      final res = await ApiClient.get(endpoint);
-      if (res is List) {
-        return res.map((e) => ProjectModel.fromMap(e as Map<String, dynamic>)).toList();
-      }
-    } catch (_) {}
-    // Return sample project if API is offline
+    final endpoint = clientId != null ? '/projects?client_id=${Uri.encodeComponent(clientId)}' : '/projects';
+    final res = await ApiClient.get(endpoint);
+    if (res is List) {
+      return res.map((e) => ProjectModel.fromMap(e as Map<String, dynamic>)).toList();
+    }
+    return [];
+  }
+
+  /// Explicit user-triggered demo projects (clearly distinguished from persisted user data).
+  static List<ProjectModel> getSampleDemoProjects() {
     return [
       ProjectModel(
-        id: 'proj_demo_01',
-        name: 'My Living Room Renovation',
+        id: 'proj_demo_sample_01',
+        name: '[DEMO] Sample Living Room Renovation',
         currency: 'MYR',
-        status: 'ACTIVE',
+        status: 'DEMO',
       ),
     ];
   }
@@ -63,6 +65,7 @@ class ProjectService {
     String? parentVersionId,
     String? parentVariantId,
     String? branchLabel,
+    String generationMode = 'algorithmic_preview',
   }) async {
     final res = await ApiClient.post(
       '/rooms/$roomId/design-requests',
@@ -76,6 +79,7 @@ class ProjectService {
         'parent_version_id': parentVersionId,
         'parent_variant_id': parentVariantId,
         'branch_label': branchLabel,
+        'generation_mode': generationMode,
       },
     );
 
@@ -427,9 +431,17 @@ class ProjectService {
     }
   }
 
-  static Future<ARAssistedScanReportModel> fetchARScanReport(String roomId) async {
-    final res = await ApiClient.getARScanReport(roomId);
-    return ARAssistedScanReportModel.fromMap(res as Map<String, dynamic>);
+  static Future<ARAssistedScanReportModel?> fetchARScanReport(String roomId) async {
+    try {
+      final res = await ApiClient.getARScanReport(roomId);
+      if (res == null) return null;
+      return ARAssistedScanReportModel.fromMap(res as Map<String, dynamic>);
+    } on Exception catch (e) {
+      if (e.toString().contains('404') || e.toString().contains('not found')) {
+        return null;
+      }
+      rethrow;
+    }
   }
 
   static Future<Map<String, dynamic>> normalizeNativeSpatialScan(NativeSpatialScanPayloadModel payload) async {

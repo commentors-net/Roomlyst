@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/config/app_config.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../projects/domain/project.dart';
 import '../../projects/services/project_service.dart';
@@ -283,7 +284,7 @@ class _DesignResultsScreenState extends State<DesignResultsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('${widget.roomName} Redesigns'),
+        title: Text('${widget.roomName} Concept Previews'),
         actions: [
           IconButton(
             tooltip: _isCompareMode ? 'Exit Compare' : 'Compare Concepts',
@@ -359,6 +360,7 @@ class _DesignResultsScreenState extends State<DesignResultsScreen> {
                                 children: [
                                   Image.network(
                                     _formatImageUrl(v.imageUrl),
+                                    headers: ApiClient.authHeaders,
                                     height: 220,
                                     width: double.infinity,
                                     fit: BoxFit.cover,
@@ -480,6 +482,46 @@ class _DesignResultsScreenState extends State<DesignResultsScreen> {
                                           ),
                                         ),
                                       ],
+                                    ),
+                                    const SizedBox(height: 6),
+                                    // Engine Provenance Badge (Prompt 06)
+                                    Builder(
+                                      builder: (context) {
+                                        final isNeural = v.title.toLowerCase().contains('ai inpainting') ||
+                                            v.description.toLowerCase().contains('neural inpainting');
+                                        return Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: isNeural
+                                                ? Colors.deepPurple.withAlpha(50)
+                                                : Colors.blueGrey.withAlpha(40),
+                                            borderRadius: BorderRadius.circular(4),
+                                            border: Border.all(
+                                              color: isNeural ? Colors.deepPurpleAccent : Colors.white24,
+                                              width: 0.8,
+                                            ),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                isNeural ? Icons.auto_awesome : Icons.layers_outlined,
+                                                size: 11,
+                                                color: isNeural ? Colors.purpleAccent : Colors.lightBlueAccent,
+                                              ),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                isNeural ? 'Neural Diffusion Inpainting' : 'Algorithmic Reference Preview',
+                                                style: TextStyle(
+                                                  fontSize: 10,
+                                                  color: isNeural ? Colors.purpleAccent : Colors.lightBlueAccent,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      },
                                     ),
                                     const SizedBox(height: 8),
                                     Text(

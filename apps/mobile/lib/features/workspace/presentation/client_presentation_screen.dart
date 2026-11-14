@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../core/config/app_config.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../projects/domain/project.dart';
 import '../../projects/services/project_service.dart';
@@ -9,6 +11,8 @@ class ClientPresentationScreen extends StatefulWidget {
   final String? roomId;
   final String? roomName;
   final String? initialVariantId;
+  final String? initialOriginalImageUrl;
+  final String? initialVariantImageUrl;
   final String? reviewToken;
   final ReviewSessionModel? initialSession;
 
@@ -18,6 +22,8 @@ class ClientPresentationScreen extends StatefulWidget {
     this.roomId,
     this.roomName,
     this.initialVariantId,
+    this.initialOriginalImageUrl,
+    this.initialVariantImageUrl,
     this.reviewToken,
     this.initialSession,
   });
@@ -51,6 +57,15 @@ class _ClientPresentationScreenState extends State<ClientPresentationScreen> {
     super.initState();
     if (widget.roomName != null && widget.roomName!.isNotEmpty) {
       _roomName = widget.roomName!;
+    }
+    if (widget.initialOriginalImageUrl != null) {
+      _originalImageUrl = AppConfig.resolveUrl(widget.initialOriginalImageUrl);
+    }
+    if (widget.initialVariantImageUrl != null) {
+      _selectedVariantImageUrl = AppConfig.resolveUrl(widget.initialVariantImageUrl);
+    }
+    if (widget.initialVariantId != null) {
+      _selectedVariantId = widget.initialVariantId;
     }
     if (widget.initialSession != null) {
       final s = widget.initialSession!;
@@ -115,10 +130,10 @@ class _ClientPresentationScreenState extends State<ClientPresentationScreen> {
                 )
               : roomData.redesignVariants.first;
           bestVariantId = matched.id;
-          bestVariantUrl = matched.imageUrl;
+          bestVariantUrl = matched.displayImageUrl;
           bestVariantStyle = matched.style;
         } else if (roomData.originalImageUrl != null && roomData.originalImageUrl!.isNotEmpty) {
-          bestVariantUrl = roomData.originalImageUrl;
+          bestVariantUrl = roomData.displayOriginalImageUrl ?? roomData.originalImageUrl;
           bestVariantStyle = 'Current Layout';
         }
 
@@ -126,10 +141,10 @@ class _ClientPresentationScreenState extends State<ClientPresentationScreen> {
           setState(() {
             _roomModel = roomData;
             _roomName = roomData.name;
-            _originalImageUrl = roomData.originalImageUrl;
-            _selectedVariantId = bestVariantId;
-            _selectedVariantImageUrl = bestVariantUrl;
-            _selectedVariantStyle = bestVariantStyle;
+            _originalImageUrl = roomData.displayOriginalImageUrl ?? AppConfig.resolveUrl(roomData.originalImageUrl) ?? _originalImageUrl;
+            _selectedVariantId = bestVariantId ?? _selectedVariantId;
+            _selectedVariantImageUrl = AppConfig.resolveUrl(bestVariantUrl) ?? _selectedVariantImageUrl;
+            _selectedVariantStyle = bestVariantStyle ?? _selectedVariantStyle;
             _comments = comments;
             _approvalStatus = approvalsData['current_status'] as String? ?? 'PENDING_REVIEW';
             if (approvalsData['latest_approval'] != null) {
@@ -728,6 +743,19 @@ class _ClientPresentationScreenState extends State<ClientPresentationScreen> {
     );
   }
 
+  Widget _buildCanvasImage(String? url, String fallbackLabel) {
+    if (url == null || url.trim().isEmpty) {
+      return _buildFallbackVisual(fallbackLabel);
+    }
+    final resolved = AppConfig.resolveUrl(url) ?? url;
+    return Image.network(
+      resolved,
+      headers: ApiClient.authHeaders,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) => _buildFallbackVisual(fallbackLabel),
+    );
+  }
+
   Widget _buildPresentationCanvas() {
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -737,13 +765,7 @@ class _ClientPresentationScreenState extends State<ClientPresentationScreen> {
         if (_viewMode == 'BEFORE') {
           return Center(
             child: SizedBox.expand(
-              child: _originalImageUrl != null
-                  ? Image.network(
-                      _originalImageUrl!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => _buildFallbackVisual('Before (Scan)'),
-                    )
-                  : _buildFallbackVisual('Before (Original Scan)'),
+              child: _buildCanvasImage(_originalImageUrl, 'Before (Original Scan)'),
             ),
           );
         }
@@ -760,26 +782,14 @@ class _ClientPresentationScreenState extends State<ClientPresentationScreen> {
               children: [
                 // Background: Selected Variant Image (After)
                 Positioned.fill(
-                  child: _selectedVariantImageUrl != null
-                      ? Image.network(
-                          _selectedVariantImageUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => _buildFallbackVisual('After Redesign'),
-                        )
-                      : _buildFallbackVisual('After Redesign'),
+                  child: _buildCanvasImage(_selectedVariantImageUrl, 'After Redesign'),
                 ),
 
                 // Clipped Foreground: Original Room Image (Before)
                 Positioned.fill(
                   child: ClipRect(
                     clipper: _SplitClipper(_splitPosition),
-                    child: _originalImageUrl != null
-                        ? Image.network(
-                            _originalImageUrl!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) => _buildFallbackVisual('Before (Scan)'),
-                          )
-                        : _buildFallbackVisual('Before (Original Scan)'),
+                    child: _buildCanvasImage(_originalImageUrl, 'Before (Scan)'),
                   ),
                 ),
 
@@ -842,13 +852,7 @@ class _ClientPresentationScreenState extends State<ClientPresentationScreen> {
             children: [
               // Redesign Image Canvas
               Positioned.fill(
-                child: _selectedVariantImageUrl != null
-                    ? Image.network(
-                        _selectedVariantImageUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => _buildFallbackVisual(_selectedVariantStyle ?? 'Design Concept'),
-                      )
-                    : _buildFallbackVisual(_selectedVariantStyle ?? 'Design Concept'),
+                child: _buildCanvasImage(_selectedVariantImageUrl, _selectedVariantStyle ?? 'Design Concept'),
               ),
 
               // Overlay Pinned Comment Markers

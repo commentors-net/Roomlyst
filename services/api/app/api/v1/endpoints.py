@@ -3,13 +3,14 @@ V1 REST Endpoints for Roomlyst API.
 Compliant with Blueprint Section 7, 21, and 22.
 """
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import io
 import os
 import uuid
 from typing import Any, Dict, List, Optional
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, Security, UploadFile, status
 from fastapi.responses import HTMLResponse, Response
+from fastapi.security import HTTPAuthorizationCredentials
 from PIL import Image
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -127,9 +128,25 @@ from services.ai_worker.pipelines.material_estimator import material_estimator
 from services.ai_worker.pipelines.product_recommender import product_recommender
 from services.ai_worker.pipelines.renovation_plan_builder import renovation_plan_builder
 from services.ai_worker.pipelines.ai_evaluator import ai_evaluator, AIEvaluationReport
+from services.ai_worker.pipelines.inpainting import (
+    InpaintingProviderBase,
+    ReplicateInpaintingAdapter,
+    MockInpaintingProvider,
+    run_inpainting_pipeline,
+    InpaintingProviderException,
+    ProviderUnconfiguredException,
+)
+from ...core.dependencies import (
+    security_scheme,
+    get_auth_context,
+    AuthContext,
+    verify_project_ownership,
+    verify_room_ownership,
+)
 from ...core.rate_limit import rate_limit_general, rate_limit_generation
 from ...core.sanitizer import sanitize_image
-from ...db.models import Project, Room
+from ...core.security import decode_access_token, create_guest_token, decode_guest_token
+from ...db.models import Project, Room, MediaAsset, ProcessingJob
 from ...db.repository import ProjectRecord, repository
 from ...db.session import get_db
 
@@ -151,6 +168,13 @@ redesign_generator = LocalRedesignGenerator(output_dir="storage/outputs")
 os.makedirs("storage/uploads", exist_ok=True)
 os.makedirs("storage/outputs", exist_ok=True)
 os.makedirs("storage/point_clouds", exist_ok=True)
+
+
+def get_inpainting_provider() -> InpaintingProviderBase:
+    if os.environ.get("TEST_MOCK_DIFFUSION") == "1":
+        return MockInpaintingProvider()
+    return ReplicateInpaintingAdapter()
+
 
 
 class DeviceCapabilityRequest(BaseModel):
@@ -260,6 +284,14 @@ class GenerateRedesignRequest(BaseModel):
     parent_version_id: Optional[str] = None
     parent_variant_id: Optional[str] = None
     branch_label: Optional[str] = None
+    generation_mode: str = Field(
+        default="algorithmic_preview",
+        description="'algorithmic_preview' (instant reference) or 'ai_inpainting' (neural diffusion editing)"
+    )
+    idempotency_key: Optional[str] = Field(
+        default=None,
+        description="Optional client idempotency key to prevent duplicate billable generation on retries"
+    )
 
 
 class ToggleFavoriteRequest(BaseModel):
@@ -339,7 +371,7 @@ def get_device_capabilities(
         guidance = "Capture Room: Take photos from room corners with good lighting."
         confidence = 0.70
 
-    from datetime import datetime, timezone
+    from datetime import datetime, timedelta, timezone
     return {
         "platform": platform,
         "os_version": os_version,
@@ -366,7 +398,35 @@ def get_device_capabilities(
 
 
 @router.post("/projects", response_model=ProjectRecord)
-def create_project(req: ProjectCreateRequest, db: Session = Depends(get_db)):
+def create_project(
+    req: ProjectCreateRequest,
+    response: Response,
+    auth: AuthContext = Depends(get_auth_context),
+    db: Session = Depends(get_db),
+):
+    # Prompt 06: Fix identity/authorization before new generation exposure.
+    # Prevent unrelated unauthenticated users from receiving shared identity 'usr_default'.
+    user_id = auth.user_id
+    if not auth.is_authenticated and not auth.is_guest:
+        # Prompt 07: Generate unpredictable, cryptographically signed server-issued guest token
+        guest_token = create_guest_token()
+        payload = decode_guest_token(guest_token)
+        user_id = payload["sub"] if payload else f"usr_guest_{uuid.uuid4().hex[:12]}"
+        response.set_cookie(
+            key="guest_session_id",
+            value=guest_token,
+            httponly=True,
+            samesite="lax",
+            path="/",
+            max_age=30 * 86400,
+        )
+        response.headers["X-Guest-Token"] = guest_token
+        response.headers["X-Guest-Session-ID"] = guest_token
+    elif auth.is_guest and auth.guest_session_id:
+        response.headers["X-Guest-Token"] = auth.guest_session_id
+        response.headers["X-Guest-Session-ID"] = auth.guest_session_id
+
+
     proj_rec = repository.create_project(
         name=req.name,
         currency=req.currency,
@@ -374,28 +434,147 @@ def create_project(req: ProjectCreateRequest, db: Session = Depends(get_db)):
         property_address=req.property_address,
         status=req.status or ProjectStatus.BRIEFING,
         designer_notes=req.designer_notes,
+        user_id=user_id,
     )
-    db_proj = Project(id=proj_rec.id, name=proj_rec.name, currency=proj_rec.currency, user_id="usr_default")
+    db_proj = Project(
+        id=proj_rec.id,
+        name=proj_rec.name,
+        currency=proj_rec.currency,
+        user_id=user_id,
+        status=proj_rec.status.value if hasattr(proj_rec.status, "value") else str(proj_rec.status),
+    )
     db.add(db_proj)
     db.commit()
     return proj_rec
 
 
 @router.get("/projects", response_model=List[ProjectRecord])
-def list_projects(client_id: Optional[str] = None):
-    return repository.list_projects(client_id=client_id)
+def list_projects(
+    client_id: Optional[str] = None,
+    auth: AuthContext = Depends(get_auth_context),
+    db: Session = Depends(get_db),
+):
+    # Prompt 06: Filter project listings by authenticated user or isolated guest session.
+    # Never expose other users' projects to anonymous/unrelated sessions.
+    if not auth.is_authenticated and not auth.is_guest:
+        return []
+
+    if auth.role == "admin":
+        db_query = db.query(Project)
+    else:
+        db_query = db.query(Project).filter(Project.user_id == auth.user_id)
+
+    db_projs = db_query.all()
+    for dp in db_projs:
+        if dp.id not in repository.projects:
+            status_enum = ProjectStatus.BRIEFING
+            try:
+                if dp.status:
+                    status_enum = ProjectStatus(dp.status)
+            except Exception:
+                status_enum = ProjectStatus.BRIEFING
+            repository.projects[dp.id] = ProjectRecord(
+                id=dp.id,
+                user_id=dp.user_id,
+                name=dp.name,
+                currency=dp.currency or "MYR",
+                client_id=getattr(dp, "client_id", None),
+                status=status_enum,
+                property_address=getattr(dp, "property_address", None),
+                designer_notes=getattr(dp, "designer_notes", None),
+                target_completion_date=dp.target_completion_date.isoformat() if getattr(dp, "target_completion_date", None) else None,
+            )
+
+    user_filter = None if auth.role == "admin" else auth.user_id
+    return repository.list_projects(client_id=client_id, user_id=user_filter)
 
 
 @router.get("/projects/{project_id}", response_model=ProjectRecord)
-def get_project(project_id: str):
+def get_project(
+    project_id: str,
+    auth: AuthContext = Depends(get_auth_context),
+    db: Session = Depends(get_db),
+):
+    # Explicit isolated demo projects are accessible for sample inspection
+    if project_id.startswith("proj_demo_"):
+        proj = repository.get_project(project_id)
+        if proj:
+            return proj
+
+    dp = db.query(Project).filter(Project.id == project_id).first()
     proj = repository.get_project(project_id)
-    if not proj:
+
+    if not dp and not proj:
         raise HTTPException(status_code=404, detail="Project not found")
+
+    owner_id = dp.user_id if dp else (proj.user_id if proj else None)
+
+    # Prompt 06: Check authorization before exposing project
+    if auth.role != "admin" and owner_id not in ("usr_demo", "usr_guest_auto", None):
+        if not auth.is_authenticated and not auth.is_guest:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required to view this project"
+            )
+        user_is_collab = proj and any(c.user_id == auth.user_id for c in proj.collaborators)
+        if owner_id != auth.user_id and not user_is_collab:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to access another user's project"
+            )
+
+    if not proj and dp:
+        status_enum = ProjectStatus.BRIEFING
+        try:
+            if dp.status:
+                status_enum = ProjectStatus(dp.status)
+        except Exception:
+            status_enum = ProjectStatus.BRIEFING
+        proj = ProjectRecord(
+            id=dp.id,
+            user_id=dp.user_id,
+            name=dp.name,
+            currency=dp.currency or "MYR",
+            client_id=getattr(dp, "client_id", None),
+            status=status_enum,
+            property_address=getattr(dp, "property_address", None),
+            designer_notes=getattr(dp, "designer_notes", None),
+            target_completion_date=dp.target_completion_date.isoformat() if getattr(dp, "target_completion_date", None) else None,
+        )
+        repository.projects[dp.id] = proj
+
     return proj
 
 
 @router.put("/projects/{project_id}", response_model=ProjectRecord)
-def update_project(project_id: str, req: ProjectUpdateRequest, db: Session = Depends(get_db)):
+def update_project(
+    project_id: str,
+    req: ProjectUpdateRequest,
+    auth: AuthContext = Depends(get_auth_context),
+    db: Session = Depends(get_db),
+):
+    dp = db.query(Project).filter(Project.id == project_id).first()
+    proj = repository.get_project(project_id)
+
+    if not dp and not proj:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    owner_id = dp.user_id if dp else (proj.user_id if proj else None)
+
+    # Check authorization
+    if auth.role != "admin" and owner_id not in ("usr_demo", "usr_guest_auto", None):
+        if not auth.is_authenticated and not auth.is_guest:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required to update this project"
+            )
+        user_is_collab = proj and any(c.user_id == auth.user_id for c in proj.collaborators)
+        if owner_id != auth.user_id and not user_is_collab:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to update another user's project"
+            )
+
     proj = repository.update_project(
         project_id=project_id,
         name=req.name,
@@ -408,20 +587,24 @@ def update_project(project_id: str, req: ProjectUpdateRequest, db: Session = Dep
     )
     if not proj:
         raise HTTPException(status_code=404, detail="Project not found")
-    db_proj = db.query(Project).filter(Project.id == project_id).first()
-    if db_proj:
+    if dp:
         if req.name is not None:
-            db_proj.name = req.name
+            dp.name = req.name
         if req.currency is not None:
-            db_proj.currency = req.currency
+            dp.currency = req.currency
         if req.status is not None:
-            db_proj.status = req.status.value
+            dp.status = req.status.value
         db.commit()
     return proj
 
 
 @router.get("/projects/{project_id}/summary", response_model=ProjectWorkspaceSummary)
-def get_project_summary(project_id: str):
+def get_project_summary(
+    project_id: str,
+    auth: AuthContext = Depends(get_auth_context),
+    db: Session = Depends(get_db),
+):
+    verify_project_ownership(project_id, auth, db, require_write=False)
     summary = repository.get_project_summary(project_id)
     if not summary:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -429,7 +612,13 @@ def get_project_summary(project_id: str):
 
 
 @router.post("/projects/{project_id}/collaborators", response_model=ProjectCollaborator)
-def add_project_collaborator(project_id: str, req: AddCollaboratorRequest):
+def add_project_collaborator(
+    project_id: str,
+    req: AddCollaboratorRequest,
+    auth: AuthContext = Depends(get_auth_context),
+    db: Session = Depends(get_db),
+):
+    verify_project_ownership(project_id, auth, db, require_write=True)
     collab = repository.add_project_collaborator(
         project_id=project_id,
         user_id=req.user_id,
@@ -443,7 +632,12 @@ def add_project_collaborator(project_id: str, req: AddCollaboratorRequest):
 
 
 @router.get("/projects/{project_id}/collaborators", response_model=List[ProjectCollaborator])
-def list_project_collaborators(project_id: str):
+def list_project_collaborators(
+    project_id: str,
+    auth: AuthContext = Depends(get_auth_context),
+    db: Session = Depends(get_db),
+):
+    verify_project_ownership(project_id, auth, db, require_write=False)
     proj = repository.get_project(project_id)
     if not proj:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -451,7 +645,13 @@ def list_project_collaborators(project_id: str):
 
 
 @router.delete("/projects/{project_id}/collaborators/{user_id}")
-def remove_project_collaborator(project_id: str, user_id: str):
+def remove_project_collaborator(
+    project_id: str,
+    user_id: str,
+    auth: AuthContext = Depends(get_auth_context),
+    db: Session = Depends(get_db),
+):
+    verify_project_ownership(project_id, auth, db, require_write=True)
     success = repository.remove_project_collaborator(project_id=project_id, user_id=user_id)
     if not success:
         raise HTTPException(status_code=404, detail="Collaborator or project not found")
@@ -518,7 +718,11 @@ def delete_client(client_id: str):
 
 
 @router.delete("/projects/{project_id}")
-def delete_project(project_id: str, db: Session = Depends(get_db)):
+def delete_project(
+    project_id: str,
+    auth: AuthContext = Depends(get_auth_context),
+    db: Session = Depends(get_db),
+):
     """
     Blueprint Section 23 & 49:
     User can delete a project with cascading deletion of child rooms,
@@ -529,7 +733,26 @@ def delete_project(project_id: str, db: Session = Depends(get_db)):
 
     # Clean up SQL DB and underlying object storage files
     db_proj = db.query(Project).filter(Project.id == project_id).first()
+    proj = repository.get_project(project_id)
     storage_provider = get_storage_provider()
+
+    if not db_proj and not proj:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    owner_id = db_proj.user_id if db_proj else (proj.user_id if proj else None)
+
+    # Authorize deletion: verify ownership or admin
+    if auth.role != "admin" and owner_id not in ("usr_demo", "usr_guest_auto", None):
+        if not auth.is_authenticated and not auth.is_guest:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required to delete project"
+            )
+        if owner_id != auth.user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to delete another user's project"
+            )
 
     if db_proj:
         for room in db_proj.rooms:
@@ -570,10 +793,16 @@ def delete_project(project_id: str, db: Session = Depends(get_db)):
 
 
 @router.delete("/rooms/{room_id}")
-def delete_room(room_id: str, db: Session = Depends(get_db)):
+def delete_room(
+    room_id: str,
+    auth: AuthContext = Depends(get_auth_context),
+    db: Session = Depends(get_db),
+):
     """
     Deletes room and associated media assets from database and object storage.
+    Enforces tenant ownership check.
     """
+    verify_room_ownership(room_id, auth, db, require_write=True)
     db_room = db.query(Room).filter(Room.id == room_id).first()
     if not db_room and room_id not in repository.rooms:
         raise HTTPException(status_code=404, detail="Room not found")
@@ -621,6 +850,8 @@ async def upload_and_analyze_room(
     has_arcore_depth: bool = Form(default=False),
     has_roomplan: bool = Form(default=False),
     scan_mode: Optional[str] = Form(default=None),
+    response: Response = None,
+    auth: AuthContext = Depends(get_auth_context),
     db: Session = Depends(get_db),
 ):
     """
@@ -670,15 +901,45 @@ async def upload_and_analyze_room(
         capture_metadata=capture_meta,
     )
 
-    room.original_image_url = f"/storage/uploads/{upload_filename}"
+    room.original_image_url = get_storage_provider().get_signed_url(f"uploads/{upload_filename}", expires_in=86400)
 
     # Persist in memory repository
     repository.save_room(room)
 
     # Persist in SQL database
     db_proj = db.query(Project).filter(Project.id == room.project_id).first()
-    if not db_proj:
-        db_proj = Project(id=room.project_id, name="Default Project", user_id="usr_default")
+    if db_proj and auth.role != "admin" and db_proj.user_id not in ("usr_demo", None):
+        if not auth.is_authenticated and not auth.is_guest:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required to add rooms to this project",
+            )
+        if db_proj.user_id != auth.user_id:
+            proj_record = repository.get_project(db_proj.id)
+            is_collab = proj_record and any(c.user_id == auth.user_id for c in proj_record.collaborators)
+            if not is_collab:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Not authorized to add rooms to another user's project",
+                )
+    elif not db_proj:
+        target_uid = auth.user_id
+        if not auth.is_authenticated and not auth.is_guest:
+            guest_token = create_guest_token()
+            payload = decode_guest_token(guest_token)
+            target_uid = payload["sub"] if payload else f"usr_guest_{uuid.uuid4().hex[:12]}"
+            if response is not None:
+                response.set_cookie(
+                    key="guest_session_id",
+                    value=guest_token,
+                    httponly=True,
+                    samesite="lax",
+                    path="/",
+                    max_age=30 * 86400,
+                )
+                response.headers["X-Guest-Token"] = guest_token
+                response.headers["X-Guest-Session-ID"] = guest_token
+        db_proj = Project(id=room.project_id, name="Default Project", user_id=target_uid)
         db.add(db_proj)
         db.commit()
 
@@ -692,6 +953,16 @@ async def upload_and_analyze_room(
         room_model_data=room.model_dump(mode="json"),
     )
     db.add(db_room)
+
+    # Record MediaAsset for private media tracking and ownership enforcement
+    db_asset = MediaAsset(
+        room_id=room.id,
+        storage_key=f"uploads/{upload_filename}",
+        asset_type="original_photo",
+        mime_type="image/jpeg",
+        is_private=True,
+    )
+    db.add(db_asset)
 
     from ...db.models import MeasurementRecord
     for m in room.measurements:
@@ -728,6 +999,8 @@ async def upload_and_analyze_multi_view(
     has_arcore: bool = Form(default=False),
     has_arcore_depth: bool = Form(default=False),
     scan_mode: Optional[str] = Form(default=None),
+    response: Response = None,
+    auth: AuthContext = Depends(get_auth_context),
     db: Session = Depends(get_db),
 ):
     """
@@ -800,8 +1073,38 @@ async def upload_and_analyze_multi_view(
     repository.save_room(room)
 
     db_proj = db.query(Project).filter(Project.id == room.project_id).first()
-    if not db_proj:
-        db_proj = Project(id=room.project_id, name="Default Project", user_id="usr_default")
+    if db_proj and auth.role != "admin" and db_proj.user_id not in ("usr_demo", None):
+        if not auth.is_authenticated and not auth.is_guest:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required to add rooms to this project",
+            )
+        if db_proj.user_id != auth.user_id:
+            proj_record = repository.get_project(db_proj.id)
+            is_collab = proj_record and any(c.user_id == auth.user_id for c in proj_record.collaborators)
+            if not is_collab:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Not authorized to add rooms to another user's project",
+                )
+    elif not db_proj:
+        target_uid = auth.user_id
+        if not auth.is_authenticated and not auth.is_guest:
+            guest_token = create_guest_token()
+            payload = decode_guest_token(guest_token)
+            target_uid = payload["sub"] if payload else f"usr_guest_{uuid.uuid4().hex[:12]}"
+            if response is not None:
+                response.set_cookie(
+                    key="guest_session_id",
+                    value=guest_token,
+                    httponly=True,
+                    samesite="lax",
+                    path="/",
+                    max_age=30 * 86400,
+                )
+                response.headers["X-Guest-Token"] = guest_token
+                response.headers["X-Guest-Session-ID"] = guest_token
+        db_proj = Project(id=room.project_id, name="Default Project", user_id=target_uid)
         db.add(db_proj)
         db.commit()
 
@@ -847,20 +1150,58 @@ async def upload_and_analyze_multi_view(
 
 
 @router.get("/rooms/{room_id}/model", response_model=CanonicalRoomModel)
-def get_room_model(room_id: str):
+def get_room_model(
+    room_id: str,
+    auth: AuthContext = Depends(get_auth_context),
+    db: Session = Depends(get_db),
+):
+    verify_room_ownership(room_id, auth, db, require_write=False)
     room = repository.get_room(room_id)
+    if not room:
+        db_room = db.query(Room).filter(Room.id == room_id).first()
+        if db_room:
+            if db_room.room_model_data:
+                room = CanonicalRoomModel.model_validate(db_room.room_model_data)
+            else:
+                room = CanonicalRoomModel(
+                    id=db_room.id,
+                    project_id=db_room.project_id,
+                    name=db_room.name or "Room",
+                    room_type=db_room.room_type or "living_room",
+                )
+            repository.rooms[room_id] = room
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
     return room
 
 
 @router.patch("/rooms/{room_id}/elements/{element_id}")
-def update_room_element(room_id: str, element_id: str, update: ElementUpdateRequest):
+def update_room_element(
+    room_id: str,
+    element_id: str,
+    update: ElementUpdateRequest,
+    auth: AuthContext = Depends(get_auth_context),
+    db: Session = Depends(get_db),
+):
     """
     Updates element action (KEEP, REPLACE, REMOVE, RESTYLE) or label override.
-    Blueprint Section 15.
+    Blueprint Section 15. Synchronizes with both memory repository and database.
     """
+    verify_room_ownership(room_id, auth, db, require_write=True)
     room = repository.get_room(room_id)
+    db_room = db.query(Room).filter(Room.id == room_id).first()
+    if not room and db_room:
+        if db_room.room_model_data:
+            room = CanonicalRoomModel.model_validate(db_room.room_model_data)
+        else:
+            room = CanonicalRoomModel(
+                id=db_room.id,
+                project_id=db_room.project_id,
+                name=db_room.name or "Room",
+                room_type=db_room.room_type or "living_room",
+            )
+        repository.rooms[room_id] = room
+
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
 
@@ -873,14 +1214,24 @@ def update_room_element(room_id: str, element_id: str, update: ElementUpdateRequ
         elem.user_label_override = update.user_label_override
 
     repository.save_room(room)
+    if db_room:
+        db_room.room_model_data = room.model_dump(mode="json")
+        db.commit()
     return {"status": "success", "element_id": element_id, "action": elem.action}
 
 
 @router.post("/rooms/{room_id}/design-requests", response_model=DesignVersion, dependencies=[Depends(rate_limit_generation)])
-def generate_room_design(room_id: str, req: GenerateRedesignRequest, db: Session = Depends(get_db)):
+def generate_room_design(
+    room_id: str,
+    req: GenerateRedesignRequest,
+    request: Request = None,
+    auth: AuthContext = Depends(get_auth_context),
+    db: Session = Depends(get_db),
+):
     """
-    Fulfills Milestone 0.3 & 0.4.
-    Compiles design constraints with keep/replace filters and generates 3 design variants.
+    Fulfills Milestone 0.3 & 0.4 and Prompt 06 & 08.
+    Compiles design constraints with keep/replace filters, enforces idempotency,
+    and generates 3 design variants supporting explicit 'algorithmic_preview' and 'ai_inpainting' modes.
     """
     db_room = db.query(Room).filter(Room.id == room_id).first()
     room = None
@@ -892,6 +1243,30 @@ def generate_room_design(room_id: str, req: GenerateRedesignRequest, db: Session
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
 
+    # Authorize project ownership
+    if db_room and db_room.project and auth.role != "admin" and db_room.project.user_id not in ("usr_demo", "usr_guest_auto", None):
+        if not auth.is_authenticated and not auth.is_guest:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required to generate redesigns",
+            )
+        owner_id = db_room.project.user_id
+        if owner_id != auth.user_id:
+            proj_record = repository.get_project(db_room.project_id)
+            user_is_collab = proj_record and any(c.user_id == auth.user_id for c in proj_record.collaborators)
+            if not user_is_collab:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Not authorized to generate redesigns for another user's project",
+                )
+
+    # Check Idempotency key to prevent duplicate billable generation
+    idem_key = req.idempotency_key or (request.headers.get("Idempotency-Key") if request else None)
+    if idem_key and room.versions:
+        for v in room.versions:
+            if getattr(v, "branch_label", None) == f"idempotent:{idem_key}":
+                return v
+
     # Load original image
     image = None
     if db_room and db_room.original_image_key:
@@ -901,7 +1276,7 @@ def generate_room_design(room_id: str, req: GenerateRedesignRequest, db: Session
         except Exception:
             pass
     if not image and room.original_image_url:
-        local_img_path = room.original_image_url.lstrip("/")
+        local_img_path = room.original_image_url.split("?")[0].lstrip("/")
         if os.path.exists(local_img_path):
             image = Image.open(local_img_path)
 
@@ -917,15 +1292,52 @@ def generate_room_design(room_id: str, req: GenerateRedesignRequest, db: Session
         free_text=req.free_text_prompt,
     )
 
-    result = redesign_generator.generate_redesigns(
-        image=image,
-        room_model=room,
-        constraints=constraints,
-        count=3,
-        parent_version_id=req.parent_version_id,
-        parent_variant_id=req.parent_variant_id,
-        branch_label=req.branch_label,
-    )
+    if req.generation_mode == "ai_inpainting":
+        provider = get_inpainting_provider()
+        is_avail, reason = provider.is_available()
+        if not is_avail:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail={
+                    "error_code": "PROVIDER_UNCONFIGURED",
+                    "message": reason or "AI inpainting provider is unconfigured or unavailable on the server.",
+                    "recoverable": True,
+                    "suggested_mode": "algorithmic_preview",
+                },
+            )
+        try:
+            result = run_inpainting_pipeline(
+                image=image,
+                room_model=room,
+                constraints=constraints,
+                provider=provider,
+                parent_version_id=req.parent_version_id,
+                parent_variant_id=req.parent_variant_id,
+                branch_label=req.branch_label,
+            )
+        except InpaintingProviderException as e:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail={
+                    "error_code": getattr(e, "error_code", "PROVIDER_ERROR"),
+                    "message": str(e),
+                    "recoverable": getattr(e, "recoverable", True),
+                    "suggested_mode": "algorithmic_preview",
+                },
+            )
+    else:
+        result = redesign_generator.generate_redesigns(
+            image=image,
+            room_model=room,
+            constraints=constraints,
+            count=3,
+            parent_version_id=req.parent_version_id,
+            parent_variant_id=req.parent_variant_id,
+            branch_label=req.branch_label,
+        )
+
+    if idem_key and not req.branch_label:
+        result.data.branch_label = f"idempotent:{idem_key}"
 
     if db_room:
         db_room.room_model_data = room.model_dump(mode="json")
@@ -936,11 +1348,16 @@ def generate_room_design(room_id: str, req: GenerateRedesignRequest, db: Session
 
 
 @router.get("/rooms/{room_id}/versions", response_model=List[DesignVersion])
-def get_room_versions(room_id: str, db: Session = Depends(get_db)):
+def get_room_versions(
+    room_id: str,
+    auth: AuthContext = Depends(get_auth_context),
+    db: Session = Depends(get_db),
+):
     """
     Fulfills Blueprint Section 16 & Milestone 2.5:
     Returns full history of design versions and branching nodes for the room.
     """
+    verify_room_ownership(room_id, auth, db, require_write=False)
     db_room = db.query(Room).filter(Room.id == room_id).first()
     room_model = None
     if db_room and db_room.room_model_data:
@@ -954,11 +1371,17 @@ def get_room_versions(room_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/rooms/{room_id}/versions/{version_id}", response_model=DesignVersion)
-def get_room_version_by_id(room_id: str, version_id: str, db: Session = Depends(get_db)):
+def get_room_version_by_id(
+    room_id: str,
+    version_id: str,
+    auth: AuthContext = Depends(get_auth_context),
+    db: Session = Depends(get_db),
+):
     """
     Fulfills Milestone 2.5:
     Retrieves a specific design version node by ID.
     """
+    verify_room_ownership(room_id, auth, db, require_write=False)
     db_room = db.query(Room).filter(Room.id == room_id).first()
     room_model = None
     if db_room and db_room.room_model_data:
@@ -976,12 +1399,18 @@ def get_room_version_by_id(room_id: str, version_id: str, db: Session = Depends(
 
 
 @router.post("/rooms/{room_id}/versions/branch", response_model=DesignVersion, dependencies=[Depends(rate_limit_generation)])
-def branch_room_version(room_id: str, req: BranchVersionRequest, db: Session = Depends(get_db)):
+def branch_room_version(
+    room_id: str,
+    req: BranchVersionRequest,
+    auth: AuthContext = Depends(get_auth_context),
+    db: Session = Depends(get_db),
+):
     """
     Fulfills Blueprint Section 16 & Milestone 2.5:
     Creates a new design version branching from an existing parent version/variant
     with refined constraints and branch label.
     """
+    verify_room_ownership(room_id, auth, db, require_write=True)
     db_room = db.query(Room).filter(Room.id == room_id).first()
     room_model = None
     if db_room and db_room.room_model_data:
@@ -1005,7 +1434,7 @@ def branch_room_version(room_id: str, req: BranchVersionRequest, db: Session = D
         except Exception:
             pass
     if not image and room_model.original_image_url:
-        local_img_path = room_model.original_image_url.lstrip("/")
+        local_img_path = room_model.original_image_url.split("?")[0].lstrip("/")
         if os.path.exists(local_img_path):
             image = Image.open(local_img_path)
 
@@ -1043,12 +1472,14 @@ def toggle_variant_favorite(
     room_id: str,
     variant_id: str,
     req: ToggleFavoriteRequest,
+    auth: AuthContext = Depends(get_auth_context),
     db: Session = Depends(get_db),
 ):
     """
     Fulfills Blueprint Section 39.2 & Milestone 2.5:
     Toggles or sets the favourite state and user notes for a redesign variant.
     """
+    verify_room_ownership(room_id, auth, db, require_write=True)
     db_room = db.query(Room).filter(Room.id == room_id).first()
     room_model = None
     if db_room and db_room.room_model_data:
@@ -1077,11 +1508,16 @@ def toggle_variant_favorite(
 
 
 @router.get("/rooms/{room_id}/favorites")
-def get_room_favorites(room_id: str, db: Session = Depends(get_db)):
+def get_room_favorites(
+    room_id: str,
+    auth: AuthContext = Depends(get_auth_context),
+    db: Session = Depends(get_db),
+):
     """
     Fulfills Blueprint Section 39.2 & Milestone 2.5:
     Returns all starred / favorited redesign variants across all versions.
     """
+    verify_room_ownership(room_id, auth, db, require_write=False)
     db_room = db.query(Room).filter(Room.id == room_id).first()
     room_model = None
     if db_room and db_room.room_model_data:
@@ -1100,12 +1536,14 @@ def compare_variants(
     room_id: str,
     variant_a_id: str,
     variant_b_id: str,
+    auth: AuthContext = Depends(get_auth_context),
     db: Session = Depends(get_db),
 ):
     """
     Fulfills Milestone 2.5 & Blueprint Section 16/39.2:
     Side-by-side comparison between two redesign variants (cost delta, preservation delta, changes).
     """
+    verify_room_ownership(room_id, auth, db, require_write=False)
     db_room = db.query(Room).filter(Room.id == room_id).first()
     room_model = None
     if db_room and db_room.room_model_data:
@@ -1149,6 +1587,8 @@ async def analyze_room_async(
     has_ar: bool = Form(default=False),
     has_arcore_depth: bool = Form(default=False),
     scan_mode: Optional[str] = Form(default=None),
+    response: Response = None,
+    auth: AuthContext = Depends(get_auth_context),
     background_tasks: BackgroundTasks = BackgroundTasks(),
     db: Session = Depends(get_db),
 ):
@@ -1158,14 +1598,33 @@ async def analyze_room_async(
     room photo through the validation, depth, segmentation, and room model pipeline via JobManager,
     calibrating measurement confidence and provenance from runtime device capabilities.
     """
+    room = db.query(Room).filter(Room.id == room_id).first()
+    if room:
+        verify_room_ownership(room_id, auth, db, require_write=True)
+
     contents = await file.read()
     contents = sanitize_image(contents)
-    room = db.query(Room).filter(Room.id == room_id).first()
     if not room:
-        # Create default project and room if needed
-        proj = db.query(Project).first()
+        target_uid = auth.user_id
+        if not auth.is_authenticated and not auth.is_guest:
+            guest_token = create_guest_token()
+            payload = decode_guest_token(guest_token)
+            target_uid = payload["sub"] if payload else f"usr_guest_{uuid.uuid4().hex[:12]}"
+            if response is not None:
+                response.set_cookie(
+                    key="guest_session_id",
+                    value=guest_token,
+                    httponly=True,
+                    samesite="lax",
+                    path="/",
+                    max_age=30 * 86400,
+                )
+                response.headers["X-Guest-Token"] = guest_token
+                response.headers["X-Guest-Session-ID"] = guest_token
+        # Create default project and room scoped strictly to caller's identity
+        proj = db.query(Project).filter(Project.user_id == target_uid).first()
         if not proj:
-            proj = Project(name="Default Project", currency="MYR", user_id="usr_demo")
+            proj = Project(name="Default Project", currency="MYR", user_id=target_uid)
             db.add(proj)
             db.commit()
             db.refresh(proj)
@@ -1212,16 +1671,42 @@ async def analyze_room_async(
 async def generate_redesign_async(
     room_id: str,
     req: GenerateRedesignRequest,
+    request: Request = None,
+    auth: AuthContext = Depends(get_auth_context),
     background_tasks: BackgroundTasks = BackgroundTasks(),
     db: Session = Depends(get_db),
 ):
     """
-    Fulfills Blueprint Section 19.
+    Fulfills Blueprint Section 19 and Prompt 08.
     Asynchronously synthesizes 3 design variants using compiled constraints.
+    Enforces authorization check and idempotency protection against duplicate billable runs.
     """
+    verify_room_ownership(room_id, auth, db, require_write=True)
     room = db.query(Room).filter(Room.id == room_id).first()
     if not room or not room.original_image_key or not room.room_model_data:
         raise HTTPException(status_code=404, detail="Room analysis data or image not found")
+
+    idem_key = req.idempotency_key or (request.headers.get("Idempotency-Key") if request else None)
+    if idem_key:
+        cutoff = datetime.now(timezone.utc) - timedelta(minutes=5)
+        existing_job = (
+            db.query(ProcessingJob)
+            .filter(
+                ProcessingJob.room_id == room_id,
+                ProcessingJob.job_type == "redesign_generation",
+                ProcessingJob.error_message == f"idempotent:{idem_key}",
+                ProcessingJob.created_at >= cutoff,
+            )
+            .first()
+        )
+        if existing_job:
+            return {
+                "job_id": existing_job.id,
+                "room_id": room_id,
+                "status": existing_job.status,
+                "current_step": f"Reused existing job (idempotent: {existing_job.current_step})",
+                "idempotent_reused": True,
+            }
 
     image_bytes = get_storage_provider().download_file(room.original_image_key)
     room_model = CanonicalRoomModel.model_validate(room.room_model_data)
@@ -1235,6 +1720,10 @@ async def generate_redesign_async(
     )
 
     job = job_manager.create_job(db, room_id=room_id, job_type="redesign_generation")
+    if idem_key:
+        job.error_message = f"idempotent:{idem_key}"
+        db.commit()
+
     background_tasks.add_task(
         job_manager.execute_redesign,
         job.id,
@@ -1244,6 +1733,7 @@ async def generate_redesign_async(
         req.parent_version_id,
         req.parent_variant_id,
         req.branch_label,
+        generation_mode=req.generation_mode,
     )
 
     return {
@@ -1273,12 +1763,14 @@ class MeasurementVerifyRequest(BaseModel):
 def apply_room_corrections(
     room_id: str,
     corrections: List[ElementCorrectionItem],
+    auth: AuthContext = Depends(get_auth_context),
     db: Session = Depends(get_db),
 ):
     """
     Fulfills Blueprint Section 15 & Milestone 1.4:
     Users can correct AI misclassifications (e.g. relabel cabinet to door, delete false positives).
     """
+    verify_room_ownership(room_id, auth, db, require_write=True)
     room = db.query(Room).filter(Room.id == room_id).first()
     if not room or not room.room_model_data:
         raise HTTPException(status_code=404, detail="Room model data not found")
@@ -1317,12 +1809,14 @@ def verify_measurement(
     room_id: str,
     measurement_id: str,
     req: MeasurementVerifyRequest,
+    auth: AuthContext = Depends(get_auth_context),
     db: Session = Depends(get_db),
 ):
     """
     Fulfills Blueprint Section 11 & 12:
     Confirms an approximate measurement, transitioning provenance to USER_VERIFIED.
     """
+    verify_room_ownership(room_id, auth, db, require_write=True)
     room = db.query(Room).filter(Room.id == room_id).first()
     if not room or not room.room_model_data:
         raise HTTPException(status_code=404, detail="Room model data not found")
@@ -2070,6 +2564,8 @@ def get_ar_scan_report(
 ):
     """
     Retrieves the ARAssistedScanReport for a room.
+    Returns 200 with null if the room exists but has no AR scan report.
+    Preserves 404 semantics if the room itself does not exist.
     """
     db_room = db.query(Room).filter(Room.id == room_id).first()
     room_model = None
@@ -2079,6 +2575,9 @@ def get_ar_scan_report(
         room_model = repository.rooms[room_id]
 
     if not room_model:
+        if db_room:
+            # Room exists in DB but has no synthesized model or AR telemetry
+            return None
         raise HTTPException(status_code=404, detail="Room not found")
 
     return room_model.ar_assisted_report
@@ -3977,6 +4476,7 @@ def update_ai_config(req: AIConfigUpdateRequest):
 
 
 @router.post("/rooms/{room_id}/ai-evaluation", response_model=AIEvaluationReport)
+@router.post("/rooms/{room_id}/evaluate-design", response_model=AIEvaluationReport)
 async def evaluate_room_ai(
     room_id: str,
     req: Optional[AIEvaluationRequest] = None,

@@ -19,6 +19,12 @@ from packages.room_model import (
 from .base import PipelineResult, RedesignGeneratorBase
 from .generation import LocalRedesignGenerator
 from .mask_builder import MaskBuilder
+from .inpainting import (
+    InpaintingProviderBase,
+    ReplicateInpaintingAdapter,
+    run_inpainting_pipeline,
+    ProviderUnconfiguredException,
+)
 
 
 class CloudInpaintingProvider(RedesignGeneratorBase):
@@ -85,28 +91,24 @@ class CloudInpaintingProvider(RedesignGeneratorBase):
         )
 
         # 2. Check if external cloud API is configured
-        if self.api_endpoint and self.api_key:
-            try:
-                # Example hosted API invocation with retry
-                primary_style = constraints.styles[0] if constraints.styles else "Warm Modern Minimalist"
-                prompt = self._build_prompt(
-                    room_type=constraints.room_type,
-                    style=primary_style,
-                    goals=constraints.goals,
-                    free_text=constraints.free_text_prompt,
-                    budget_currency=constraints.budget_currency,
-                    budget_amount=constraints.budget_amount,
-                    renovation_tier=constraints.renovation_tier,
-                )
+        replicate_adapter = ReplicateInpaintingAdapter(api_token=self.api_key)
+        is_ready, reason = replicate_adapter.is_available()
 
-                # Simulated or real cloud provider request
-                # headers = {"Authorization": f"Bearer {self.api_key}"}
-                # response = requests.post(self.api_endpoint, json={...}, timeout=30)
-                # Parse variants...
-                pass
+        if is_ready:
+            try:
+                return run_inpainting_pipeline(
+                    image=image,
+                    room_model=room_model,
+                    constraints=constraints,
+                    provider=replicate_adapter,
+                    output_dir=self.output_dir,
+                )
             except Exception as e:
                 if not self.fallback_local:
                     raise RuntimeError(f"Cloud generation API error: {str(e)}")
+        else:
+            if not self.fallback_local:
+                raise ProviderUnconfiguredException(reason)
 
         # 3. Use local controlled redesign pipeline
         result = self.local_generator.generate_redesigns(
@@ -116,7 +118,6 @@ class CloudInpaintingProvider(RedesignGeneratorBase):
             count=count,
         )
 
-        # Enhance version metadata with cloud adapter tagging
         version: DesignVersion = result.data
         version.model_provider = "cloud-inpainting-controlnet"
         version.model_version = "roomlyst-v1.5-cloud"

@@ -120,15 +120,19 @@ class LocalRedesignGenerator(RedesignGeneratorBase):
                     draw.rectangle([x1, y1, x2, y2], fill=palette["wall_tint"])
                     draw.text((x1 + 10, y1 + 10), "REMOVED (CLEAN SPACE)", fill=(120, 120, 120))
 
-        # 5. Header banner
+        # 5. Header banner (truthful preview label)
         draw.rectangle([0, 0, w, 36], fill=(15, 20, 30))
-        draw.text((16, 10), f"Roomlyst AI Redesign Concept {variant_idx+1} — {variant_style}", fill=(255, 255, 255))
+        draw.text((16, 10), f"Roomlyst Concept Preview (Color & Treatment) {variant_idx+1} — {variant_style}", fill=(255, 255, 255))
 
         # Save to disk
         filename = f"concept_{uuid.uuid4().hex[:8]}_v{variant_idx+1}.jpg"
         filepath = os.path.join(self.output_dir, filename)
         canvas.save(filepath, format="JPEG", quality=90)
-        return f"/storage/outputs/{filename}"
+        try:
+            from services.api.app.storage import get_storage_provider
+            return get_storage_provider().get_signed_url(f"outputs/{filename}", expires_in=86400)
+        except Exception:
+            return f"/storage/outputs/{filename}"
 
     def generate_redesigns(
         self,
@@ -179,6 +183,25 @@ class LocalRedesignGenerator(RedesignGeneratorBase):
                 cost_multipliers = [0.70, 0.95, 1.25]
                 est_cost = round(budget_target * cost_multipliers[i % len(cost_multipliers)], 2)
 
+            # Adapt changes list to reflect actual constraints accurately
+            adapted_changes: List[str] = []
+            for chg in changes:
+                if "sofa" in chg.lower():
+                    sofa_obj = next((o for o in room_model.objects if "sofa" in (o.category or "").lower() or "sofa" in (o.name or "").lower()), None)
+                    if sofa_obj and sofa_obj.id in constraints.remove_ids:
+                        adapted_changes.append(f"Removed {sofa_obj.name} (per room element review)")
+                        continue
+                    elif sofa_obj and sofa_obj.id in constraints.replace_ids:
+                        adapted_changes.append(f"Replaced {sofa_obj.name} with curated modern alternative")
+                        continue
+                adapted_changes.append(chg)
+
+            for obj in room_model.objects:
+                if obj.id in constraints.remove_ids:
+                    rem_msg = f"Removed {obj.name} (per room corrections)"
+                    if rem_msg not in adapted_changes:
+                        adapted_changes.append(rem_msg)
+
             img_url = self._render_styled_variant_image(
                 base_img=image,
                 room=room_model,
@@ -188,12 +211,12 @@ class LocalRedesignGenerator(RedesignGeneratorBase):
             )
             variants.append(
                 DesignVariant(
-                    title=f"Concept {i+1}: {style_name}",
+                    title=f"Concept Preview {i+1}: {style_name}",
                     style=style_name,
                     image_url=img_url,
                     description=desc,
                     structural_preservation_score=pres_score,
-                    changes_made=changes,
+                    changes_made=adapted_changes,
                     estimated_cost=est_cost,
                     parent_variant_id=parent_variant_id,
                 )
@@ -210,7 +233,7 @@ class LocalRedesignGenerator(RedesignGeneratorBase):
             version_number=len(room_model.versions) + 1,
             constraints=constraints,
             variants=variants,
-            model_provider="roomlyst-controlnet-pipeline",
+            model_provider="roomlyst-algorithmic-preview-compositor",
             model_version=self.model_version,
             generation_latency_ms=round(latency_ms, 2),
             estimated_cost_usd=0.015,
@@ -220,7 +243,7 @@ class LocalRedesignGenerator(RedesignGeneratorBase):
         room_model.status = "COMPLETED"
 
         return PipelineResult(
-            provider="roomlyst-controlnet-pipeline",
+            provider="roomlyst-algorithmic-preview-compositor",
             model_version=self.model_version,
             latency_ms=round(latency_ms, 2),
             estimated_cost_usd=0.015,

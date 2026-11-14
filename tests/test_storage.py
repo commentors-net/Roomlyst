@@ -68,3 +68,67 @@ def test_media_signed_url_endpoints():
     )
     assert res_down.status_code == 200
     assert "signed_url" in res_down.json()
+
+
+def test_get_storage_provider_local_default():
+    from services.api.app.storage import get_storage_provider, LocalStorageProvider
+    provider = get_storage_provider()
+    assert isinstance(provider, LocalStorageProvider)
+
+
+def test_s3_storage_provider_missing_dependency(monkeypatch):
+    import services.api.app.storage.s3 as s3_mod
+    import pytest
+
+    monkeypatch.setattr(s3_mod, "HAS_BOTO3", False)
+    monkeypatch.setattr(s3_mod, "boto3", None)
+
+    with pytest.raises(ImportError) as exc_info:
+        s3_mod.S3StorageProvider(bucket_name="test-bucket")
+    assert "boto3 and botocore are required" in str(exc_info.value)
+
+
+def test_s3_storage_provider_mocked_operations(monkeypatch):
+    from unittest.mock import MagicMock
+    import services.api.app.storage.s3 as s3_mod
+
+    mock_client = MagicMock()
+    mock_boto3 = MagicMock()
+    mock_boto3.client.return_value = mock_client
+    mock_client.generate_presigned_url.return_value = "https://s3.amazonaws.com/test-bucket/test.jpg?signed=true"
+    mock_client.get_object.return_value = {"Body": MagicMock(read=lambda: b"mock-s3-data")}
+
+    monkeypatch.setattr(s3_mod, "HAS_BOTO3", True)
+    monkeypatch.setattr(s3_mod, "boto3", mock_boto3)
+
+    provider = s3_mod.S3StorageProvider(
+        bucket_name="test-bucket",
+        endpoint_url="https://s3.amazonaws.com",
+        access_key="AKIA12345",
+        secret_key="SECRET12345",
+        region="us-east-1",
+    )
+
+    # Upload
+    ret = provider.upload_file("test.jpg", b"mock-s3-data")
+    assert ret == "test.jpg"
+    mock_client.put_object.assert_called_once_with(
+        Bucket="test-bucket",
+        Key="test.jpg",
+        Body=b"mock-s3-data",
+        ContentType="image/jpeg",
+    )
+
+    # Signed URL
+    url = provider.get_signed_url("test.jpg", expires_in=1800)
+    assert "https://s3.amazonaws.com" in url
+
+    # Download
+    data = provider.download_file("test.jpg")
+    assert data == b"mock-s3-data"
+
+    # Delete
+    deleted = provider.delete_file("test.jpg")
+    assert deleted is True
+    mock_client.delete_object.assert_called_once_with(Bucket="test-bucket", Key="test.jpg")
+

@@ -4,8 +4,16 @@ Compliant with Blueprint Section 20 & ADR-005.
 """
 
 from typing import Optional
-import boto3
-from botocore.config import Config
+
+try:
+    import boto3
+    from botocore.config import Config
+    HAS_BOTO3 = True
+except ImportError:
+    boto3 = None
+    Config = None
+    HAS_BOTO3 = False
+
 from .base import StorageProviderBase
 
 
@@ -18,6 +26,11 @@ class S3StorageProvider(StorageProviderBase):
         secret_key: Optional[str] = None,
         region: str = "us-east-1",
     ):
+        if not HAS_BOTO3 or boto3 is None:
+            raise ImportError(
+                "boto3 and botocore are required for S3StorageProvider. "
+                "Install them with `pip install boto3 botocore`."
+            )
         self.bucket_name = bucket_name
         self.client = boto3.client(
             "s3",
@@ -25,7 +38,7 @@ class S3StorageProvider(StorageProviderBase):
             aws_access_key_id=access_key,
             aws_secret_access_key=secret_key,
             region_name=region,
-            config=Config(signature_version="s3v4"),
+            config=Config(signature_version="s3v4") if Config else None,
         )
 
     def upload_file(self, key: str, data: bytes, content_type: str = "image/jpeg") -> str:

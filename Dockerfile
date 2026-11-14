@@ -16,6 +16,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application source directories
 COPY packages/ packages/
 COPY services/ services/
+COPY apps/ apps/
 
 # Create persistent storage directories
 RUN mkdir -p storage/uploads storage/outputs storage/point_clouds storage/video_sessions

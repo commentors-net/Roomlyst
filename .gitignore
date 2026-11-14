@@ -35,6 +35,9 @@ env/
 *.db
 *.sqlite
 *.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
 
 # Node / Frontend
 node_modules/
@@ -52,6 +55,10 @@ out/
 .env.*.local
 *.pem
 *.key
+*client_secret*.json
+credentials.json
+google-services.json
+GoogleService-Info.plist
 
 # IDEs & editors
 .vscode/
@@ -59,6 +66,7 @@ out/
 *.swp
 *.swo
 *~
+*.iml
 
 # OS artifacts
 .DS_Store
@@ -71,10 +79,27 @@ htmlcov/
 .pytest_cache/
 *.log
 
-# Benchmark / Upload temporary data
+# Flutter / Mobile artifacts
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+local.properties
+devtools_options.yaml
+*.apk
+*.aab
+*.ipa
+
+# Storage / Temporary runtime & benchmark data
 storage/uploads/*
 !storage/uploads/.gitkeep
 storage/outputs/*
 !storage/outputs/.gitkeep
+storage/point_clouds/*
+!storage/point_clouds/.gitkeep
+!storage/point_clouds/room_sfm_api_*.ply
+storage/video_sessions/*
+!storage/video_sessions/.gitkeep
+!storage/video_sessions/vsession_*
+test-storage/
 
-docs/
+_prompts/

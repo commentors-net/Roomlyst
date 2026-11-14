@@ -4,17 +4,19 @@ Adheres to Blueprint Section 17 & Milestone 0.4.
 """
 
 import os
-from fastapi import FastAPI
+from typing import Optional
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy.orm import Session
 
 from .api.v1.admin import router as admin_router
 from .api.v1.auth import router as auth_router
 from .api.v1.endpoints import router as v1_router
 from .api.v1.jobs import router as jobs_router
 from .api.v1.media import router as media_router
-from .db.session import init_db
+from .db.session import get_db, init_db
 
 # Ensure storage directories exist
 os.makedirs("storage/uploads", exist_ok=True)
@@ -39,8 +41,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount local storage for uploads and outputs
-app.mount("/storage", StaticFiles(directory="storage"), name="storage")
+# Blueprint Section 20 & 23, ADR-005 & ADR-008: Secure media serving with path-traversal prevention & auth verification
+@app.api_route("/storage/{file_path:path}", methods=["GET", "HEAD"])
+def get_storage_file(
+    file_path: str,
+    request: Request,
+    sig: Optional[str] = None,
+    exp: Optional[int] = None,
+    db: Session = Depends(get_db),
+):
+    from .api.v1.media import serve_media_asset
+    return serve_media_asset(file_path=file_path, request=request, sig=sig, exp=exp, db=db)
 
 # Include API v1 routers
 app.include_router(auth_router, prefix="/api/v1")
@@ -77,4 +88,4 @@ def serve_poc_root():
 
 
 if os.path.exists("apps/poc-web"):
-    app.mount("/ui", StaticFiles(directory="apps/poc-web"), name="poc-web")
+    app.mount("/ui", StaticFiles(directory="apps/poc-web", html=True), name="poc-web")

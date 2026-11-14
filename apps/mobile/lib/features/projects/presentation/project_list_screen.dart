@@ -22,6 +22,8 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
   List<ProjectModel> _projects = [];
   DeviceCapabilityProfile? _capabilities;
   bool _isLoading = true;
+  String? _errorMessage;
+  bool _isDemoMode = false;
 
   @override
   void initState() {
@@ -30,15 +32,29 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
   }
 
   Future<void> _loadData() async {
-    setState(() => _isLoading = true);
-    final caps = await CapabilityService.detectDeviceCapabilities();
-    final projs = await ProjectService.fetchProjects();
-    if (mounted) {
-      setState(() {
-        _capabilities = caps;
-        _projects = projs;
-        _isLoading = false;
-      });
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+      _isDemoMode = false;
+    });
+    try {
+      final caps = await CapabilityService.detectDeviceCapabilities();
+      final projs = await ProjectService.fetchProjects();
+      if (mounted) {
+        setState(() {
+          _capabilities = caps;
+          _projects = projs;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Cannot connect to backend ($e). Check your Wi-Fi or Server Settings.';
+          _projects = [];
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -341,6 +357,123 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
                   ),
                   const SizedBox(height: 12),
 
+                  // Error State Banner (Task 3: Truthful offline / error representation)
+                  if (_errorMessage != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppTheme.danger.withAlpha(20),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppTheme.danger.withAlpha(80)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.cloud_off_rounded, color: AppTheme.danger, size: 20),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  _errorMessage!,
+                                  style: const TextStyle(color: AppTheme.danger, fontSize: 13, height: 1.3),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              ElevatedButton.icon(
+                                onPressed: _loadData,
+                                icon: const Icon(Icons.refresh, size: 16),
+                                label: const Text('Retry Connection'),
+                              ),
+                              const SizedBox(width: 8),
+                              OutlinedButton(
+                                onPressed: () {
+                                  setState(() {
+                                    _projects = ProjectService.getSampleDemoProjects();
+                                    _isDemoMode = true;
+                                    _errorMessage = null;
+                                  });
+                                },
+                                child: const Text('Explore Demo Mode'),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // Demo Mode Visual Notice (Task 3: Demo content clearly distinguished)
+                  if (_isDemoMode) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.withAlpha(25),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.amber.withAlpha(80)),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.info_outline, size: 16, color: Colors.amber),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'DEMO MODE ACTIVE — Sample demonstration data is visible. Real changes are not saved to backend.',
+                              style: TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+
+                  // Empty Workspace Container
+                  if (_projects.isEmpty && _errorMessage == null) ...[
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
+                      decoration: BoxDecoration(
+                        color: AppTheme.surface,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppTheme.surfaceBorder),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.folder_open_outlined, size: 48, color: AppTheme.textMuted),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'No Renovation Projects Yet',
+                            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                          ),
+                          const SizedBox(height: 6),
+                          const Text(
+                            'Tap "New Project" to create your first workspace, or load sample demonstration data.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: AppTheme.textMuted, fontSize: 12, height: 1.4),
+                          ),
+                          const SizedBox(height: 18),
+                          OutlinedButton.icon(
+                            onPressed: () {
+                              setState(() {
+                                _projects = ProjectService.getSampleDemoProjects();
+                                _isDemoMode = true;
+                              });
+                            },
+                            icon: const Icon(Icons.auto_awesome, size: 16, color: AppTheme.accent),
+                            label: const Text('Explore Sample Demo Workspace'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
                   // Project Cards
                   ..._projects.map(
                     (p) => Card(
@@ -410,8 +543,12 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: AppTheme.primary,
         onPressed: () {
-          final targetProjId = _projects.isNotEmpty ? _projects.first.id : 'proj_demo';
-          final targetProjName = _projects.isNotEmpty ? _projects.first.name : 'Living Room Scan';
+          if (_projects.isEmpty) {
+            _showNewProjectDialog();
+            return;
+          }
+          final targetProjId = _projects.first.id;
+          final targetProjName = _projects.first.name;
           Navigator.push(
             context,
             MaterialPageRoute(

@@ -73,3 +73,39 @@ class MaskBuilder:
                     r_draw.rectangle(box, fill=255)
 
         return preserve_img, replace_img
+
+    @classmethod
+    def build_inpainting_mask(
+        cls,
+        room: CanonicalRoomModel,
+        constraints: DesignConstraint,
+        width: int,
+        height: int,
+    ) -> Image.Image:
+        """
+        Synthesizes a normalized, single-channel 8-bit inpainting mask (L mode).
+
+        POLARITY SPECIFICATION (Standard Diffusion Inpainting Convention):
+        - 255 (White): Area to be INPAINTED / regenerated (surfaces to restyle, items to replace/remove).
+        - 0 (Black): Area to be KEPT / preserved verbatim (structural doors, windows, preserved furniture).
+
+        Strict Architectural & Object Preservation Rules:
+        - Architectural openings (doors, windows) with ObjectAction.KEEP or in constraints.preserve_ids
+          are strictly protected (locked to 0).
+        - Furniture objects with ObjectAction.KEEP or in constraints.preserve_ids are strictly protected (locked to 0).
+        - Any pixel covered by the preserve mask is zeroed out in the inpainting mask,
+          guaranteeing that broad surface restyling never bleeds into protected elements.
+        """
+        preserve_mask, replace_mask = cls.build_conditioning_masks(
+            room=room,
+            constraints=constraints,
+            width=width,
+            height=height,
+        )
+        p_arr = np.array(preserve_mask)
+        r_arr = np.array(replace_mask)
+
+        # Inpainting mask = replace_mask AND NOT preserve_mask
+        inpaint_arr = np.where(p_arr > 0, 0, r_arr).astype(np.uint8)
+        return Image.fromarray(inpaint_arr, mode="L")
+

@@ -1,0 +1,45 @@
+# Template for Onboarding New Staging Applications to the LAN Gateway
+# Usage: Copy this template to the new application repository and customize values.
+
+name: example-app
+
+services:
+  example-app-api:
+    image: example-app:v1.0.0
+    container_name: example-app-api
+    restart: unless-stopped
+    ports:
+      # Logical host port reservation (e.g. 8082 for NutriLens)
+      - "${APP_PORT:-8082}:8000"
+    environment:
+      - ENVIRONMENT=staging
+      - DATABASE_URL=sqlite:////app/storage/app.db
+      - SECRET_KEY_FILE=/run/secrets/app_secret
+    volumes:
+      - example_app_data:/app/storage
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - example_app_net
+      - lan_gateway_net
+
+networks:
+  example_app_net:
+    name: example_app_net
+    driver: bridge
+  lan_gateway_net:
+    name: lan_gateway_net
+    external: true
+
+volumes:
+  example_app_data:
+    name: example_app_data

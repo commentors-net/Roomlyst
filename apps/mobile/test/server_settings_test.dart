@@ -68,7 +68,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Enter a custom URL
-      final textField = find.byType(TextField);
+      final textField = find.byKey(const Key('server_url_input'));
       expect(textField, findsOneWidget);
       await tester.enterText(textField, 'http://192.168.1.100:8000');
       await tester.pump();

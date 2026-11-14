@@ -227,7 +227,7 @@ class _ARSessionScreenState extends State<ARSessionScreen> {
                           SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'Visual-inertial odometry ready. Tap "Start AR Odometry Session" below to record room motion trajectory and fuse metric scale.',
+                              'No prior AR telemetry found (Non-AR or standard photo capture). Visual-inertial odometry ready — tap "Start AR Odometry Session" below to record room motion trajectory and fuse metric scale.',
                               style: TextStyle(color: Colors.teal, fontSize: 12),
                             ),
                           ),

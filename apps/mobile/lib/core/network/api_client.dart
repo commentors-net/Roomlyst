@@ -6,30 +6,81 @@ import '../config/app_config.dart';
 
 class ApiClient {
   static const String tokenKey = 'roomlyst_jwt_token';
+  static const String guestTokenKey = 'roomlyst_guest_token';
+  static String? _cachedToken;
+  static String? _cachedGuestToken;
+
+  static String? get cachedToken => _cachedToken;
+  static String? get cachedGuestToken => _cachedGuestToken;
+
+  /// Synchronously accessible authorization header for media/image requests
+  static Map<String, String>? get authHeaders {
+    if (_cachedToken != null && _cachedToken!.isNotEmpty) {
+      return {'Authorization': 'Bearer $_cachedToken'};
+    }
+    if (_cachedGuestToken != null && _cachedGuestToken!.isNotEmpty) {
+      return {
+        'X-Guest-Token': _cachedGuestToken!,
+        'X-Guest-Session-ID': _cachedGuestToken!,
+      };
+    }
+    return null;
+  }
 
   static Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(tokenKey);
+    _cachedToken = prefs.getString(tokenKey);
+    return _cachedToken;
   }
 
   static Future<void> saveToken(String token) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(tokenKey, token);
+    _cachedToken = token;
   }
 
   static Future<void> clearToken() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(tokenKey);
+    _cachedToken = null;
+  }
+
+  static Future<String?> getGuestToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    _cachedGuestToken = prefs.getString(guestTokenKey);
+    return _cachedGuestToken;
+  }
+
+  static Future<void> saveGuestToken(String token) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(guestTokenKey, token);
+    _cachedGuestToken = token;
+  }
+
+  static Future<void> clearGuestToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(guestTokenKey);
+    _cachedGuestToken = null;
+  }
+
+  /// Cleans up both user token and guest token on user sign-out or session reset.
+  static Future<void> logout() async {
+    await clearToken();
+    await clearGuestToken();
   }
 
   static Future<Map<String, String>> _buildHeaders() async {
     final token = await getToken();
+    final guestToken = await getGuestToken();
     final headers = <String, String>{
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     };
-    if (token != null) {
+    if (token != null && token.isNotEmpty) {
       headers['Authorization'] = 'Bearer $token';
+    } else if (guestToken != null && guestToken.isNotEmpty) {
+      headers['X-Guest-Token'] = guestToken;
+      headers['X-Guest-Session-ID'] = guestToken;
     }
     return headers;
   }
@@ -229,8 +280,12 @@ class ApiClient {
     final request = http.MultipartRequest('POST', url);
 
     final token = await getToken();
-    if (token != null) {
+    final guestToken = await getGuestToken();
+    if (token != null && token.isNotEmpty) {
       request.headers['Authorization'] = 'Bearer $token';
+    } else if (guestToken != null && guestToken.isNotEmpty) {
+      request.headers['X-Guest-Token'] = guestToken;
+      request.headers['X-Guest-Session-ID'] = guestToken;
     }
 
     request.fields['room_name'] = roomName;
@@ -273,8 +328,12 @@ class ApiClient {
     final request = http.MultipartRequest('POST', url);
 
     final token = await getToken();
-    if (token != null) {
+    final guestToken = await getGuestToken();
+    if (token != null && token.isNotEmpty) {
       request.headers['Authorization'] = 'Bearer $token';
+    } else if (guestToken != null && guestToken.isNotEmpty) {
+      request.headers['X-Guest-Token'] = guestToken;
+      request.headers['X-Guest-Session-ID'] = guestToken;
     }
 
     request.fields['project_id'] = projectId;
@@ -332,8 +391,12 @@ class ApiClient {
     final request = http.MultipartRequest('POST', url);
 
     final token = await getToken();
-    if (token != null) {
+    final guestToken = await getGuestToken();
+    if (token != null && token.isNotEmpty) {
       request.headers['Authorization'] = 'Bearer $token';
+    } else if (guestToken != null && guestToken.isNotEmpty) {
+      request.headers['X-Guest-Token'] = guestToken;
+      request.headers['X-Guest-Session-ID'] = guestToken;
     }
 
     request.fields['session_id'] = sessionId;
@@ -371,8 +434,12 @@ class ApiClient {
     final request = http.MultipartRequest('POST', url);
 
     final token = await getToken();
-    if (token != null) {
+    final guestToken = await getGuestToken();
+    if (token != null && token.isNotEmpty) {
       request.headers['Authorization'] = 'Bearer $token';
+    } else if (guestToken != null && guestToken.isNotEmpty) {
+      request.headers['X-Guest-Token'] = guestToken;
+      request.headers['X-Guest-Session-ID'] = guestToken;
     }
 
     request.fields['room_id'] = roomId;
@@ -403,8 +470,12 @@ class ApiClient {
     final request = http.MultipartRequest('POST', url);
 
     final token = await getToken();
-    if (token != null) {
+    final guestToken = await getGuestToken();
+    if (token != null && token.isNotEmpty) {
       request.headers['Authorization'] = 'Bearer $token';
+    } else if (guestToken != null && guestToken.isNotEmpty) {
+      request.headers['X-Guest-Token'] = guestToken;
+      request.headers['X-Guest-Session-ID'] = guestToken;
     }
 
     request.fields['room_id'] = roomId;
@@ -1121,7 +1192,26 @@ class ApiClient {
   }
 
 
+  static void _captureGuestTokenFromResponse(http.Response response) {
+    final headerToken = response.headers['x-guest-token'] ??
+        response.headers['X-Guest-Token'] ??
+        response.headers['x-guest-session-id'] ??
+        response.headers['X-Guest-Session-ID'];
+    if (headerToken != null && headerToken.isNotEmpty) {
+      saveGuestToken(headerToken);
+      return;
+    }
+    final cookie = response.headers['set-cookie'];
+    if (cookie != null && cookie.contains('guest_session_id=')) {
+      final match = RegExp(r'guest_session_id=([^;]+)').firstMatch(cookie);
+      if (match != null && match.group(1) != null) {
+        saveGuestToken(match.group(1)!);
+      }
+    }
+  }
+
   static dynamic _handleResponse(http.Response response) {
+    _captureGuestTokenFromResponse(response);
     if (response.statusCode >= 200 && response.statusCode < 300) {
       if (response.body.isEmpty) return null;
       return jsonDecode(response.body);
@@ -1135,5 +1225,9 @@ class ApiClient {
       } catch (_) {}
       throw Exception(detail);
     }
+  }
+
+  static Future<dynamic> migrateGuestProjects(String guestToken) async {
+    return post('/auth/migrate-guest-projects', {'guest_token': guestToken});
   }
 }

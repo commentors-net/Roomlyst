@@ -11,15 +11,25 @@ os.environ["LOCAL_STORAGE_PATH"] = "storage"
 
 from services.api.app.db.models import Base
 from services.api.app.db.session import engine
+from services.api.app.core.rate_limit import general_limiter, generation_limiter
 
 
 @pytest.fixture(autouse=True)
 def clean_database():
-    """Wipes and recreates tables before each test to ensure test isolation."""
+    """Wipes and recreates tables and resets rate limiters before each test to ensure test isolation."""
+    general_limiter.reset()
+    generation_limiter.reset()
+    engine.dispose()
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     yield
-    Base.metadata.drop_all(bind=engine)
+    general_limiter.reset()
+    generation_limiter.reset()
+    engine.dispose()
+    try:
+        Base.metadata.drop_all(bind=engine)
+    except Exception:
+        pass
 
 
 @pytest.fixture

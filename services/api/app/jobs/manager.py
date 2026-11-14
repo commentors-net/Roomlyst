@@ -167,15 +167,16 @@ class JobManager:
         parent_version_id: Optional[str] = None,
         parent_variant_id: Optional[str] = None,
         branch_label: Optional[str] = None,
+        generation_mode: str = "algorithmic_preview",
     ):
         """
         Background worker task executing structure-preserving redesign:
         CREATED -> VALIDATING -> GENERATING -> COMPLETED
+        Supports explicit 'algorithmic_preview' and 'ai_inpainting' modes.
         """
         start_time = time.time()
         try:
             self.update_job_status(job_id, JobStatus.VALIDATING, 20, "Compiling architectural preserve masks and constraints")
-            self.update_job_status(job_id, JobStatus.GENERATING, 60, "Generating 3 structurally-anchored redesign concepts")
 
             image = Image.open(io.BytesIO(image_bytes))
 
@@ -186,16 +187,56 @@ class JobManager:
                     raise ValueError("Room model not found for room_id")
                 room_model = CanonicalRoomModel.model_validate(db_room.room_model_data)
 
-            # Generate 3 variants
-            result = self.redesign_generator.generate_redesigns(
-                image=image,
-                room_model=room_model,
-                constraints=constraints,
-                count=3,
-                parent_version_id=parent_version_id,
-                parent_variant_id=parent_variant_id,
-                branch_label=branch_label,
-            )
+            if generation_mode == "ai_inpainting":
+                from services.ai_worker.pipelines.inpainting import (
+                    ReplicateInpaintingAdapter,
+                    MockInpaintingProvider,
+                    run_inpainting_pipeline,
+                    InpaintingProviderException,
+                )
+                if os.environ.get("TEST_MOCK_DIFFUSION") == "1":
+                    inp_provider = MockInpaintingProvider()
+                else:
+                    inp_provider = ReplicateInpaintingAdapter()
+
+                is_ready, reason = inp_provider.is_available()
+                if not is_ready:
+                    self.update_job_status(
+                        job_id=job_id,
+                        status=JobStatus.FAILED_RETRYABLE,
+                        progress=0,
+                        step="AI Inpainting provider unconfigured or unavailable",
+                        error_msg=reason or "Real AI inpainting requires server-side provider credentials. You can retry with Algorithmic Preview.",
+                        result_data={
+                            "error_code": "PROVIDER_UNCONFIGURED",
+                            "recoverable": True,
+                            "suggested_mode": "algorithmic_preview",
+                        },
+                    )
+                    return
+
+                self.update_job_status(job_id, JobStatus.GENERATING, 60, "Synthesizing 3 neural diffusion redesign concepts")
+                result = run_inpainting_pipeline(
+                    image=image,
+                    room_model=room_model,
+                    constraints=constraints,
+                    provider=inp_provider,
+                    parent_version_id=parent_version_id,
+                    parent_variant_id=parent_variant_id,
+                    branch_label=branch_label,
+                )
+            else:
+                self.update_job_status(job_id, JobStatus.GENERATING, 60, "Generating 3 algorithmic redesign concept previews")
+                result = self.redesign_generator.generate_redesigns(
+                    image=image,
+                    room_model=room_model,
+                    constraints=constraints,
+                    count=3,
+                    parent_version_id=parent_version_id,
+                    parent_variant_id=parent_variant_id,
+                    branch_label=branch_label,
+                )
+
             version = result.data
 
             # Update DB Room with updated version list
@@ -208,14 +249,14 @@ class JobManager:
                     cost_rec = JobCostRecord(
                         job_id=job_id,
                         project_id=db_room.project_id if db_room else None,
-                        provider="local_generator",
-                        model="sdxl-controlnet-depth",
+                        provider=version.model_provider,
+                        model=version.model_version,
                         input_size=f"{image.width}x{image.height}",
                         processing_seconds=round(latency_ms / 1000.0, 3),
-                        gpu_type="NVIDIA-A10G",
-                        estimated_compute_cost=0.005,
-                        generation_api_cost=0.010,
-                        total_cost_usd=0.015,
+                        gpu_type="NVIDIA-A10G" if generation_mode == "ai_inpainting" else "CPU",
+                        estimated_compute_cost=0.005 if generation_mode == "ai_inpainting" else 0.0,
+                        generation_api_cost=0.010 if generation_mode == "ai_inpainting" else 0.015,
+                        total_cost_usd=round(version.estimated_cost_usd, 4),
                     )
                     db.add(cost_rec)
                     db.commit()
@@ -227,8 +268,9 @@ class JobManager:
                 step="3 redesign variants generated successfully",
                 result_data=version.model_dump(mode="json"),
                 latency_ms=round(latency_ms, 2),
-                cost_usd=0.015,
+                cost_usd=round(version.estimated_cost_usd, 4),
             )
+
 
         except Exception as e:
             self.update_job_status(

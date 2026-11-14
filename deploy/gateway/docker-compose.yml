@@ -1,0 +1,32 @@
+# Shared LAN Multi-Application Gateway Compose
+# Manages the Nginx reverse proxy on port 8080.
+# Independent lifecycle and configuration from individual member applications.
+
+name: lan-gateway
+
+services:
+  lan-gateway:
+    image: nginx:1.27-alpine
+    container_name: lan-gateway
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - lan_gateway_net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:8080/ >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  lan_gateway_net:
+    external: true

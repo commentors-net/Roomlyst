@@ -597,6 +597,7 @@ class DesignConstraint(BaseModel):
     restyle_ids: List[str] = Field(default_factory=list, description="IDs of surfaces/objects to refinish/restyle")
     goals: List[str] = Field(default_factory=list, description="e.g. increase_storage, brighter_lighting")
     free_text_prompt: Optional[str] = None
+    conflict_warnings: List[str] = Field(default_factory=list, description="Explicit resolution warnings for contradictory instructions")
 
 
 class DesignVariant(BaseModel):
@@ -1652,6 +1653,37 @@ class CanonicalRoomModel(BaseModel):
             elif obj.action == ObjectAction.RESTYLE:
                 restyle_ids.append(obj.id)
 
+        # Detect contradictions between element actions and free_text_prompt (Blueprint Section 14 / ADR-007)
+        conflict_warnings: List[str] = []
+        if free_text:
+            text_lower = free_text.lower()
+            for obj in self.objects:
+                obj_name_lower = (obj.name or "").lower()
+                category_lower = (obj.category or "").lower()
+                identifiers = [s for s in [obj_name_lower, category_lower] if len(s) >= 3]
+
+                # Conflict 1: Object marked for REMOVAL, but user prompt says "keep" / "preserve"
+                if obj.id in remove_ids:
+                    for ident in identifiers:
+                        if any(phrase in text_lower for phrase in [f"keep {ident}", f"preserve {ident}", f"leave {ident}", f"maintain {ident}"]):
+                            conflict_warnings.append(
+                                f"Contradiction detected: Element '{obj.name}' is marked for REMOVAL in room elements, "
+                                f"but free-text prompt requested to keep it ('{ident}'). "
+                                f"Precedence policy: Room element action (REMOVE) takes precedence. The element will be removed."
+                            )
+                            break
+
+                # Conflict 2: Object marked for KEEP, but user prompt says "remove" / "replace" / "delete"
+                elif obj.id in preserve_ids:
+                    for ident in identifiers:
+                        if any(phrase in text_lower for phrase in [f"remove {ident}", f"delete {ident}", f"get rid of {ident}", f"replace {ident}"]):
+                            conflict_warnings.append(
+                                f"Contradiction detected: Element '{obj.name}' is marked for KEEP in room elements, "
+                                f"but free-text prompt requested to remove it ('{ident}'). "
+                                f"Precedence policy: Room element action (KEEP) takes precedence. The element will be preserved."
+                            )
+                            break
+
         return DesignConstraint(
             room_type=self.room_type,
             styles=styles,
@@ -1664,6 +1696,7 @@ class CanonicalRoomModel(BaseModel):
             restyle_ids=restyle_ids,
             goals=goals or [],
             free_text_prompt=free_text,
+            conflict_warnings=conflict_warnings,
         )
 
 

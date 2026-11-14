@@ -19,6 +19,11 @@ class LocalStorageProvider(StorageProviderBase):
     def _resolve_path(self, key: str) -> str:
         # Sanitize key to prevent path traversal
         clean_key = os.path.normpath(key).lstrip("\\/.")
+        base_norm = os.path.normpath(self.base_dir)
+        if clean_key == base_norm:
+            clean_key = ""
+        elif clean_key.startswith(f"{base_norm}{os.sep}"):
+            clean_key = clean_key[len(base_norm) + 1:]
         return os.path.join(self.base_dir, clean_key)
 
     def upload_file(self, key: str, data: bytes, content_type: str = "image/jpeg") -> str:

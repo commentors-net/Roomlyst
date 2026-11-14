@@ -41,6 +41,7 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
   String _selectedTier = 'MODERATE';
   final _budgetController = TextEditingController(text: '15000');
   final _promptController = TextEditingController(text: 'Keep sofa and windows. Change floor to oak.');
+  String _generationMode = 'algorithmic_preview'; // 'algorithmic_preview' or 'ai_inpainting'
   bool _isGenerating = false;
   bool _isCalibrating = false;
   bool _isCalculatingBudget = false;
@@ -90,6 +91,42 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
       _selectedTier = _budgetPlan!.renovationTier;
       _budgetController.text = _budgetPlan!.totalBudget.toStringAsFixed(0);
     }
+    _promptController.addListener(_onPromptChanged);
+  }
+
+  void _onPromptChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _promptController.removeListener(_onPromptChanged);
+    _promptController.dispose();
+    _budgetController.dispose();
+    super.dispose();
+  }
+
+  List<String> _getConstraintConflicts() {
+    final prompt = _promptController.text.toLowerCase();
+    final conflicts = <String>[];
+    final allElements = [
+      ..._currentRoom.objects,
+      ..._currentRoom.surfaces,
+      ..._currentRoom.openings,
+    ];
+    for (final elem in allElements) {
+      if (elem.action.toUpperCase() == 'REMOVE') {
+        final nameLower = elem.name.toLowerCase();
+        if (prompt.contains('keep $nameLower') ||
+            prompt.contains('preserve $nameLower') ||
+            (prompt.contains('keep') && prompt.contains(nameLower))) {
+          conflicts.add(
+            "Conflict detected: '${elem.name}' is marked REMOVE in elements, but prompt asks to keep it. Element action takes precedence ('${elem.name}' will be removed).",
+          );
+        }
+      }
+    }
+    return conflicts;
   }
 
   Future<void> _recalculateBudget() async {
@@ -131,6 +168,7 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
         budgetCurrency: _selectedCurrency,
         renovationTier: _selectedTier,
         prompt: _promptController.text,
+        generationMode: _generationMode,
       );
 
       if (mounted) {
@@ -147,13 +185,58 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Generation error: ${e.toString().replaceAll("Exception: ", "")}')),
-        );
+        final errStr = e.toString();
+        if (errStr.contains('PROVIDER_UNCONFIGURED') ||
+            errStr.contains('unconfigured') ||
+            errStr.contains('503')) {
+          _showUnconfiguredFallbackDialog();
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Generation error: ${errStr.replaceAll("Exception: ", "")}')),
+          );
+        }
       }
     } finally {
       if (mounted) setState(() => _isGenerating = false);
     }
+  }
+
+  void _showUnconfiguredFallbackDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E2536),
+        title: const Row(
+          children: [
+            Icon(Icons.info_outline, color: Colors.amber),
+            SizedBox(width: 8),
+            Text('Genuine AI Unavailable', style: TextStyle(color: Colors.white, fontSize: 16)),
+          ],
+        ),
+        content: const Text(
+          'Genuine neural AI inpainting is unconfigured on the server (REPLICATE_API_TOKEN is unset).\n\n'
+          'Would you like to generate an Algorithmic Preview (Instant Reference) instead? '
+          'It runs 100% locally and simulates color, material, and layout changes.',
+          style: TextStyle(color: Colors.white70, fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              setState(() {
+                _generationMode = 'algorithmic_preview';
+              });
+              _generateRedesigns();
+            },
+            child: const Text('Use Algorithmic Preview'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _runReconstruction() async {
@@ -1010,7 +1093,7 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
             const SizedBox(height: 12),
           ] else ...[
             const Text(
-              'Use ARCore / ARKit Visual-Inertial Odometry and depth-from-motion to scale and verify 3D reconstructions without LiDAR hardware.',
+              'No AR motion report (Non-AR capture). Use ARCore / ARKit Visual-Inertial Odometry and depth-from-motion to scale and verify 3D reconstructions without LiDAR hardware.',
               style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
             ),
             const SizedBox(height: 12),
@@ -1949,6 +2032,7 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 10),
               ),
               onPressed: () {
+                final firstVar = _currentRoom.redesignVariants.isNotEmpty ? _currentRoom.redesignVariants.first : null;
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -1956,6 +2040,9 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
                       projectId: widget.projectId,
                       roomId: _currentRoom.id,
                       roomName: _currentRoom.name,
+                      initialOriginalImageUrl: _currentRoom.displayOriginalImageUrl ?? _currentRoom.originalImageUrl,
+                      initialVariantId: firstVar?.id,
+                      initialVariantImageUrl: firstVar?.displayImageUrl ?? firstVar?.imageUrl,
                     ),
                   ),
                 );
@@ -2206,6 +2293,7 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
             icon: const Icon(Icons.slideshow_rounded, color: AppTheme.accent),
             tooltip: 'Presentation & Review',
             onPressed: () {
+              final firstVar = _currentRoom.redesignVariants.isNotEmpty ? _currentRoom.redesignVariants.first : null;
               Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -2213,6 +2301,9 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
                     projectId: widget.projectId,
                     roomId: _currentRoom.id,
                     roomName: _currentRoom.name,
+                    initialOriginalImageUrl: _currentRoom.displayOriginalImageUrl ?? _currentRoom.originalImageUrl,
+                    initialVariantId: firstVar?.id,
+                    initialVariantImageUrl: firstVar?.displayImageUrl ?? firstVar?.imageUrl,
                   ),
                 ),
               );
@@ -2248,7 +2339,8 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
                 child: Stack(
                   children: [
                     Image.network(
-                      _currentRoom.originalImageUrl!,
+                      _currentRoom.displayOriginalImageUrl ?? _currentRoom.originalImageUrl!,
+                      headers: ApiClient.authHeaders,
                       width: double.infinity,
                       height: 190,
                       fit: BoxFit.cover,
@@ -2454,7 +2546,135 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
                 hintText: 'e.g. Keep sofa. Modernize lighting and flooring.',
               ),
             ),
-            const SizedBox(height: 28),
+            if (_getConstraintConflicts().isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.amber.shade700, width: 1.5),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.warning_amber_rounded, color: Colors.amber.shade400, size: 20),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Design Constraint Contradiction',
+                          style: TextStyle(
+                            color: Colors.amber,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    ..._getConstraintConflicts().map(
+                      (msg) => Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          msg,
+                          style: const TextStyle(color: Colors.white70, fontSize: 12),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
+
+            // Generation Engine Mode Selector
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E2536),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Generation Engine Mode',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: _generationMode == 'ai_inpainting'
+                              ? Colors.deepPurple.withValues(alpha: 0.3)
+                              : Colors.blue.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: _generationMode == 'ai_inpainting'
+                                ? Colors.deepPurpleAccent
+                                : Colors.blueAccent,
+                          ),
+                        ),
+                        child: Text(
+                          _generationMode == 'ai_inpainting' ? 'NEURAL DIFFUSION' : 'ALGORITHMIC REFERENCE',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: _generationMode == 'ai_inpainting'
+                                ? Colors.purpleAccent
+                                : Colors.lightBlueAccent,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ChoiceChip(
+                          label: const Text(
+                            'Algorithmic Preview\n(Fast Local Reference)',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 11),
+                          ),
+                          selected: _generationMode == 'algorithmic_preview',
+                          onSelected: (selected) {
+                            if (selected) setState(() => _generationMode = 'algorithmic_preview');
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ChoiceChip(
+                          label: const Text(
+                            'Neural AI Inpainting\n(Diffusion Editing)',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 11),
+                          ),
+                          selected: _generationMode == 'ai_inpainting',
+                          onSelected: (selected) {
+                            if (selected) setState(() => _generationMode = 'ai_inpainting');
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    _generationMode == 'ai_inpainting'
+                        ? 'Uses server-side diffusion inpainting. Requires cloud provider credentials.'
+                        : 'Applies deterministic color grading and furniture blockouts. 100% offline.',
+                    style: const TextStyle(fontSize: 11, color: Colors.white60),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
 
             // Generate Button
             SizedBox(
@@ -2471,10 +2691,14 @@ class _RoomReviewScreenState extends State<RoomReviewScreen> {
                             child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                           ),
                           SizedBox(width: 12),
-                          Text('Synthesizing 3 Redesigns...'),
+                          Text('Synthesizing 3 Concepts...'),
                         ],
                       )
-                    : const Text('Generate 3 Structurally Preserved Concepts'),
+                    : Text(
+                        _generationMode == 'ai_inpainting'
+                            ? 'Generate 3 AI Concepts (Diffusion Inpainting)'
+                            : 'Generate 3 Concept Previews (Algorithmic Reference)',
+                      ),
               ),
             ),
           ],

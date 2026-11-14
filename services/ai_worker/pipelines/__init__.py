@@ -28,6 +28,19 @@ from .material_estimator import MaterialEstimatorEngine, material_estimator
 from .product_recommender import ProductRecommendationEngine, product_recommender
 from .renovation_plan_builder import RenovationPlanBuilder, renovation_plan_builder
 from .ai_evaluator import AIEvaluator, ai_evaluator, AIEvaluationReport
+from .inpainting import (
+    InpaintingRequest,
+    InpaintingOutputVariant,
+    InpaintingResponse,
+    InpaintingProviderBase,
+    ReplicateInpaintingAdapter,
+    MockInpaintingProvider,
+    ImageCompositingVsNeuralDetector,
+    run_inpainting_pipeline,
+    InpaintingProviderException,
+    ProviderUnconfiguredException,
+    ProviderQuotaOrAuthException,
+)
 
 __all__ = [
     "DepthProviderBase",
@@ -61,5 +74,16 @@ __all__ = [
     "AIEvaluator",
     "ai_evaluator",
     "AIEvaluationReport",
+    "InpaintingRequest",
+    "InpaintingOutputVariant",
+    "InpaintingResponse",
+    "InpaintingProviderBase",
+    "ReplicateInpaintingAdapter",
+    "MockInpaintingProvider",
+    "ImageCompositingVsNeuralDetector",
+    "run_inpainting_pipeline",
+    "InpaintingProviderException",
+    "ProviderUnconfiguredException",
+    "ProviderQuotaOrAuthException",
 ]
 
