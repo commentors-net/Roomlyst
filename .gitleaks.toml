@@ -1,0 +1,56 @@
+# Roomlyst Gitleaks Secret Scanning Configuration (Prompt 13)
+# Defines rules for detecting leaked credentials and documents justified false positives.
+
+title = "Roomlyst Secret Scanning Policy"
+
+[extend]
+# Inherits default Gitleaks rule set when running in CI with gitleaks-action
+
+# Allowlist for verified, non-sensitive client identifiers and test fixtures
+[allowlist]
+description = "Legitimate client identifiers, test fixtures, and safe documentation examples"
+
+paths = [
+    # Legitimate Firebase Android client configuration (embedded in client APK by design)
+    '''apps/mobile/android/app/google-services\.json''',
+    
+    # Unit test fixtures with dummy synthetic keys
+    '''tests/conftest\.py''',
+    '''tests/test_secret_management\.py''',
+    '''tests/test_prompt10_gateway_and_subpath\.py''',
+    '''tests/test_privacy_and_security\.py''',
+    
+    # Safe templates with non-functional placeholders
+    '''\.env\.example''',
+    
+    # Gitleaks rule definitions and documentation itself
+    '''\.gitleaks\.toml''',
+    '''scripts/scan_secrets\.py'''
+]
+
+regexes = [
+    # Template placeholder strings
+    '''change-this-to-a-secure-random-secret-key-in-production''',
+    '''test-secret-key-roomlyst-2026''',
+    '''test-secure-key-roomlyst-2026-xyz'''
+]
+
+# Custom Rules
+[[rules]]
+id = "roomlyst-jwt-secret-key"
+description = "Roomlyst hardcoded JWT secret key"
+regex = '''(?i)(?:SECRET_KEY|JWT_SECRET)\s*[:=]\s*['\"][a-zA-Z0-9_\-\.]{16,}['\"]'''
+path = '''services/'''
+secretGroup = 0
+
+[[rules]]
+id = "generic-private-key"
+description = "Private encryption key block"
+regex = '''-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----'''
+secretGroup = 0
+
+[[rules]]
+id = "ai-provider-api-token"
+description = "AI generation provider API tokens (OpenAI, Anthropic, Replicate)"
+regex = '''(?i)(?:sk-[a-zA-Z0-9]{32,}|r8_[a-zA-Z0-9]{32,})'''
+secretGroup = 0

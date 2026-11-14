@@ -51,14 +51,19 @@ out/
 
 # Environment variables & secrets
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
 *.pem
 *.key
+*.keystore
+*.jks
+*.p12
+*.pfx
 *client_secret*.json
 credentials.json
 google-services.json
 GoogleService-Info.plist
+key.properties
 
 # IDEs & editors
 .vscode/
@@ -103,3 +108,5 @@ storage/video_sessions/*
 test-storage/
 
 _prompts/
+
+docs/

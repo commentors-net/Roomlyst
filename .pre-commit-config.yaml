@@ -1,0 +1,19 @@
+# Roomlyst Pre-Commit Hook Configuration (Prompt 13)
+# Run `pre-commit run --all-files` to scan the repository locally before committing.
+
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.2
+    hooks:
+      - id: gitleaks
+        name: Detect Hardcoded Secrets (Gitleaks)
+        entry: gitleaks protect --verbose --redact --config .gitleaks.toml --staged
+
+  - repo: local
+    hooks:
+      - id: roomlyst-secret-scan
+        name: Roomlyst Local Secret Scanner
+        entry: python scripts/scan_secrets.py --staged
+        language: system
+        pass_filenames: false
+        always_run: true
