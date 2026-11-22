@@ -69,6 +69,7 @@ class ProjectRecord(BaseModel):
     name: str
     currency: str = "MYR"
     room_ids: List[str] = Field(default_factory=list)
+    rooms: List[CanonicalRoomModel] = Field(default_factory=list)
     client_id: Optional[str] = None
     status: ProjectStatus = ProjectStatus.BRIEFING
     property_address: Optional[str] = None
@@ -368,8 +369,14 @@ class InMemoryRepository:
     def save_room(self, room: CanonicalRoomModel) -> CanonicalRoomModel:
         self.rooms[room.id] = room
         if room.project_id in self.projects:
-            if room.id not in self.projects[room.project_id].room_ids:
-                self.projects[room.project_id].room_ids.append(room.id)
+            proj = self.projects[room.project_id]
+            if room.id not in proj.room_ids:
+                proj.room_ids.append(room.id)
+            existing_idx = next((i for i, r in enumerate(proj.rooms) if r.id == room.id), None)
+            if existing_idx is not None:
+                proj.rooms[existing_idx] = room
+            else:
+                proj.rooms.append(room)
         return room
 
     def get_room(self, room_id: str) -> Optional[CanonicalRoomModel]:

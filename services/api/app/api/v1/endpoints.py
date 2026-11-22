@@ -131,6 +131,7 @@ from services.ai_worker.pipelines.ai_evaluator import ai_evaluator, AIEvaluation
 from services.ai_worker.pipelines.inpainting import (
     InpaintingProviderBase,
     ReplicateInpaintingAdapter,
+    LocalDiffusionInpaintingAdapter,
     MockInpaintingProvider,
     run_inpainting_pipeline,
     InpaintingProviderException,
@@ -170,9 +171,11 @@ os.makedirs("storage/outputs", exist_ok=True)
 os.makedirs("storage/point_clouds", exist_ok=True)
 
 
-def get_inpainting_provider() -> InpaintingProviderBase:
+def get_inpainting_provider(provider_type: str = "cloud") -> InpaintingProviderBase:
     if os.environ.get("TEST_MOCK_DIFFUSION") == "1":
         return MockInpaintingProvider()
+    if provider_type in ("local", "local_ai", "local_diffusion", "comfyui"):
+        return LocalDiffusionInpaintingAdapter()
     return ReplicateInpaintingAdapter()
 
 
@@ -542,6 +545,34 @@ def get_project(
             target_completion_date=dp.target_completion_date.isoformat() if getattr(dp, "target_completion_date", None) else None,
         )
         repository.projects[dp.id] = proj
+
+    if proj:
+        # Ensure rooms and room_ids are hydrated from database & repository
+        db_rooms = db.query(Room).filter(Room.project_id == project_id).all() if db else []
+        for dbr in db_rooms:
+            if dbr.id not in proj.room_ids:
+                proj.room_ids.append(dbr.id)
+            if not any(r.id == dbr.id for r in proj.rooms):
+                r_model = repository.get_room(dbr.id)
+                if not r_model and dbr.room_model_data:
+                    try:
+                        r_model = CanonicalRoomModel.model_validate(dbr.room_model_data)
+                        repository.rooms[dbr.id] = r_model
+                    except Exception:
+                        pass
+                if r_model:
+                    if dbr.original_image_key:
+                        r_model.original_image_url = get_storage_provider().get_signed_url(dbr.original_image_key, expires_in=86400)
+                    proj.rooms.append(r_model)
+
+        # Refresh signed URLs for all design variants in all project rooms to prevent expired-link blank images on reload
+        for r_model in proj.rooms:
+            for ver in r_model.versions or []:
+                for v in ver.variants or []:
+                    if v.image_url and "/outputs/" in v.image_url:
+                        fname = v.image_url.split("?")[0].split("/outputs/")[-1]
+                        if fname:
+                            v.image_url = get_storage_provider().get_signed_url(f"outputs/{fname}", expires_in=86400)
 
     return proj
 
@@ -1220,6 +1251,79 @@ def update_room_element(
     return {"status": "success", "element_id": element_id, "action": elem.action}
 
 
+@router.get("/ai/inpainting-status")
+def get_inpainting_status():
+    """
+    Returns live availability status, provider capabilities, and configuration guidance
+    for all 3 redesign tracks:
+    - Track A: Cloud AI (Neural Inpainting via Replicate SDXL)
+    - Track B: Local AI (Self-Hosted Diffusion via ComfyUI / LAN Worker)
+    - Fallback: Algorithmic Preview (Local LAN composite)
+    Fulfills Prompt 16 Section 1, 2, and 4.
+    """
+    cloud_provider = get_inpainting_provider("cloud")
+    cloud_avail, cloud_reason = cloud_provider.is_available()
+
+    local_provider = get_inpainting_provider("local")
+    local_avail, local_reason = local_provider.is_available()
+
+    return {
+        "status": "success",
+        "tracks": {
+            "cloud_ai": {
+                "mode": "cloud_ai",
+                "display_name": "Cloud AI (Neural Inpainting)",
+                "track": "Track A",
+                "provider": "Replicate SDXL Inpainting",
+                "is_available": cloud_avail,
+                "status": "READY" if cloud_avail else "UNCONFIGURED",
+                "reason": cloud_reason or ("Cloud neural inpainting ready." if cloud_avail else "Replicate API token missing or spend unauthorized ($0 spend limit active)."),
+                "cost_estimate_usd": 0.0165,
+                "requires_spend_authorization": True,
+                "requires_cloud_data_transfer": True,
+                "is_genuine_neural": True,
+            },
+            "local_ai": {
+                "mode": "local_ai",
+                "display_name": "Local AI (Self-Hosted Diffusion)",
+                "track": "Track B",
+                "provider": "ComfyUI / Local Diffusion Worker",
+                "is_available": local_avail,
+                "status": "READY" if local_avail else "UNAVAILABLE",
+                "reason": local_reason or ("Local ComfyUI worker online on LAN." if local_avail else "Local diffusion worker offline."),
+                "cost_estimate_usd": 0.0,
+                "requires_spend_authorization": False,
+                "requires_cloud_data_transfer": False,
+                "is_genuine_neural": True,
+                "hardware_assessment": {
+                    "host": "llmserver (192.168.0.200)",
+                    "cpu": "AMD Ryzen 5 3500U with Radeon Vega Mobile Gfx (4 cores / 8 threads)",
+                    "ram_gb": 9.1,
+                    "gpu": "None (Integrated AMD Vega graphics, 0 CUDA cores)",
+                    "feasibility": "NOT_FEASIBLE_ON_LOCAL_SERVER_CPU",
+                    "recommended_architecture": "Dedicated LAN workstation with NVIDIA RTX GPU running ComfyUI"
+                }
+            },
+            "algorithmic_preview": {
+                "mode": "algorithmic_preview",
+                "display_name": "Algorithmic Preview (Local LAN)",
+                "track": "Fallback",
+                "provider": "Roomlyst Composite Engine (Pillow)",
+                "is_available": True,
+                "status": "READY",
+                "reason": "Ready on local LAN. Generates layout previews in <2s.",
+                "cost_estimate_usd": 0.0,
+                "requires_spend_authorization": False,
+                "requires_cloud_data_transfer": False,
+                "is_genuine_neural": False,
+                "is_photorealistic": False,
+                "note": "Layout preview only, not photorealistic."
+            }
+        },
+        "default_mode": "algorithmic_preview"
+    }
+
+
 @router.post("/rooms/{room_id}/design-requests", response_model=DesignVersion, dependencies=[Depends(rate_limit_generation)])
 def generate_room_design(
     room_id: str,
@@ -1292,15 +1396,17 @@ def generate_room_design(
         free_text=req.free_text_prompt,
     )
 
-    if req.generation_mode == "ai_inpainting":
-        provider = get_inpainting_provider()
+    if req.generation_mode in ("cloud_ai", "ai_inpainting", "local_ai", "local_diffusion"):
+        provider_type = "local" if req.generation_mode in ("local_ai", "local_diffusion") else "cloud"
+        provider = get_inpainting_provider(provider_type)
         is_avail, reason = provider.is_available()
         if not is_avail:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail={
                     "error_code": "PROVIDER_UNCONFIGURED",
-                    "message": reason or "AI inpainting provider is unconfigured or unavailable on the server.",
+                    "provider_mode": req.generation_mode,
+                    "message": reason or f"{req.generation_mode} provider is unconfigured or unavailable on the server.",
                     "recoverable": True,
                     "suggested_mode": "algorithmic_preview",
                 },
@@ -1320,6 +1426,7 @@ def generate_room_design(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail={
                     "error_code": getattr(e, "error_code", "PROVIDER_ERROR"),
+                    "provider_mode": req.generation_mode,
                     "message": str(e),
                     "recoverable": getattr(e, "recoverable", True),
                     "suggested_mode": "algorithmic_preview",

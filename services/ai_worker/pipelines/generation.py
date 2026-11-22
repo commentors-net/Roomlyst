@@ -122,7 +122,8 @@ class LocalRedesignGenerator(RedesignGeneratorBase):
 
         # 5. Header banner (truthful preview label)
         draw.rectangle([0, 0, w, 36], fill=(15, 20, 30))
-        draw.text((16, 10), f"Roomlyst Concept Preview (Color & Treatment) {variant_idx+1} — {variant_style}", fill=(255, 255, 255))
+        concept_letter = chr(65 + variant_idx) if variant_idx < 26 else str(variant_idx + 1)
+        draw.text((16, 10), f"Roomlyst Algorithmic Preview (Not Photorealistic) — Concept {concept_letter}: {variant_style[:24]}", fill=(255, 255, 255))
 
         # Save to disk
         filename = f"concept_{uuid.uuid4().hex[:8]}_v{variant_idx+1}.jpg"
@@ -146,29 +147,177 @@ class LocalRedesignGenerator(RedesignGeneratorBase):
     ) -> PipelineResult:
         start_time = time.time()
 
-        variant_templates = [
-            (
-                "Warm Modern Minimalist",
-                "Warm natural tones, subtle lime-wash wall treatment, clean lines, and preserved key seating.",
-                0.95,
-                ["Preserved sofa & main window", "Replaced coffee table with organic travertine", "Applied warm neutral palette"],
-                4800.0,
-            ),
-            (
-                "Japandi Clean Organic",
-                "Blend of Scandinavian functionality with Japanese rustic minimalism, light timber finishes, and decluttered space.",
-                0.93,
-                ["Preserved sofa & architectural doors", "Refinished flooring to light birch", "Integrated minimalist slatted media console"],
-                6200.0,
-            ),
-            (
-                "Contemporary Scandinavian",
-                "Airy ambience, textured wool elements, matte black accents, and warm ambient light distribution.",
-                0.92,
-                ["Preserved windows, entry arch & sofa", "Installed sleek wall-mounted storage", "Upgraded ambient cove lighting"],
-                5500.0,
-            ),
-        ]
+        # Intent-driven concept templates (Prompt 15 consumer workflow)
+        intent_templates = {
+            "Empty & Redesign": [
+                (
+                    "Decluttered Spatial Reset",
+                    "Pristine architectural baseline with all movable clutter removed, open spatial flow, and optimized natural daylight.",
+                    0.96,
+                    ["Preserved structural walls, windows & entry anchors", "Removed movable furniture & clutter", "Applied warm neutral architectural wash"],
+                    4200.0,
+                ),
+                (
+                    "Refined Minimalist Harmony",
+                    "Harmonized spatial geometry, light hardwood tone restoration, and calm decluttered baseline ready for fresh styling.",
+                    0.95,
+                    ["Preserved load-bearing architecture", "Cleared central space floorplan", "Restyled surfaces with subtle travertine undertones"],
+                    5100.0,
+                ),
+                (
+                    "Warm Organic Renewal",
+                    "Organic textures, soft linen wall palette, and airy unfurnished breathing room preserving architectural openings.",
+                    0.94,
+                    ["Maintained structural openings & ceiling boundary", "Inpainted clean removal of clutter", "Refreshed floor surface to bleached birch"],
+                    5800.0,
+                ),
+            ],
+            "Home Office": [
+                (
+                    "Executive Focus Studio",
+                    "Ergonomic work zone with integrated timber desk, acoustic wall paneling, low-glare lighting, and concealed wire pathways.",
+                    0.93,
+                    ["Preserved window orientation for natural task light", "Replaced movable clutter with dedicated workspace", "Applied focus-enhancing muted palette"],
+                    6500.0,
+                ),
+                (
+                    "Minimalist Dual-Zone Work Nook",
+                    "Floating wall desk, open book ledges, streamlined task lighting, and clean uncluttered lines.",
+                    0.92,
+                    ["Preserved architectural perimeter", "Integrated slimline workspace profile", "Installed warm ambient cove lighting"],
+                    5400.0,
+                ),
+                (
+                    "Architectural Creative Suite",
+                    "Expansive multi-monitor desk placement, natural light window alignment, and smart acoustic organization.",
+                    0.91,
+                    ["Preserved structural openings", "Curated ergonomic seating & desk hub", "Refinished surfaces with modern matte finishes"],
+                    7800.0,
+                ),
+            ],
+            "Cozy Lounge / Reading Corner": [
+                (
+                    "Warm Reading Sanctuary",
+                    "Plush boucle lounge armchair, arched brass reading light, curated timber book shelving, and calm ambient tones.",
+                    0.94,
+                    ["Preserved window daylight & architectural anchors", "Introduced reading alcove furniture grouping", "Layered warm ambient lighting"],
+                    5200.0,
+                ),
+                (
+                    "Japandi Tea & Solitude Nook",
+                    "Low-profile cushioned seating, warm linen curtains, light timber accent table, and soft diffused illumination.",
+                    0.93,
+                    ["Maintained wall and floor structural boundaries", "Styled with minimalist organic materials", "Replaced visual clutter with serene seating"],
+                    5900.0,
+                ),
+                (
+                    "Modern Fireside-Style Lounge",
+                    "Deep accent armchair, textured wool floor rug, side table, and serene evening relaxation atmosphere.",
+                    0.92,
+                    ["Preserved architectural openings", "Curated cozy relaxation vignette", "Warm tone color grading"],
+                    6300.0,
+                ),
+            ],
+            "Guest Nook": [
+                (
+                    "Multi-Functional Daybed Suite",
+                    "Streamlined tailored daybed with concealed storage, compact side table, and welcoming hospitality accents.",
+                    0.93,
+                    ["Preserved structural openings & perimeter", "Integrated dual-use guest bedding layout", "Installed warm hospitality sconce lighting"],
+                    6100.0,
+                ),
+                (
+                    "Boutique Hotel Alcove",
+                    "Convertible sleeper lounge, floating nightstands, ambient reading lights, and soft neutral textiles.",
+                    0.92,
+                    ["Preserved window & door anchors", "Optimized guest comfort in compact footprint", "Refreshed wall treatment in warm linen"],
+                    6900.0,
+                ),
+                (
+                    "Compact Rest & Study Retreat",
+                    "Dual-purpose convertible retreat, tailored room-divider aesthetic, and practical guest hospitality nook.",
+                    0.91,
+                    ["Maintained core room architecture", "Introduced compact transformable furniture", "Applied calming neutral palette"],
+                    5700.0,
+                ),
+            ],
+            "Storage + Workspace": [
+                (
+                    "Seamless Architectural Cabinetry",
+                    "Full-height integrated storage, push-to-open flush doors, and recessed floating executive desk surface.",
+                    0.92,
+                    ["Preserved window openings & structural walls", "Designed flush-fit storage cabinetry", "Concealed equipment & clutter storage bay"],
+                    8200.0,
+                ),
+                (
+                    "Modular Open-Ledge System",
+                    "Floating oak shelves, integrated filing bench, and streamlined desk surface maintaining spacious feel.",
+                    0.93,
+                    ["Preserved architectural anchors", "Integrated modular vertical organization", "Installed task & shelf-accent lighting"],
+                    6700.0,
+                ),
+                (
+                    "Vertical Grid Organization",
+                    "Tailored slat-wall utility storage, executive desk return, and high-efficiency spatial layout.",
+                    0.91,
+                    ["Preserved structural perimeter", "Implemented high-density organization system", "Restyled surfaces with durable matte finishes"],
+                    7400.0,
+                ),
+            ],
+            "Surprise Me": [
+                (
+                    "Contemporary Architectural Hybrid",
+                    "Dynamic fusion of natural travertine, spatial openness, and statement accent pieces tuned to room daylight.",
+                    0.94,
+                    ["Preserved all load-bearing openings", "Harmonized open-plan furniture layout", "Curated warm contemporary color palette"],
+                    6400.0,
+                ),
+                (
+                    "Warm Japandi Sanctuary",
+                    "Earthy organic textures, fluted timber detailing, and zen relaxation zoning maximizing space perception.",
+                    0.93,
+                    ["Maintained structural perimeter & anchors", "Refined surface finishes with natural oak & stone", "Decluttered visual pathways"],
+                    6800.0,
+                ),
+                (
+                    "Nordic Organic Loft",
+                    "Crisp airy geometry, smoked oak flooring accents, and sculptural minimalist furnishings with high visual warmth.",
+                    0.92,
+                    ["Preserved window daylighting", "Arranged balanced conversational grouping", "Layered textured neutral materials"],
+                    5900.0,
+                ),
+            ],
+        }
+
+        # Select template set based on requested style or intent
+        primary_style = constraints.styles[0] if constraints.styles else "Empty & Redesign"
+        matched_intent = next((k for k in intent_templates if k.lower() in primary_style.lower() or primary_style.lower() in k.lower()), None)
+        if matched_intent:
+            variant_templates = intent_templates[matched_intent]
+        else:
+            variant_templates = [
+                (
+                    "Warm Modern Minimalist",
+                    "Warm natural tones, subtle lime-wash wall treatment, clean lines, and preserved key seating.",
+                    0.95,
+                    ["Preserved sofa & main window", "Replaced coffee table with organic travertine", "Applied warm neutral palette"],
+                    4800.0,
+                ),
+                (
+                    "Japandi Clean Organic",
+                    "Blend of Scandinavian functionality with Japanese rustic minimalism, light timber finishes, and decluttered space.",
+                    0.93,
+                    ["Preserved sofa & architectural doors", "Refinished flooring to light birch", "Integrated minimalist slatted media console"],
+                    6200.0,
+                ),
+                (
+                    "Contemporary Scandinavian",
+                    "Airy ambience, textured wool elements, matte black accents, and warm ambient light distribution.",
+                    0.92,
+                    ["Preserved windows, entry arch & sofa", "Installed sleek wall-mounted storage", "Upgraded ambient cove lighting"],
+                    5500.0,
+                ),
+            ]
 
         variants: List[DesignVariant] = []
         budget_target = constraints.budget_amount
@@ -209,12 +358,13 @@ class LocalRedesignGenerator(RedesignGeneratorBase):
                 variant_idx=i,
                 variant_style=style_name,
             )
+            concept_letter = chr(65 + i) if i < 26 else str(i + 1)
             variants.append(
                 DesignVariant(
-                    title=f"Concept Preview {i+1}: {style_name}",
+                    title=f"Concept {concept_letter}: {style_name} Concept Preview",
                     style=style_name,
                     image_url=img_url,
-                    description=desc,
+                    description=f"Algorithmic Concept Preview: {desc}",
                     structural_preservation_score=pres_score,
                     changes_made=adapted_changes,
                     estimated_cost=est_cost,

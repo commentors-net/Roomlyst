@@ -1,10 +1,12 @@
 import os
+import tempfile
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-# Ensure test uses an isolated SQLite test database
-os.environ["DATABASE_URL"] = "sqlite:///./test_roomlyst.db"
+# Ensure test uses an isolated SQLite test database in temp directory
+test_db_path = os.path.join(tempfile.gettempdir(), "test_roomlyst.db").replace("\\", "/")
+os.environ["DATABASE_URL"] = f"sqlite:///{test_db_path}"
 os.environ["SECRET_KEY"] = "test-secret-key-roomlyst-2026"
 os.environ["STORAGE_BACKEND"] = "local"
 os.environ["LOCAL_STORAGE_PATH"] = "storage"

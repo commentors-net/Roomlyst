@@ -39,7 +39,7 @@
     }
 
     header {
-      background: rgba(17, 24, 39, 0.92);
+      background: rgba(17, 24, 39, 0.94);
       backdrop-filter: blur(12px);
       border-bottom: 1px solid var(--card-border);
       padding: 14px 28px;
@@ -117,7 +117,7 @@
       background: linear-gradient(135deg, rgba(30, 41, 59, 0.7), rgba(20, 28, 46, 0.9));
       border: 1px solid var(--card-border);
       border-radius: 12px;
-      padding: 14px 20px;
+      padding: 12px 20px;
       margin-bottom: 24px;
       display: flex;
       justify-content: space-between;
@@ -130,10 +130,9 @@
       align-items: center;
       gap: 14px;
       font-size: 0.85rem;
+      flex-wrap: wrap;
     }
-    .session-label {
-      color: var(--text-muted);
-    }
+    .session-label { color: var(--text-muted); }
     .session-val {
       font-family: var(--mono);
       background: #0f172a;
@@ -144,13 +143,26 @@
       font-size: 0.8rem;
     }
 
-    .grid-2 {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 24px;
+    /* Hero section */
+    .hero-section {
+      text-align: center;
+      margin-bottom: 32px;
+      padding: 10px 0;
     }
-    @media (max-width: 960px) {
-      .grid-2 { grid-template-columns: 1fr; }
+    .hero-title {
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #f1f5f9 40%, #94a3b8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 8px;
+    }
+    .hero-sub {
+      color: var(--text-muted);
+      font-size: 1rem;
+      max-width: 680px;
+      margin: 0 auto;
     }
 
     .card {
@@ -160,22 +172,22 @@
       padding: 24px;
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
       position: relative;
+      margin-bottom: 24px;
     }
 
     .card-title {
       font-size: 1.15rem;
       font-weight: 700;
-      margin-bottom: 16px;
+      margin-bottom: 8px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 8px;
     }
     .card-subtitle {
-      font-size: 0.8rem;
+      font-size: 0.85rem;
       color: var(--text-muted);
-      margin-top: -12px;
-      margin-bottom: 16px;
+      margin-bottom: 18px;
     }
 
     .dropzone {
@@ -196,8 +208,8 @@
       background: var(--accent);
       color: white;
       border: none;
-      padding: 10px 18px;
-      font-size: 0.9rem;
+      padding: 10px 20px;
+      font-size: 0.92rem;
       font-weight: 600;
       border-radius: 8px;
       cursor: pointer;
@@ -228,18 +240,18 @@
       padding: 5px 12px;
       font-size: 0.8rem;
     }
-    .btn-danger {
-      background: #ef4444;
-    }
-    .btn-danger:hover:not(:disabled) {
-      background: #dc2626;
+    .btn-lg {
+      padding: 14px 28px;
+      font-size: 1.05rem;
+      font-weight: 700;
+      border-radius: 10px;
     }
 
     .preview-box {
       margin-top: 16px;
       border-radius: 10px;
       overflow: hidden;
-      max-height: 280px;
+      max-height: 380px;
       display: flex;
       justify-content: center;
       align-items: center;
@@ -249,7 +261,7 @@
     }
     .preview-box img {
       max-width: 100%;
-      max-height: 280px;
+      max-height: 380px;
       object-fit: contain;
     }
 
@@ -268,85 +280,100 @@
       transition: width 0.2s ease;
     }
 
-    .element-row {
+    /* Plain-Language Intent Cards Grid */
+    .intent-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .intent-card {
+      background: #0f172a;
+      border: 2px solid #22314e;
+      border-radius: 12px;
+      padding: 16px 18px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .intent-card:hover {
+      border-color: #3b82f6;
+      background: #131d33;
+      transform: translateY(-2px);
+    }
+    .intent-card.active {
+      border-color: #3b82f6;
+      background: rgba(59, 130, 246, 0.12);
+      box-shadow: 0 0 16px rgba(59, 130, 246, 0.25);
+    }
+    .intent-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 10px 14px;
-      border-radius: 8px;
-      background: rgba(15, 23, 42, 0.65);
-      margin-bottom: 8px;
-      border: 1px solid rgba(255, 255, 255, 0.05);
-      gap: 12px;
+      margin-bottom: 6px;
     }
-    .element-info {
-      display: flex;
-      flex-direction: column;
-      flex: 1;
-    }
-    .element-name {
-      font-size: 0.9rem;
-      font-weight: 600;
-    }
-    .element-sub {
-      font-size: 0.75rem;
-      color: var(--text-muted);
-    }
-
-    .action-select {
-      background: #1e293b;
-      border: 1px solid #33476d;
-      color: var(--text-main);
-      padding: 6px 10px;
-      border-radius: 6px;
-      font-size: 0.8rem;
-      font-weight: 600;
-      cursor: pointer;
-    }
-    .action-select:focus {
-      outline: none;
-      border-color: var(--accent);
-    }
-
-    .badge {
-      display: inline-block;
-      padding: 3px 8px;
-      border-radius: 4px;
-      font-size: 0.7rem;
+    .intent-title {
+      font-size: 1rem;
       font-weight: 700;
+      color: #f1f5f9;
+    }
+    .intent-desc {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+    .intent-badge {
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 4px;
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
-    .badge-keep { background: rgba(16, 185, 129, 0.18); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
-    .badge-replace { background: rgba(245, 158, 11, 0.18); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
-    .badge-remove { background: rgba(239, 68, 68, 0.18); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
-    .badge-restyle { background: rgba(147, 51, 234, 0.18); color: #c084fc; border: 1px solid rgba(147, 51, 234, 0.3); }
 
-    .style-chip {
-      background: #1e293b;
-      border: 1px solid #334155;
-      padding: 8px 14px;
-      border-radius: 20px;
-      font-size: 0.85rem;
+    /* Mode Selection Cards */
+    .mode-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+    @media (max-width: 720px) {
+      .mode-cards { grid-template-columns: 1fr; }
+    }
+    .mode-card {
+      background: #0f172a;
+      border: 2px solid #2d3f63;
+      border-radius: 10px;
+      padding: 16px;
       cursor: pointer;
-      display: inline-block;
-      margin-right: 8px;
-      margin-bottom: 8px;
       transition: all 0.2s;
+      position: relative;
     }
-    .style-chip:hover {
-      border-color: #60a5fa;
+    .mode-card:hover { border-color: #4b6b9e; }
+    .mode-card.active {
+      border-color: var(--accent);
+      background: rgba(59, 130, 246, 0.08);
+      box-shadow: 0 0 15px rgba(59, 130, 246, 0.15);
     }
-    .style-chip.active {
-      background: #2563eb;
-      border-color: #60a5fa;
-      color: #fff;
-      box-shadow: 0 0 10px rgba(37, 99, 235, 0.4);
+    .mode-title {
+      font-weight: 700;
+      font-size: 0.92rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    .mode-desc {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      line-height: 1.4;
     }
 
-    .form-group {
-      margin-bottom: 16px;
-    }
+    .form-group { margin-bottom: 16px; }
     .form-group label {
       display: block;
       font-size: 0.85rem;
@@ -369,52 +396,31 @@
       border-color: var(--accent);
     }
 
-    /* Mode Selection Cards */
-    .mode-cards {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-      margin-bottom: 18px;
-    }
-    @media (max-width: 720px) {
-      .mode-cards { grid-template-columns: 1fr; }
-    }
-    .mode-card {
-      background: #0f172a;
-      border: 2px solid #2d3f63;
-      border-radius: 10px;
-      padding: 16px;
+    .style-chip {
+      background: #1e293b;
+      border: 1px solid #334155;
+      padding: 7px 13px;
+      border-radius: 20px;
+      font-size: 0.82rem;
       cursor: pointer;
-      transition: all 0.2s;
-      position: relative;
-    }
-    .mode-card:hover {
-      border-color: #4b6b9e;
-    }
-    .mode-card.active {
-      border-color: var(--accent);
-      background: rgba(59, 130, 246, 0.08);
-      box-shadow: 0 0 15px rgba(59, 130, 246, 0.15);
-    }
-    .mode-title {
-      font-weight: 700;
-      font-size: 0.95rem;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+      display: inline-block;
+      margin-right: 6px;
       margin-bottom: 6px;
+      transition: all 0.2s;
     }
-    .mode-desc {
-      font-size: 0.8rem;
-      color: var(--text-muted);
-      line-height: 1.4;
+    .style-chip:hover { border-color: #60a5fa; }
+    .style-chip.active {
+      background: #2563eb;
+      border-color: #60a5fa;
+      color: #fff;
+      box-shadow: 0 0 10px rgba(37, 99, 235, 0.4);
     }
 
-    /* Results Grid */
+    /* Redesign Variants Results Grid */
     .results-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-      gap: 24px;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 22px;
       margin-top: 20px;
     }
     .variant-card {
@@ -424,7 +430,7 @@
       overflow: hidden;
       display: flex;
       flex-direction: column;
-      transition: transform 0.2s, box-shadow 0.2s;
+      transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
     }
     .variant-card:hover {
       transform: translateY(-2px);
@@ -437,24 +443,42 @@
       height: 240px;
       background: #000;
       overflow: hidden;
+      cursor: pointer;
     }
     .variant-img {
       width: 100%;
       height: 100%;
       object-fit: cover;
+      transition: transform 0.3s;
+    }
+    .variant-img-wrap:hover .variant-img {
+      transform: scale(1.03);
     }
     .variant-badge-overlay {
       position: absolute;
       top: 12px;
       left: 12px;
-      background: rgba(15, 23, 42, 0.85);
+      background: rgba(15, 23, 42, 0.88);
       backdrop-filter: blur(8px);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.15);
       padding: 4px 10px;
       border-radius: 6px;
       font-size: 0.75rem;
       font-weight: 700;
       color: #38bdf8;
+    }
+    .honest-engine-badge {
+      position: absolute;
+      bottom: 12px;
+      left: 12px;
+      background: rgba(15, 23, 42, 0.88);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(245, 158, 11, 0.4);
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 0.68rem;
+      font-weight: 600;
+      color: #fbbf24;
     }
     .favorite-btn {
       position: absolute;
@@ -470,7 +494,7 @@
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      font-size: 1.1rem;
+      font-size: 1.15rem;
       color: var(--text-dim);
       transition: all 0.2s;
     }
@@ -479,26 +503,14 @@
       border-color: #f59e0b;
       background: rgba(245, 158, 11, 0.2);
     }
-    .favorite-btn:hover {
-      transform: scale(1.1);
-    }
+    .favorite-btn:hover { transform: scale(1.1); }
+
     .variant-body {
       padding: 18px;
       flex: 1;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-    }
-    .preservation-meter {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      font-size: 0.8rem;
-      margin-top: 12px;
-      color: #38bdf8;
-      background: rgba(56, 189, 248, 0.08);
-      padding: 6px 10px;
-      border-radius: 6px;
     }
     .variant-actions {
       display: flex;
@@ -508,12 +520,231 @@
       border-top: 1px solid rgba(255, 255, 255, 0.08);
     }
 
-    /* Modal / Drawer */
+    /* Interactive Before/After Comparison Container */
+    .comparison-container {
+      margin-top: 24px;
+      background: #0f172a;
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      overflow: hidden;
+      padding: 20px;
+    }
+    .comparison-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .comparison-view-toggle {
+      display: flex;
+      gap: 6px;
+      background: #1e293b;
+      padding: 4px;
+      border-radius: 8px;
+    }
+    .view-btn {
+      background: transparent;
+      color: var(--text-muted);
+      border: none;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .view-btn.active {
+      background: var(--accent);
+      color: white;
+      box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+    }
+
+    /* Swipe Slider Stage */
+    .slider-stage {
+      position: relative;
+      width: 100%;
+      height: 480px;
+      border-radius: 10px;
+      overflow: hidden;
+      background: #000;
+      user-select: none;
+      border: 1px solid var(--card-border);
+    }
+    @media (max-width: 768px) {
+      .slider-stage { height: 320px; }
+    }
+    .slider-img {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      object-fit: contain;
+      pointer-events: none;
+    }
+    .slider-after-wrap {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      overflow: hidden;
+      width: 50%; /* dynamic via JS */
+      border-right: 3px solid #38bdf8;
+      box-shadow: 4px 0 15px rgba(0,0,0,0.5);
+    }
+    .slider-after-wrap .slider-img {
+      width: 100%; /* anchored */
+      height: 100%;
+    }
+    .slider-handle {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: #0f172a;
+      border: 3px solid #38bdf8;
+      color: #38bdf8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: ew-resize;
+      box-shadow: 0 0 20px rgba(56, 189, 248, 0.5);
+      z-index: 20;
+      font-size: 0.9rem;
+      font-weight: 800;
+    }
+    .slider-label-pill {
+      position: absolute;
+      bottom: 16px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: 0.8rem;
+      font-weight: 700;
+      z-index: 10;
+    }
+    .label-before { left: 16px; color: #94a3b8; }
+    .label-after { right: 16px; color: #38bdf8; }
+
+    /* Side-by-side mode */
+    .side-by-side-stage {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 768px) {
+      .side-by-side-stage { grid-template-columns: 1fr; }
+    }
+
+    /* Thumbnails Row */
+    .thumbnails-strip {
+      display: flex;
+      gap: 12px;
+      margin-top: 16px;
+      overflow-x: auto;
+      padding-bottom: 6px;
+    }
+    .thumb-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #1e293b;
+      border: 2px solid #334155;
+      border-radius: 8px;
+      padding: 8px 12px;
+      cursor: pointer;
+      min-width: 220px;
+      transition: all 0.2s;
+    }
+    .thumb-card:hover { border-color: #60a5fa; }
+    .thumb-card.active {
+      border-color: #3b82f6;
+      background: rgba(59, 130, 246, 0.15);
+    }
+    .thumb-img {
+      width: 48px;
+      height: 48px;
+      border-radius: 6px;
+      object-fit: cover;
+      background: #000;
+    }
+
+    /* Collapsible Advanced Accordion */
+    .advanced-section {
+      margin-top: 32px;
+      background: #0f172a;
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    .advanced-toggle {
+      padding: 18px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      background: #141c2e;
+      transition: background 0.2s;
+    }
+    .advanced-toggle:hover {
+      background: #182238;
+    }
+    .advanced-content {
+      padding: 24px;
+      border-top: 1px solid var(--card-border);
+    }
+
+    /* Badges */
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .badge-keep { background: rgba(16, 185, 129, 0.18); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .badge-replace { background: rgba(245, 158, 11, 0.18); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+    .badge-remove { background: rgba(239, 68, 68, 0.18); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+
+    .element-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      border-radius: 8px;
+      background: rgba(15, 23, 42, 0.65);
+      margin-bottom: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      gap: 12px;
+    }
+    .element-info {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+    }
+    .element-name { font-size: 0.9rem; font-weight: 600; }
+    .element-sub { font-size: 0.75rem; color: var(--text-muted); }
+    .action-select {
+      background: #1e293b;
+      border: 1px solid #33476d;
+      color: var(--text-main);
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    /* Modal / Fullscreen */
     .modal-overlay {
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0, 0, 0, 0.8);
-      backdrop-filter: blur(8px);
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(10px);
       z-index: 100;
       display: flex;
       align-items: center;
@@ -524,15 +755,15 @@
       background: var(--card-bg);
       border: 1px solid var(--card-border);
       border-radius: 16px;
-      max-width: 900px;
+      max-width: 960px;
       width: 100%;
-      max-height: 90vh;
+      max-height: 92vh;
       overflow-y: auto;
       padding: 24px;
       box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
     }
 
-    /* Toast Notification */
+    /* Toast */
     .toast-container {
       position: fixed;
       bottom: 24px;
@@ -584,8 +815,8 @@
     <div class="brand">
       <div class="logo-badge">Roomlyst</div>
       <div>
-        <div style="font-weight:700; font-size:1.05rem;">Roomlyst Homeowner Studio</div>
-        <div class="tagline">Structure-Preserving AI Interior Platform · LAN Edition</div>
+        <div style="font-weight:700; font-size:1.05rem;">Roomlyst Visual Studio</div>
+        <div class="tagline">Structure-Preserving AI Interior Design & Renovation</div>
       </div>
     </div>
 
@@ -598,11 +829,6 @@
         <span class="status-dot" id="ollamaStatusDot"></span>
         <span id="ollamaStatusText">Ollama: Checking...</span>
       </div>
-      <select id="hardwareSelect" class="action-select">
-        <option value="rgb">Tier C: Standard RGB Phone (No LiDAR)</option>
-        <option value="ar">Tier B: AR Depth Motion</option>
-        <option value="lidar">Tier A: Hardware LiDAR</option>
-      </select>
     </div>
   </header>
 
@@ -621,62 +847,312 @@
         </div>
       </div>
       <div style="display:flex; gap:8px;">
-        <button id="btnSwitchProject" class="btn btn-secondary btn-sm">Switch / Open Project</button>
+        <button id="btnSwitchProject" class="btn btn-secondary btn-sm">Switch Project</button>
         <button id="btnNewProject" class="btn btn-secondary btn-sm">+ New Project</button>
-        <button id="btnNewSession" class="btn btn-secondary btn-sm" title="Clear guest cookie and start fresh">New Guest Session</button>
+        <button id="btnNewSession" class="btn btn-secondary btn-sm" title="Clear guest cookie and start fresh">Reset Session</button>
       </div>
     </div>
 
-    <!-- Step 1 & 2 Grid -->
-    <div class="grid-2">
-      
-      <!-- Step 1: Photo Upload Card -->
-      <div class="card">
-        <div class="card-title">
-          <span>1. Room Capture Photo</span>
-          <button id="btnLoadDemo" class="btn btn-secondary btn-sm">Load Demo Living Room</button>
-        </div>
-        <div class="card-subtitle">Upload a photo of your living room, bedroom, or kitchen. No LiDAR required.</div>
+    <!-- Consumer Hero -->
+    <div class="hero-section">
+      <h1 class="hero-title">Redesign My Room</h1>
+      <p class="hero-sub">Upload a photograph of your real space, choose what it could become, and receive three distinct redesign concepts with interactive before & after comparison.</p>
+    </div>
 
-        <div id="dropzone" class="dropzone">
-          <svg width="44" height="44" fill="none" stroke="#64748b" viewBox="0 0 24 24" style="margin-bottom:8px;">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-          </svg>
-          <div style="font-weight:600; font-size:0.95rem;">Drag & drop photo or click to browse</div>
-          <div style="font-size:0.8rem; color:var(--text-muted); margin-top:4px;">Supports JPEG, PNG, WebP up to 25MB</div>
-          <input type="file" id="fileInput" accept="image/*" class="hidden">
-        </div>
+    <!-- Step 1: Upload Photo Card -->
+    <div class="card" id="step1Card">
+      <div class="card-title">
+        <span>1. Upload Room Photograph</span>
+        <button id="btnLoadDemo" class="btn btn-secondary btn-sm">✨ Try Sample Living Room</button>
+      </div>
+      <div class="card-subtitle">Take or select a photo of your living room, bedroom, or home office. No LiDAR required.</div>
 
-        <div id="uploadProgressContainer" class="progress-bar-container hidden">
-          <div id="uploadProgressBar" class="progress-bar"></div>
-        </div>
-
-        <div id="previewContainer" class="preview-box hidden">
-          <img id="imagePreview" src="" alt="Room preview">
-        </div>
-
-        <div id="qualityReport" style="margin-top:14px;" class="hidden"></div>
-
-        <button id="btnAnalyze" class="btn" style="width:100%; margin-top:16px;" disabled>
-          <span>Run Room Understanding</span>
-        </button>
+      <div id="dropzone" class="dropzone">
+        <svg width="44" height="44" fill="none" stroke="#64748b" viewBox="0 0 24 24" style="margin-bottom:8px;">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+        </svg>
+        <div style="font-weight:600; font-size:1rem;">Click to select or drag & drop room photo</div>
+        <div style="font-size:0.8rem; color:var(--text-muted); margin-top:4px;">Supports JPEG, PNG, WebP up to 25MB · EXIF/GPS automatically stripped</div>
+        <input type="file" id="fileInput" accept="image/*" class="hidden">
       </div>
 
-      <!-- Step 2: Architecture & Elements Card -->
-      <div class="card">
-        <div class="card-title">
-          <span>2. Detected Architecture & Elements</span>
-          <span id="roomStatusBadge" class="badge badge-keep">Ready</span>
-        </div>
-        <div class="card-subtitle">AI-detected walls, openings, and furniture. Configure keep or replace actions.</div>
+      <div id="uploadProgressContainer" class="progress-bar-container hidden">
+        <div id="uploadProgressBar" class="progress-bar"></div>
+      </div>
 
-        <div id="elementsPlaceholder" style="text-align:center; padding:60px 20px; color:var(--text-muted);">
-          <svg width="48" height="48" fill="none" stroke="#334155" viewBox="0 0 24 24" style="margin:0 auto 12px; display:block;">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-          </svg>
-          Upload and analyze a room photo to inspect detected architecture and elements.
+      <!-- Preview of uploaded photo -->
+      <div id="previewContainer" class="preview-box hidden">
+        <img id="imagePreview" src="" alt="Uploaded room preview">
+        <div style="position:absolute; top:12px; left:12px; background:rgba(15,23,42,0.85); backdrop-filter:blur(8px); padding:4px 10px; border-radius:6px; font-size:0.75rem; font-weight:700; color:#38bdf8; border:1px solid rgba(255,255,255,0.1);">
+          Original Room Photo
+        </div>
+      </div>
+
+      <div id="qualityReport" style="margin-top:14px;" class="hidden"></div>
+    </div>
+
+    <!-- Step 2: Choose Space Intent Card -->
+    <div class="card" id="step2Card">
+      <div class="card-title">
+        <span>2. Choose What The Space Could Become</span>
+        <span class="badge badge-keep">Plain-Language Intention</span>
+      </div>
+      <div class="card-subtitle">Select a primary functional direction. Structural walls and windows are strictly preserved.</div>
+
+      <!-- 6 Plain-Language Intent Cards -->
+      <div class="intent-grid">
+        <div class="intent-card active" data-intent="Empty & Redesign" onclick="selectIntent('Empty & Redesign')">
+          <div>
+            <div class="intent-header">
+              <span class="intent-title">Empty & Redesign</span>
+              <span class="intent-badge badge-keep">Default · Clean Slate</span>
+            </div>
+            <div class="intent-desc">Clear existing movable furniture & clutter before furnishing anew with clean architectural surfaces.</div>
+          </div>
         </div>
 
+        <div class="intent-card" data-intent="Home Office" onclick="selectIntent('Home Office')">
+          <div>
+            <div class="intent-header">
+              <span class="intent-title">Home Office</span>
+              <span class="intent-badge badge-replace">Work From Home</span>
+            </div>
+            <div class="intent-desc">Executive timber desk, ergonomic seating, low-glare task lighting, and integrated wire management.</div>
+          </div>
+        </div>
+
+        <div class="intent-card" data-intent="Cozy Lounge / Reading Corner" onclick="selectIntent('Cozy Lounge / Reading Corner')">
+          <div>
+            <div class="intent-header">
+              <span class="intent-title">Cozy Lounge / Reading Nook</span>
+              <span class="intent-badge badge-replace">Relaxation</span>
+            </div>
+            <div class="intent-desc">Plush reading armchair, warm arched brass lighting, curated book ledges, and serene ambiance.</div>
+          </div>
+        </div>
+
+        <div class="intent-card" data-intent="Guest Nook" onclick="selectIntent('Guest Nook')">
+          <div>
+            <div class="intent-header">
+              <span class="intent-title">Guest Nook</span>
+              <span class="intent-badge badge-replace">Hospitality</span>
+            </div>
+            <div class="intent-desc">Multi-functional daybed, compact floating nightstands, and welcoming hospitality accents.</div>
+          </div>
+        </div>
+
+        <div class="intent-card" data-intent="Storage + Workspace" onclick="selectIntent('Storage + Workspace')">
+          <div>
+            <div class="intent-header">
+              <span class="intent-title">Storage + Workspace</span>
+              <span class="intent-badge badge-replace">Dual Utility</span>
+            </div>
+            <div class="intent-desc">Built-in flush modular cabinetry, floating work surface, and clutter-free organization.</div>
+          </div>
+        </div>
+
+        <div class="intent-card" data-intent="Surprise Me" onclick="selectIntent('Surprise Me')">
+          <div>
+            <div class="intent-header">
+              <span class="intent-title">Surprise Me</span>
+              <span class="intent-badge badge-keep">Designer Choice</span>
+            </div>
+            <div class="intent-desc">Creative architectural hybrid harmonizing space, natural daylight, and modern statement lines.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Optional Personal Preference Input -->
+      <div class="form-group">
+        <label>Optional Personal Preferences & Specific Touches</label>
+        <input type="text" id="promptText" class="form-control" placeholder="e.g. Prefer warm walnut wood tones, keep window area clear, warm evening lighting">
+      </div>
+
+      <!-- Aesthetic Style Chips -->
+      <div class="form-group">
+        <label>Aesthetic Style Palette</label>
+        <div>
+          <span class="style-chip active" data-style="Warm Modern Minimalist">Warm Modern Minimalist</span>
+          <span class="style-chip" data-style="Japandi Clean Organic">Japandi Clean Organic</span>
+          <span class="style-chip" data-style="Contemporary Scandinavian">Contemporary Scandinavian</span>
+          <span class="style-chip" data-style="Modern Industrial Loft">Modern Industrial Loft</span>
+          <span class="style-chip" data-style="Mid-Century Modern">Mid-Century Modern</span>
+        </div>
+      </div>
+
+      <!-- Generation Engine Selection (Prompt 16 Unified 3-Mode Architecture) -->
+      <div class="form-group">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <label style="margin-bottom:0;">Generation Engine Track</label>
+          <span style="font-size:0.75rem; color:var(--text-muted);">Transparent AI Routing</span>
+        </div>
+        <div class="mode-cards">
+          <!-- Track A: Cloud AI -->
+          <div class="mode-card" id="modeCloudAI" onclick="selectMode('cloud_ai')">
+            <div class="mode-title">
+              <span>Cloud AI (AI Inpainting · Track A)</span>
+              <span class="badge badge-replace" id="cloudStatusBadge">Token Required</span>
+            </div>
+            <div class="mode-desc">
+              Photorealistic neural inpainting via cloud GPU (Replicate SDXL). Requires cloud API token and explicit spend approval (~$0.0165 / 3 concepts).
+            </div>
+          </div>
+
+          <!-- Track B: Local AI -->
+          <div class="mode-card" id="modeLocalAI" onclick="selectMode('local_ai')">
+            <div class="mode-title">
+              <span>Local AI (Track B)</span>
+              <span class="badge badge-replace" id="localStatusBadge">Worker Offline</span>
+            </div>
+            <div class="mode-desc">
+              Self-hosted LAN diffusion (ComfyUI). 100% private, $0 spend. Evaluated staging host lacks dedicated GPU; requires NVIDIA RTX LAN worker.
+            </div>
+          </div>
+
+          <!-- Fallback: Algorithmic Preview -->
+          <div class="mode-card active" id="modeAlgorithmic" onclick="selectMode('algorithmic_preview')">
+            <div class="mode-title">
+              <span>Algorithmic Concept Preview</span>
+              <span class="badge badge-keep" id="algoStatusBadge">Local LAN · Ready</span>
+            </div>
+            <div class="mode-desc">
+              Fast, deterministic spatial synthesis on local server in &lt;2s. Demonstrates layout and palette concepts. <strong>Not neural photorealism.</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CTA Generation Button -->
+      <button id="btnGenerate" class="btn btn-lg" style="width:100%; margin-top:8px;">
+        <span id="genBtnText">✨ Generate 3 Redesign Concepts</span>
+        <div id="genSpinner" class="spinner hidden"></div>
+      </button>
+
+      <!-- Generation Step Progress Bar (Prompt 17) -->
+      <div id="genProgressBox" class="hidden" style="margin-top:14px; padding:14px; background:#0f172a; border:1px solid #22314e; border-radius:8px;">
+        <div style="display:flex; justify-content:space-between; font-size:0.8rem; font-weight:600; margin-bottom:8px;">
+          <span id="genProgressStepText" style="color:#38bdf8;">Step 1/3: Analyzing room boundary &amp; perspective anchors...</span>
+          <span id="genProgressPct" style="color:#94a3b8;">33%</span>
+        </div>
+        <div class="progress-bar-container" style="height:6px; margin-bottom:0;">
+          <div id="genProgressBar" class="progress-bar" style="width:33%;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 3: Redesign Results Card -->
+    <div id="resultsCard" class="card hidden">
+      <div class="card-title">
+        <span>3. Three Redesigned Concepts</span>
+        <span class="badge badge-keep" id="resultsBadge">Concept A, B, & C Synthesized</span>
+      </div>
+      <div class="card-subtitle">
+        Review generated redesign concepts. Select any concept to inspect details, favorite, or compare before and after.
+      </div>
+
+      <div id="variantsGrid" class="results-grid"></div>
+
+      <!-- Honest Capability Disclosure Notice -->
+      <div style="margin-top:20px; padding:12px 16px; background:#0f172a; border:1px solid #22314e; border-radius:8px; font-size:0.8rem; color:var(--text-muted);">
+        ℹ️ <strong>Structural & Engine Transparency Notice:</strong> Previews above represent spatial synthesis preserving architectural openings and boundaries. In accordance with Prompt 15 release criteria, algorithmic previews are clearly distinguished from neural photorealistic inpainting.
+      </div>
+    </div>
+
+    <!-- Step 4: Interactive Before & After Comparison Module -->
+    <div id="comparisonCard" class="card hidden">
+      <div class="card-title">
+        <span>4. Before & After Comparison</span>
+        <div class="comparison-view-toggle">
+          <button class="view-btn active" id="btnViewSwipe" onclick="setComparisonMode('swipe')">↔ Swipe Slider</button>
+          <button class="view-btn" id="btnViewSide" onclick="setComparisonMode('side')">⊞ Side-by-Side</button>
+          <button class="view-btn" onclick="openFullscreenModal()">🔍 Fullscreen</button>
+        </div>
+      </div>
+      <div class="card-subtitle" id="comparisonSubtitle">
+        Drag the slider handle to interactively reveal Before (Original) versus After (Selected Redesign).
+      </div>
+
+      <!-- Interactive Swipe Comparison Stage -->
+      <div id="swipeStage" class="slider-stage">
+        <!-- Original Image (Underneath) -->
+        <img id="sliderOriginalImg" class="slider-img" src="" alt="Original Room">
+        <span class="slider-label-pill label-before">Before (Original Room)</span>
+
+        <!-- Redesign Variant Image (On Top with clipping) -->
+        <div id="sliderAfterWrap" class="slider-after-wrap">
+          <img id="sliderVariantImg" class="slider-img" src="" alt="Redesigned Concept">
+        </div>
+        <span class="slider-label-pill label-after" id="sliderAfterLabel">After (Concept A)</span>
+
+        <!-- Draggable Handle -->
+        <div id="sliderHandle" class="slider-handle">◀ ▶</div>
+      </div>
+
+      <!-- Side-by-Side Stage (Alternative View) -->
+      <div id="sideStage" class="side-by-side-stage hidden">
+        <div>
+          <div style="font-size:0.8rem; font-weight:700; color:var(--text-muted); margin-bottom:6px;">Original Room Photo</div>
+          <div class="preview-box">
+            <img id="sideOriginalImg" src="" alt="Original room">
+          </div>
+        </div>
+        <div>
+          <div style="font-size:0.8rem; font-weight:700; color:#38bdf8; margin-bottom:6px;" id="sideVariantLabel">Selected Redesign Variant</div>
+          <div class="preview-box">
+            <img id="sideVariantImg" src="" alt="Variant">
+          </div>
+        </div>
+      </div>
+
+      <!-- Thumbnails Selector for all 3 Concepts -->
+      <div style="margin-top:16px;">
+        <div style="font-size:0.8rem; font-weight:700; color:var(--text-muted); margin-bottom:8px;">Switch Redesign Concept to Compare:</div>
+        <div id="thumbnailsStrip" class="thumbnails-strip"></div>
+      </div>
+
+      <!-- Concept Details Box -->
+      <div id="comparisonDetailsBox" style="margin-top:16px; font-size:0.85rem; color:var(--text-muted);"></div>
+    </div>
+
+    <!-- Advanced / Plan Renovation (Later) Collapsible Section -->
+    <div class="advanced-section">
+      <div class="advanced-toggle" onclick="toggleAdvancedSection()">
+        <div>
+          <div style="font-weight:700; font-size:1.05rem;">🛠️ Advanced / Plan Renovation (Later)</div>
+          <div style="font-size:0.8rem; color:var(--text-muted);">Architectural element keep/replace controls, measurements, surfaces, budget plans, and contractor handoff.</div>
+        </div>
+        <div id="advancedToggleArrow" style="font-size:1.2rem; color:var(--text-muted); transition:transform 0.2s;">▼</div>
+      </div>
+
+      <div id="advancedContent" class="advanced-content hidden">
+        <div class="card-subtitle" style="margin-bottom:14px;">
+          These engineering tools allow fine-tuning specific surfaces, load-bearing walls, and materials.
+        </div>
+
+        <div style="display:flex; gap:12px; margin-bottom:18px; flex-wrap:wrap;">
+          <div class="form-group" style="flex:1; min-width:200px;">
+            <label>Hardware Scan Mode</label>
+            <select id="hardwareSelect" class="action-select" style="width:100%;">
+              <option value="rgb" selected>Tier C: Standard RGB Phone (No LiDAR)</option>
+              <option value="ar">Tier B: AR Depth Motion</option>
+              <option value="lidar">Tier A: Hardware LiDAR</option>
+            </select>
+          </div>
+          <div class="form-group" style="flex:1; min-width:200px;">
+            <label>Indicative Budget Calculation</label>
+            <div style="display:flex; gap:8px;">
+              <select id="budgetCurrency" class="action-select" style="max-width:100px;">
+                <option value="MYR" selected>MYR (RM)</option>
+                <option value="USD">USD ($)</option>
+                <option value="EUR">EUR (€)</option>
+                <option value="SGD">SGD (S$)</option>
+              </select>
+              <input type="number" id="budgetAmount" class="form-control" value="15000" placeholder="15000">
+            </div>
+          </div>
+        </div>
+
+        <!-- Detected Architecture Lists -->
         <div id="elementsContainer" class="hidden">
           <div id="structuralWarning" class="hidden" style="background:rgba(239, 68, 68, 0.15); border:1px solid #ef4444; border-radius:8px; padding:10px 14px; font-size:0.8rem; color:#fca5a5; margin-bottom:12px;">
             ⚠️ <strong>Structural Anchor Guard:</strong> Load-bearing walls and exterior window openings cannot be removed without certified engineering permits. Automatically preserved as anchor elements.
@@ -694,106 +1170,23 @@
           <div style="font-size:0.75rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin:14px 0 6px;">Approximate Measurements</div>
           <div id="measurementsList"></div>
         </div>
-      </div>
 
-    </div>
-
-    <!-- Step 3: Design Formulation Card -->
-    <div id="designCard" class="card hidden" style="margin-top:24px;">
-      <div class="card-title">
-        <span>3. Design Preferences & Constraints Formulation</span>
-      </div>
-      <div class="card-subtitle">Choose generation engine mode, aesthetic style, and renovation budget constraints.</div>
-
-      <!-- Honest Generation Mode Selection -->
-      <label style="display:block; font-size:0.85rem; font-weight:600; color:var(--text-muted); margin-bottom:8px;">Generation Engine Mode</label>
-      <div class="mode-cards">
-        <div class="mode-card active" id="modeAlgorithmic" onclick="selectMode('algorithmic_preview')">
-          <div class="mode-title">
-            <span>Algorithmic Concept Preview</span>
-            <span class="badge badge-keep">Local LAN · Zero Cloud Cost</span>
-          </div>
-          <div class="mode-desc">
-            Fast, deterministic spatial synthesis executing entirely on the local Ubuntu home server. Strict structural preservation with zero paid API fees.
-          </div>
+        <div id="elementsPlaceholder" style="text-align:center; padding:30px 20px; color:var(--text-muted);">
+          Upload and analyze a room photo to inspect detected architecture and elements.
         </div>
-
-        <div class="mode-card" id="modeInpainting" onclick="selectMode('ai_inpainting')">
-          <div class="mode-title">
-            <span>AI Inpainting (Neural Diffusion)</span>
-            <span class="badge badge-replace" id="inpaintingStatusBadge">Requires Cloud Token</span>
-          </div>
-          <div class="mode-desc">
-            Photorealistic generative inpainting. Requires explicit provider credentials and authorized budget spend.
-          </div>
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label>Target Aesthetic Style</label>
-        <div>
-          <span class="style-chip active" data-style="Warm Modern Minimalist">Warm Modern Minimalist</span>
-          <span class="style-chip" data-style="Japandi Clean Organic">Japandi Clean Organic</span>
-          <span class="style-chip" data-style="Contemporary Scandinavian">Contemporary Scandinavian</span>
-          <span class="style-chip" data-style="Modern Industrial Loft">Modern Industrial Loft</span>
-          <span class="style-chip" data-style="Mid-Century Modern">Mid-Century Modern</span>
-        </div>
-      </div>
-
-      <div class="grid-2">
-        <div class="form-group">
-          <label>Indicative Renovation Budget</label>
-          <div style="display:flex; gap:8px;">
-            <select id="budgetCurrency" class="action-select" style="max-width:100px;">
-              <option value="MYR" selected>MYR (RM)</option>
-              <option value="USD">USD ($)</option>
-              <option value="EUR">EUR (€)</option>
-              <option value="SGD">SGD (S$)</option>
-            </select>
-            <input type="number" id="budgetAmount" class="form-control" value="15000" placeholder="15000">
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label>Homeowner Directives & Specific Instructions</label>
-          <input type="text" id="promptText" class="form-control" placeholder="e.g. Keep sofa and windows. Replace TV unit with slatted wood console.">
-        </div>
-      </div>
-
-      <button id="btnGenerate" class="btn" style="width:100%; margin-top:8px;">
-        <span id="genBtnText">Generate 3 Structurally Preserved Redesigns</span>
-        <div id="genSpinner" class="spinner hidden"></div>
-      </button>
-    </div>
-
-    <!-- Step 4: Redesign Results Grid -->
-    <div id="resultsCard" class="card hidden" style="margin-top:24px;">
-      <div class="card-title">
-        <span>4. Structurally Consistent Design Variants</span>
-        <span class="badge badge-keep">3 Concepts Synthesized</span>
-      </div>
-      <div class="card-subtitle">
-        Review generated concepts. Compare against original room photo, toggle favorites, or request Ollama architectural evaluation.
-      </div>
-
-      <div id="variantsGrid" class="results-grid"></div>
-
-      <!-- Limitation Notice -->
-      <div style="margin-top:24px; padding:12px 16px; background:#0f172a; border:1px solid #22314e; border-radius:8px; font-size:0.8rem; color:var(--text-muted);">
-        ℹ️ <strong>Structural Fidelity Notice:</strong> Algorithmic previews synthesize spatial geometry, element preservation, and style palettes. In accordance with safety rules, these suggestions do not replace certified architectural inspection.
       </div>
     </div>
 
   </div>
 
-  <!-- Comparison Modal -->
+  <!-- Comparison Fullscreen Modal -->
   <div id="comparisonModal" class="modal-overlay hidden">
     <div class="modal-card">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
         <h3 id="comparisonTitle" style="font-size:1.15rem;">Before & After Structural Comparison</h3>
         <button onclick="closeModal('comparisonModal')" class="btn btn-secondary btn-sm">✕ Close</button>
       </div>
-      <div class="grid-2">
+      <div class="grid-2" style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
         <div>
           <div style="font-size:0.8rem; font-weight:700; color:var(--text-muted); margin-bottom:6px;">Original Room Photo</div>
           <div class="preview-box">
@@ -849,6 +1242,21 @@
     </div>
   </div>
 
+  <!-- Transparent Generation Track Guidance & Hardware Assessment Modal (Prompt 16) -->
+  <div id="guidanceModal" class="modal-overlay hidden">
+    <div class="modal-card" style="max-width: 640px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <div style="font-weight:700; font-size:1.15rem; color:#f8fafc;" id="guidanceModalTitle">Generation Track Notice</div>
+        <button onclick="closeGuidanceModal()" class="btn btn-secondary btn-sm" style="padding:4px 10px;">✕</button>
+      </div>
+      <div id="guidanceModalContent" style="font-size:0.88rem; line-height:1.6; color:#cbd5e1;"></div>
+      <div style="margin-top:22px; display:flex; justify-content:flex-end; gap:10px; flex-wrap:wrap;">
+        <button onclick="closeGuidanceModal()" class="btn btn-secondary btn-sm">Close</button>
+        <button onclick="proceedWithAlgorithmicFallback()" class="btn btn-sm" style="background:var(--accent); color:white;">✨ Continue with Free Algorithmic Preview</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Container -->
   <div id="toastContainer" class="toast-container"></div>
 
@@ -859,57 +1267,36 @@
     let activeProjectName = localStorage.getItem("roomlyst_active_project_name") || "Default Project";
     let currentRoom = null;
     let currentFile = null;
+    let selectedIntent = "Empty & Redesign";
     let selectedStyle = "Warm Modern Minimalist";
     let selectedMode = "algorithmic_preview";
     let currentVariants = [];
+    let activeComparisonVariantId = null;
+    let comparisonViewMode = "swipe";
 
-    // DOM Elements
-    const dropzone = document.getElementById("dropzone");
-    const fileInput = document.getElementById("fileInput");
-    const previewContainer = document.getElementById("previewContainer");
-    const imagePreview = document.getElementById("imagePreview");
-    const btnAnalyze = document.getElementById("btnAnalyze");
-    const qualityReportDiv = document.getElementById("qualityReport");
-    const elementsPlaceholder = document.getElementById("elementsPlaceholder");
-    const elementsContainer = document.getElementById("elementsContainer");
-    const structuralWarning = document.getElementById("structuralWarning");
-    const designCard = document.getElementById("designCard");
-    const resultsCard = document.getElementById("resultsCard");
-    const btnGenerate = document.getElementById("btnGenerate");
-    const genBtnText = document.getElementById("genBtnText");
-    const genSpinner = document.getElementById("genSpinner");
-    const sessionVal = document.getElementById("sessionVal");
-    const activeProjectVal = document.getElementById("activeProjectVal");
-    const uploadProgressContainer = document.getElementById("uploadProgressContainer");
-    const uploadProgressBar = document.getElementById("uploadProgressBar");
-
-    // Dynamic Subpath & Base Path Detection (Prompt 10)
+    // Dynamic Base Path Detection
     const API_BASE = (window.location.pathname.startsWith("/roomlyst") || window.location.pathname.startsWith("/roomlyst/")) ? "/roomlyst" : "";
 
     function resolveUrl(path) {
       if (!path) return "";
       if (path.startsWith("http://") || path.startsWith("https://") || path.startsWith("data:")) return path;
       if (!path.startsWith("/")) path = "/" + path;
+      if (API_BASE && path.startsWith(API_BASE)) return path;
       return `${API_BASE}${path}`;
     }
 
-    // Unified API Fetch with Guest Auth and CSRF defense
+    // Unified API Fetch with Guest Auth
     async function apiFetch(url, options = {}) {
       options.headers = options.headers || {};
-      
-      // Attach guest token header for explicit session identity
       if (guestToken) {
         options.headers["X-Guest-Token"] = guestToken;
         options.headers["X-CSRF-Token"] = guestToken;
       }
-      
-      // Include credentials for same-origin cookie transmission
       options.credentials = "include";
 
       const targetUrl = resolveUrl(url);
       const res = await fetch(targetUrl, options);
 
-      // Capture server-issued guest token from headers
       const respGuestToken = res.headers.get("X-Guest-Token") || res.headers.get("X-Guest-Session-ID");
       if (respGuestToken && respGuestToken !== guestToken) {
         guestToken = respGuestToken;
@@ -938,6 +1325,8 @@
     }
 
     function updateSessionDisplay() {
+      const sessionVal = document.getElementById("sessionVal");
+      const activeProjectVal = document.getElementById("activeProjectVal");
       if (guestToken) {
         const shortId = guestToken.split(".")[0].slice(0, 16);
         sessionVal.innerText = `guest_${shortId}...`;
@@ -947,7 +1336,6 @@
       activeProjectVal.innerText = activeProjectName || "Default Project";
     }
 
-    // Modal helpers
     function openModal(id) { document.getElementById(id).classList.remove("hidden"); }
     function closeModal(id) { document.getElementById(id).classList.add("hidden"); }
 
@@ -979,7 +1367,694 @@
       }
     }
 
-    // Projects Management
+    // Intent selection
+    function selectIntent(intentName) {
+      selectedIntent = intentName;
+      document.querySelectorAll(".intent-card").forEach(c => {
+        c.classList.toggle("active", c.dataset.intent === intentName);
+      });
+      showToast(`Selected intent: ${intentName}`, "info");
+    }
+
+    // Style chips
+    document.querySelectorAll(".style-chip").forEach(chip => {
+      chip.addEventListener("click", () => {
+        document.querySelectorAll(".style-chip").forEach(c => c.classList.remove("active"));
+        chip.classList.add("active");
+        selectedStyle = chip.dataset.style;
+      });
+    });
+
+    // Engine mode selection & Track Assessment (Prompt 16)
+    let inpaintingStatusData = null;
+
+    async function fetchInpaintingStatus() {
+      try {
+        const data = await apiFetch("/api/v1/ai/inpainting-status");
+        inpaintingStatusData = data;
+        if (data && data.tracks) {
+          const cloud = data.tracks.cloud_ai;
+          const local = data.tracks.local_ai;
+          const algo = data.tracks.algorithmic_preview;
+
+          const cloudBadge = document.getElementById("cloudStatusBadge");
+          if (cloudBadge && cloud) {
+            cloudBadge.textContent = cloud.is_available ? "Ready" : "Token Required ($0 Gate)";
+            cloudBadge.className = `badge ${cloud.is_available ? 'badge-keep' : 'badge-replace'}`;
+          }
+
+          const localBadge = document.getElementById("localStatusBadge");
+          if (localBadge && local) {
+            localBadge.textContent = local.is_available ? "Ready" : "Worker Offline (No GPU)";
+            localBadge.className = `badge ${local.is_available ? 'badge-keep' : 'badge-replace'}`;
+          }
+
+          const algoBadge = document.getElementById("algoStatusBadge");
+          if (algoBadge && algo) {
+            algoBadge.textContent = "Local LAN · Ready";
+            algoBadge.className = "badge badge-keep";
+          }
+        }
+      } catch (err) {
+        console.warn("Could not fetch inpainting status:", err);
+      }
+    }
+
+    function selectMode(mode) {
+      if (mode === "ai_inpainting") mode = "cloud_ai";
+      if (mode === "local_diffusion") mode = "local_ai";
+      selectedMode = mode;
+
+      const modeCloud = document.getElementById("modeCloudAI");
+      const modeLocal = document.getElementById("modeLocalAI");
+      const modeAlgo = document.getElementById("modeAlgorithmic");
+
+      if (modeCloud) modeCloud.classList.toggle("active", mode === "cloud_ai");
+      if (modeLocal) modeLocal.classList.toggle("active", mode === "local_ai");
+      if (modeAlgo) modeAlgo.classList.toggle("active", mode === "algorithmic_preview");
+
+      if (mode === "cloud_ai") {
+        const isAvail = inpaintingStatusData?.tracks?.cloud_ai?.is_available;
+        if (!isAvail) {
+          openGuidanceModal(
+            "Track A — Cloud AI (Neural Inpainting)",
+            `<div style="padding:12px; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.25); border-radius:8px; margin-bottom:14px; color:#fca5a5;">
+              ⚠️ <strong>Provider Unconfigured ($0.00 Spend Gate Enforced)</strong>
+            </div>
+            <p>Cloud AI utilizes Replicate's SDXL inpainting model to generate genuine photorealistic redesigns.</p>
+            <ul style="margin: 10px 0 14px 20px; color:#94a3b8; font-size:0.85rem;">
+              <li><strong>Spend Gate:</strong> Operating under strict $0.00 unauthorized spend ceiling.</li>
+              <li><strong>Privacy:</strong> Room photographs are not transmitted to third-party cloud services without explicit consent.</li>
+              <li><strong>Cost:</strong> Estimated ~$0.0165 USD per 3-concept batch.</li>
+              <li><strong>Required Configuration:</strong> Set <code>REPLICATE_API_TOKEN</code> in backend environment and authorize cloud data transmission.</li>
+            </ul>
+            <p style="color:#94a3b8; font-size:0.85rem;">You can continue instantly with the free, local <strong>Algorithmic Preview</strong>.</p>`
+          );
+        }
+      } else if (mode === "local_ai") {
+        const isAvail = inpaintingStatusData?.tracks?.local_ai?.is_available;
+        if (!isAvail) {
+          openGuidanceModal(
+            "Track B — Local AI (Self-Hosted Diffusion)",
+            `<div style="padding:12px; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.25); border-radius:8px; margin-bottom:14px; color:#fca5a5;">
+              ⚠️ <strong>Local Diffusion Worker Offline / Dedicated GPU Required</strong>
+            </div>
+            <p>Local AI runs 100% self-hosted on your home network for complete privacy with $0 spend.</p>
+            <div style="background:#0f172a; border:1px solid #334155; border-radius:8px; padding:12px; margin: 12px 0; font-family:monospace; font-size:0.8rem; line-height:1.5;">
+              <div><strong>Host:</strong> llmserver (192.168.0.200)</div>
+              <div><strong>CPU:</strong> AMD Ryzen 5 3500U (4 cores / 8 threads)</div>
+              <div><strong>RAM:</strong> 9.1 GiB (7.9 GiB available)</div>
+              <div><strong>GPU:</strong> None (Integrated AMD Radeon Vega APU, 0 CUDA cores)</div>
+              <div><strong>Feasibility:</strong> NOT FEASIBLE ON CPU (Risk of host OOM, 10+ min/image)</div>
+            </div>
+            <p style="color:#94a3b8; font-size:0.85rem;"><strong>Recommended Architecture:</strong> A dedicated LAN workstation or home PC equipped with an NVIDIA RTX GPU (8GB+ VRAM) running ComfyUI API on port 8188.</p>
+            <p style="color:#94a3b8; font-size:0.85rem;">You can continue instantly with the free, local <strong>Algorithmic Preview</strong>.</p>`
+          );
+        }
+      }
+    }
+
+    function openGuidanceModal(title, htmlContent) {
+      document.getElementById("guidanceModalTitle").innerText = title;
+      document.getElementById("guidanceModalContent").innerHTML = htmlContent;
+      document.getElementById("guidanceModal").classList.remove("hidden");
+    }
+
+    function closeGuidanceModal() {
+      document.getElementById("guidanceModal").classList.add("hidden");
+    }
+
+    function proceedWithAlgorithmicFallback() {
+      closeGuidanceModal();
+      selectMode("algorithmic_preview");
+      showToast("Switched to Free Algorithmic Preview", "success");
+    }
+
+    // File Upload handling
+    const dropzone = document.getElementById("dropzone");
+    const fileInput = document.getElementById("fileInput");
+    const previewContainer = document.getElementById("previewContainer");
+    const imagePreview = document.getElementById("imagePreview");
+    const uploadProgressContainer = document.getElementById("uploadProgressContainer");
+    const uploadProgressBar = document.getElementById("uploadProgressBar");
+
+    dropzone.addEventListener("click", () => fileInput.click());
+    dropzone.addEventListener("dragover", (e) => { e.preventDefault(); dropzone.classList.add("dragover"); });
+    dropzone.addEventListener("dragleave", () => { dropzone.classList.remove("dragover"); });
+    dropzone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropzone.classList.remove("dragover");
+      if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener("change", (e) => {
+      if (e.target.files.length) handleFile(e.target.files[0]);
+    });
+
+    function handleFile(file) {
+      if (!file.type.startsWith("image/")) {
+        showToast("Please select a valid image file (JPEG, PNG, WebP)", "error");
+        return;
+      }
+      if (file.size > 25 * 1024 * 1024) {
+        showToast("File size exceeds 25MB limit", "error");
+        return;
+      }
+      currentFile = file;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        imagePreview.src = e.target.result;
+        previewContainer.classList.remove("hidden");
+        showToast(`Loaded ${file.name} (${(file.size/1024).toFixed(0)} KB)`, "info");
+        // Automatically start room upload and analysis
+        uploadAndAnalyzePhoto();
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // Synthetic demo living room generator
+    document.getElementById("btnLoadDemo").addEventListener("click", () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 800; canvas.height = 600;
+      const ctx = canvas.getContext("2d");
+      
+      // Ceiling
+      ctx.fillStyle = "#e2e8f0"; ctx.fillRect(0, 0, 800, 160);
+      // Main wall
+      ctx.fillStyle = "#cbd5e1"; ctx.fillRect(0, 160, 800, 260);
+      // Floor (Hardwood)
+      ctx.fillStyle = "#b45309"; ctx.fillRect(0, 420, 800, 180);
+      // Window opening (anchor)
+      ctx.fillStyle = "#38bdf8"; ctx.fillRect(440, 180, 260, 160);
+      ctx.strokeStyle = "#1e293b"; ctx.lineWidth = 6; ctx.strokeRect(440, 180, 260, 160);
+      // Sofa
+      ctx.fillStyle = "#475569"; ctx.fillRect(160, 320, 340, 140);
+      // Coffee Table
+      ctx.fillStyle = "#78350f"; ctx.fillRect(240, 470, 180, 50);
+
+      // Noise/Texture
+      const imgData = ctx.getImageData(0, 0, 800, 600);
+      for (let i = 0; i < imgData.data.length; i += 4) {
+        const noise = (Math.random() - 0.5) * 16;
+        imgData.data[i] = Math.min(255, Math.max(0, imgData.data[i] + noise));
+        imgData.data[i+1] = Math.min(255, Math.max(0, imgData.data[i+1] + noise));
+        imgData.data[i+2] = Math.min(255, Math.max(0, imgData.data[i+2] + noise));
+      }
+      ctx.putImageData(imgData, 0, 0);
+
+      canvas.toBlob((blob) => {
+        const file = new File([blob], "sample_living_room.jpg", { type: "image/jpeg" });
+        handleFile(file);
+      }, "image/jpeg");
+    });
+
+    // Upload & Analyze Photo in Background
+    function uploadAndAnalyzePhoto() {
+      if (!currentFile) return;
+      uploadProgressContainer.classList.remove("hidden");
+      uploadProgressBar.style.width = "25%";
+
+      const formData = new FormData();
+      formData.append("file", currentFile);
+      formData.append("room_name", "Living Room Scan");
+      formData.append("platform", document.getElementById("hardwareSelect").value);
+      formData.append("has_lidar", document.getElementById("hardwareSelect").value === "lidar");
+      if (activeProjectId) {
+        formData.append("project_id", activeProjectId);
+      }
+
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", resolveUrl("/api/v1/rooms/upload-and-analyze"), true);
+      xhr.withCredentials = true;
+      if (guestToken) {
+        xhr.setRequestHeader("X-Guest-Token", guestToken);
+        xhr.setRequestHeader("X-CSRF-Token", guestToken);
+      }
+
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          const pct = Math.round((e.loaded / e.total) * 75);
+          uploadProgressBar.style.width = `${pct}%`;
+        }
+      };
+
+      xhr.onload = () => {
+        uploadProgressBar.style.width = "100%";
+        setTimeout(() => { uploadProgressContainer.classList.add("hidden"); }, 500);
+
+        const respGuestToken = xhr.getResponseHeader("X-Guest-Token") || xhr.getResponseHeader("X-Guest-Session-ID");
+        if (respGuestToken && respGuestToken !== guestToken) {
+          guestToken = respGuestToken;
+          localStorage.setItem("roomlyst_guest_token", guestToken);
+          updateSessionDisplay();
+        }
+
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const room = JSON.parse(xhr.responseText);
+            currentRoom = room;
+            if (room.project_id && !activeProjectId) {
+              activeProjectId = room.project_id;
+              localStorage.setItem("roomlyst_active_project_id", activeProjectId);
+              updateSessionDisplay();
+            }
+            renderRoomModel(room);
+            showToast("Room analyzed: Structural anchors & surfaces locked", "success");
+          } catch (e) {
+            console.error("Room parse error", e);
+          }
+        } else {
+          showToast("Upload error: " + xhr.statusText, "error");
+        }
+      };
+
+      xhr.onerror = () => {
+        uploadProgressContainer.classList.add("hidden");
+        showToast("Network error communicating with server", "error");
+      };
+
+      xhr.send(formData);
+    }
+
+    // Generate 3 Redesigns
+    const btnGenerate = document.getElementById("btnGenerate");
+    const genBtnText = document.getElementById("genBtnText");
+    const genSpinner = document.getElementById("genSpinner");
+
+    btnGenerate.addEventListener("click", async () => {
+      if (!currentRoom) {
+        showToast("Please upload or select a room photo first.", "warning");
+        return;
+      }
+      btnGenerate.disabled = true;
+      let modeLabel = `Generating 3 Concepts for "${selectedIntent}"...`;
+      if (selectedMode === "cloud_ai") modeLabel = "Submitting to Cloud AI (Track A)...";
+      else if (selectedMode === "local_ai") modeLabel = "Dispatching to Local AI (Track B)...";
+      genBtnText.innerText = modeLabel;
+      genSpinner.classList.remove("hidden");
+
+      // Show and animate Step Progress Bar (Prompt 17)
+      const progressBox = document.getElementById("genProgressBox");
+      const progressStepText = document.getElementById("genProgressStepText");
+      const progressPct = document.getElementById("genProgressPct");
+      const progressBar = document.getElementById("genProgressBar");
+      if (progressBox) progressBox.classList.remove("hidden");
+
+      let progressTimer = null;
+      if (progressBar && progressStepText) {
+        progressStepText.innerText = "Step 1/3: Analyzing room boundary & perspective anchors...";
+        progressPct.innerText = "33%";
+        progressBar.style.width = "33%";
+
+        progressTimer = setTimeout(() => {
+          progressStepText.innerText = `Step 2/3: Inpainting 3 room arrangements for "${selectedIntent}"...`;
+          progressPct.innerText = "66%";
+          progressBar.style.width = "66%";
+        }, 1200);
+      }
+
+      const payload = {
+        styles: [selectedIntent, selectedStyle],
+        goals: ["modernize", "harmonize", selectedIntent.toLowerCase()],
+        budget_amount: parseFloat(document.getElementById("budgetAmount").value || 15000),
+        budget_currency: document.getElementById("budgetCurrency").value || "MYR",
+        free_text_prompt: document.getElementById("promptText").value || `Redesign space as ${selectedIntent}`,
+        generation_mode: selectedMode
+      };
+
+      try {
+        const version = await apiFetch(`/api/v1/rooms/${currentRoom.id}/design-requests`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        if (progressStepText) {
+          progressStepText.innerText = "Step 3/3: Rendering interactive Before/After comparison...";
+          progressPct.innerText = "100%";
+          progressBar.style.width = "100%";
+        }
+        renderResults(version);
+        showToast("Successfully synthesized redesign concepts", "success");
+      } catch (err) {
+        if (err.message.includes("PROVIDER_UNCONFIGURED") || err.message.includes("503")) {
+          const trackTitle = selectedMode === "local_ai" 
+            ? "Local AI Worker Required (Track B)" 
+            : "Cloud AI Spend Approval Required (Track A)";
+          openGuidanceModal(
+            trackTitle,
+            `<div style="padding:12px; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.25); border-radius:8px; margin-bottom:14px; color:#fca5a5;">
+              ⚠️ <strong>Generation Blocked: Provider Unconfigured</strong>
+            </div>
+            <p style="margin-bottom:10px;">${err.message}</p>
+            <p style="color:#94a3b8; font-size:0.85rem;">In accordance with Roomlyst release safety rules, unconfigured realistic providers fail closed rather than secretly substituting flat algorithmic composites. You can continue instantly with the free Algorithmic Preview.</p>`
+          );
+          return;
+        }
+        showToast(`Generation Error: ${err.message}`, "error");
+      } finally {
+        if (progressTimer) clearTimeout(progressTimer);
+        if (progressBox) progressBox.classList.add("hidden");
+        btnGenerate.disabled = false;
+        genBtnText.innerText = "✨ Generate 3 Redesign Concepts";
+        genSpinner.classList.add("hidden");
+      }
+    });
+
+    // Render 3 Concept Results
+    function renderResults(version) {
+      document.getElementById("resultsCard").classList.remove("hidden");
+      currentVariants = version.variants || [];
+      const grid = document.getElementById("variantsGrid");
+      const resultsBadge = document.getElementById("resultsBadge");
+      if (resultsBadge) {
+        resultsBadge.innerText = currentVariants.length === 3 
+          ? "Concept A, B, & C Synthesized" 
+          : `${currentVariants.length} Concepts Synthesized`;
+      }
+
+      grid.innerHTML = currentVariants.map((v, i) => {
+        const varId = v.variant_id || v.id;
+        const isFav = !!v.is_favorite;
+        const letter = String.fromCharCode(65 + i);
+        const costStr = v.estimated_cost ? `${version.constraints?.budget_currency || 'MYR'} ${v.estimated_cost.toLocaleString()}` : 'Estimated';
+        const isNeural = !!v.is_genuine_neural;
+        const engineLabel = isNeural ? 'Genuine Neural Redesign' : 'Algorithmic Preview (Not Photorealistic)';
+
+        return `
+          <div class="variant-card" id="variantCard_${varId}">
+            <div class="variant-img-wrap" onclick="selectComparisonConcept('${varId}')">
+              <img src="${resolveUrl(v.image_url)}" class="variant-img" alt="${v.title}">
+              <div class="variant-badge-overlay">Concept ${letter}</div>
+              <div class="honest-engine-badge">${engineLabel}</div>
+              <button class="favorite-btn ${isFav ? 'favorited' : ''}" id="favBtn_${varId}" onclick="event.stopPropagation(); toggleFavorite('${varId}')" title="Toggle Favorite">
+                ${isFav ? '★' : '☆'}
+              </button>
+            </div>
+            <div class="variant-body">
+              <div>
+                <div style="font-weight:700; font-size:1.05rem;">${v.title}</div>
+                <div style="font-size:0.85rem; color:var(--text-muted); margin-top:4px;">${v.description}</div>
+              </div>
+
+              <div>
+                <div style="font-size:0.75rem; color:var(--text-muted); margin-top:10px; display:flex; justify-content:space-between;">
+                  <span>Anchor Score: <strong>${((v.structural_preservation_score || 0.92) * 100).toFixed(0)}%</strong></span>
+                  <span>Est: ${costStr}</span>
+                </div>
+
+                <div class="variant-actions">
+                  <button onclick="selectComparisonConcept('${varId}')" class="btn btn-sm" style="flex:1;">
+                    ⚖ Compare Before & After
+                  </button>
+                  <button onclick="openComparison('${varId}')" class="btn btn-secondary btn-sm">
+                    🔍 Enlarge
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      // Render thumbnails in comparison module
+      renderComparisonThumbnails();
+
+      // Automatically select Concept A as active comparison
+      if (currentVariants.length > 0) {
+        selectComparisonConcept(currentVariants[0].variant_id || currentVariants[0].id);
+      }
+
+      document.getElementById("resultsCard").scrollIntoView({ behavior: "smooth" });
+    }
+
+    // Render Thumbnails in Comparison Module
+    function renderComparisonThumbnails() {
+      const container = document.getElementById("thumbnailsStrip");
+      container.innerHTML = currentVariants.map((v, i) => {
+        const varId = v.variant_id || v.id;
+        const letter = String.fromCharCode(65 + i);
+        return `
+          <div class="thumb-card ${varId === activeComparisonVariantId ? 'active' : ''}" id="thumb_${varId}" onclick="selectComparisonConcept('${varId}')">
+            <img src="${resolveUrl(v.image_url)}" class="thumb-img" alt="${v.title}">
+            <div>
+              <div style="font-weight:700; font-size:0.85rem;">Concept ${letter}</div>
+              <div style="font-size:0.72rem; color:var(--text-muted);">${v.style || 'Redesign'}</div>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    // Select comparison concept
+    function selectComparisonConcept(variantId) {
+      activeComparisonVariantId = variantId;
+      const v = currentVariants.find(x => (x.variant_id || x.id) === variantId);
+      if (!v || !currentRoom) return;
+
+      const compCard = document.getElementById("comparisonCard");
+      compCard.classList.remove("hidden");
+
+      // Original URL
+      const origUrl = resolveUrl(currentRoom.original_image_url) || imagePreview.src;
+      const variantUrl = resolveUrl(v.image_url);
+
+      // Update Swipe Images
+      document.getElementById("sliderOriginalImg").src = origUrl;
+      document.getElementById("sliderVariantImg").src = variantUrl;
+      document.getElementById("sliderAfterLabel").innerText = `After (${v.title})`;
+
+      // Update Side-by-Side Images
+      document.getElementById("sideOriginalImg").src = origUrl;
+      document.getElementById("sideVariantImg").src = variantUrl;
+      document.getElementById("sideVariantLabel").innerText = v.title;
+
+      // Update details box
+      document.getElementById("comparisonDetailsBox").innerHTML = `
+        <div style="background:#111827; padding:12px 16px; border-radius:8px; border:1px solid #22314e;">
+          <strong style="color:#f1f5f9;">${v.title}</strong> — ${v.description}<br>
+          <span style="color:#38bdf8; font-size:0.8rem; margin-top:4px; display:inline-block;">Preserved Anchors:</span> ${(v.changes_made||[]).join(" · ")}
+        </div>
+      `;
+
+      // Update active thumbnail
+      document.querySelectorAll(".thumb-card").forEach(el => el.classList.remove("active"));
+      const activeThumb = document.getElementById(`thumb_${variantId}`);
+      if (activeThumb) activeThumb.classList.add("active");
+
+      // Reset slider to 50%
+      setSliderPosition(50);
+    }
+
+    // Interactive Slider Logic
+    const sliderStage = document.getElementById("swipeStage");
+    const sliderAfterWrap = document.getElementById("sliderAfterWrap");
+    const sliderHandle = document.getElementById("sliderHandle");
+    let isDraggingSlider = false;
+
+    function setSliderPosition(percentage) {
+      percentage = Math.max(0, Math.min(100, percentage));
+      sliderAfterWrap.style.width = `${percentage}%`;
+      sliderHandle.style.left = `${percentage}%`;
+    }
+
+    function onSliderMove(e) {
+      if (!isDraggingSlider) return;
+      const rect = sliderStage.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const offset = clientX - rect.left;
+      const percentage = (offset / rect.width) * 100;
+      setSliderPosition(percentage);
+    }
+
+    sliderStage.addEventListener("mousedown", (e) => { isDraggingSlider = true; onSliderMove(e); });
+    window.addEventListener("mousemove", onSliderMove);
+    window.addEventListener("mouseup", () => { isDraggingSlider = false; });
+
+    sliderStage.addEventListener("touchstart", (e) => { isDraggingSlider = true; onSliderMove(e); }, { passive: true });
+    window.addEventListener("touchmove", onSliderMove, { passive: true });
+    window.addEventListener("touchend", () => { isDraggingSlider = false; });
+
+    // Switch Comparison View Mode
+    function setComparisonMode(mode) {
+      comparisonViewMode = mode;
+      document.getElementById("btnViewSwipe").classList.toggle("active", mode === "swipe");
+      document.getElementById("btnViewSide").classList.toggle("active", mode === "side");
+      document.getElementById("swipeStage").classList.toggle("hidden", mode !== "swipe");
+      document.getElementById("sideStage").classList.toggle("hidden", mode !== "side");
+    }
+
+    // Fullscreen Comparison Modal
+    function openFullscreenModal() {
+      if (activeComparisonVariantId) {
+        openComparison(activeComparisonVariantId);
+      }
+    }
+
+    function openComparison(variantId) {
+      const v = currentVariants.find(x => (x.variant_id || x.id) === variantId);
+      if (!v || !currentRoom) return;
+
+      document.getElementById("compOriginalImg").src = resolveUrl(currentRoom.original_image_url) || imagePreview.src;
+      document.getElementById("compVariantImg").src = resolveUrl(v.image_url);
+      document.getElementById("compVariantLabel").innerText = `${v.title} (${((v.structural_preservation_score||0.92)*100).toFixed(0)}% Anchor Score)`;
+      document.getElementById("compDetails").innerHTML = `
+        <div style="background:#0f172a; padding:12px; border-radius:8px; border:1px solid #22314e;">
+          <strong>Concept Details:</strong> ${v.description}<br>
+          <span style="color:#38bdf8;">Applied Modifications:</span> ${(v.changes_made||[]).join(" · ")}
+        </div>
+      `;
+      openModal("comparisonModal");
+    }
+
+    // Toggle Favorite
+    async function toggleFavorite(variantId) {
+      if (!currentRoom) return;
+      const btn = document.getElementById(`favBtn_${variantId}`);
+      const isCurrentlyFav = btn.classList.contains("favorited");
+      const targetState = !isCurrentlyFav;
+
+      try {
+        const updated = await apiFetch(`/api/v1/rooms/${currentRoom.id}/variants/${variantId}/favorite`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ is_favorite: targetState })
+        });
+        btn.classList.toggle("favorited", updated.is_favorite);
+        btn.innerText = updated.is_favorite ? '★' : '☆';
+        showToast(updated.is_favorite ? "Starred concept variant" : "Removed from favorites", "info");
+      } catch (e) {
+        showToast(`Failed to toggle favorite: ${e.message}`, "error");
+      }
+    }
+
+    // Toggle Advanced Section
+    function toggleAdvancedSection() {
+      const content = document.getElementById("advancedContent");
+      const arrow = document.getElementById("advancedToggleArrow");
+      const isHidden = content.classList.contains("hidden");
+      content.classList.toggle("hidden", !isHidden);
+      arrow.style.transform = isHidden ? "rotate(180deg)" : "rotate(0deg)";
+    }
+
+    // Render Room Model Elements in Advanced Section
+    function renderRoomModel(room) {
+      const ph = document.getElementById("elementsPlaceholder");
+      const ec = document.getElementById("elementsContainer");
+      if (ph) ph.classList.add("hidden");
+      if (ec) ec.classList.remove("hidden");
+
+      if (room.original_image_url) {
+        imagePreview.src = resolveUrl(room.original_image_url);
+        previewContainer.classList.remove("hidden");
+      }
+
+      // Quality Report
+      if (room.quality_report) {
+        const qr = room.quality_report;
+        const qDiv = document.getElementById("qualityReport");
+        qDiv.classList.remove("hidden");
+        qDiv.innerHTML = `
+          <div style="background:rgba(16,185,129,0.1); border:1px solid #059669; padding:8px 12px; border-radius:6px; font-size:0.8rem; color:#34d399;">
+            ✓ Photo Quality Approved · Blur: ${qr.blur_score || 0} · Exposure: ${qr.exposure_mean || 0} · ${qr.width_px || 0}x${qr.height_px || 0}px
+          </div>
+        `;
+      }
+
+      // Openings (Windows, Doors)
+      const openingsList = document.getElementById("openingsList");
+      if (openingsList) {
+        openingsList.innerHTML = (room.openings || []).map(opn => `
+          <div class="element-row">
+            <div class="element-info">
+              <span class="element-name">${opn.name} <span class="badge badge-keep" style="font-size:0.65rem;">Anchor</span></span>
+              <span class="element-sub">${opn.opening_type} · Confidence: ${(opn.confidence*100).toFixed(0)}%</span>
+            </div>
+            <select class="action-select" onchange="handleActionChange('${opn.id}', this.value, true)">
+              <option value="KEEP" ${opn.action==='KEEP'?'selected':''}>Keep (Anchor)</option>
+              <option value="REPLACE" ${opn.action==='REPLACE'?'selected':''}>Replace Window/Door</option>
+              <option value="REMOVE">Remove (Guard Alert)</option>
+            </select>
+          </div>
+        `).join("") || '<div style="color:var(--text-muted); font-size:0.8rem;">No architectural openings detected.</div>';
+      }
+
+      // Surfaces
+      const surfacesList = document.getElementById("surfacesList");
+      if (surfacesList) {
+        surfacesList.innerHTML = (room.surfaces || []).map(s => `
+          <div class="element-row">
+            <div class="element-info">
+              <span class="element-name">${s.name}</span>
+              <span class="element-sub">Detected: ${s.material_detected || 'Unknown'} · Approx ${s.estimated_area_sqm || 0} m²</span>
+            </div>
+            <select class="action-select" onchange="handleActionChange('${s.id}', this.value, false)">
+              <option value="KEEP" ${s.action==='KEEP'?'selected':''}>Keep Finish</option>
+              <option value="REPLACE" ${s.action==='REPLACE'?'selected':''}>Replace Finish</option>
+              <option value="RESTYLE" ${s.action==='RESTYLE'?'selected':''}>Restyle Texture</option>
+            </select>
+          </div>
+        `).join("") || '<div style="color:var(--text-muted); font-size:0.8rem;">No boundaries detected.</div>';
+      }
+
+      // Furniture & Objects
+      const objectsList = document.getElementById("objectsList");
+      if (objectsList) {
+        objectsList.innerHTML = (room.objects || []).map(obj => `
+          <div class="element-row">
+            <div class="element-info">
+              <span class="element-name">${obj.name}</span>
+              <span class="element-sub">${obj.category} · ${(obj.confidence*100).toFixed(0)}% confidence</span>
+            </div>
+            <select class="action-select" onchange="handleActionChange('${obj.id}', this.value, false)">
+              <option value="KEEP" ${obj.action==='KEEP'?'selected':''}>Keep</option>
+              <option value="REPLACE" ${obj.action==='REPLACE'?'selected':''}>Replace</option>
+              <option value="REMOVE" ${obj.action==='REMOVE'?'selected':''}>Remove</option>
+              <option value="RESTYLE" ${obj.action==='RESTYLE'?'selected':''}>Restyle</option>
+            </select>
+          </div>
+        `).join("") || '<div style="color:var(--text-muted); font-size:0.8rem;">No furniture objects detected.</div>';
+      }
+
+      // Measurements
+      const measurementsList = document.getElementById("measurementsList");
+      if (measurementsList) {
+        measurementsList.innerHTML = (room.measurements || []).map(m => `
+          <div class="element-row">
+            <div class="element-info">
+              <span class="element-name">${m.measurement_type}: Approx. ${m.value} ${m.unit}</span>
+              <span class="element-sub">Source: ${m.source} · Confidence: ${(m.confidence*100).toFixed(0)}%</span>
+            </div>
+            <span class="badge ${m.verified_by_user ? 'badge-keep':'badge-replace'}">
+              ${m.verified_by_user ? 'Verified' : 'Approximate'}
+            </span>
+          </div>
+        `).join("") || '<div style="color:var(--text-muted); font-size:0.8rem;">No measurement estimates available.</div>';
+      }
+    }
+
+    // Structural Conflict Guard and Action Update
+    async function handleActionChange(elementId, newAction, isStructural) {
+      if (isStructural && newAction === "REMOVE") {
+        const sw = document.getElementById("structuralWarning");
+        sw.classList.remove("hidden");
+        showToast("Structural Warning: Load-bearing openings cannot be removed. Kept as anchor.", "warning");
+        setTimeout(() => { sw.classList.add("hidden"); }, 5000);
+        return;
+      }
+
+      if (!currentRoom) return;
+      try {
+        await apiFetch(`/api/v1/rooms/${currentRoom.id}/elements/${elementId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: newAction })
+        });
+        showToast(`Updated element action to ${newAction}`, "info");
+      } catch (e) {
+        showToast(`Failed to update element: ${e.message}`, "error");
+      }
+    }
+
+    // Projects Management & Refresh Safe Loading
     async function openProjectModal() {
       openModal("projectModal");
       const list = document.getElementById("projectsList");
@@ -1017,30 +2092,36 @@
       loadProjectRooms(id);
     }
 
+    // Robust Project Rooms Loading on Refresh
     async function loadProjectRooms(projId) {
       try {
         const proj = await apiFetch(`/api/v1/projects/${projId}`);
-        const rooms = proj.rooms || [];
+        let rooms = proj.rooms || [];
+
+        // If proj.rooms is empty but room_ids has items, fetch latest room model directly
+        if ((!rooms || rooms.length === 0) && proj.room_ids && proj.room_ids.length > 0) {
+          const latestRoomId = proj.room_ids[proj.room_ids.length - 1];
+          try {
+            const rm = await apiFetch(`/api/v1/rooms/${latestRoomId}/model`);
+            if (rm) rooms = [rm];
+          } catch(e) {}
+        }
+
         if (rooms && rooms.length > 0) {
           const latestRoom = rooms[rooms.length - 1];
           currentRoom = latestRoom;
           renderRoomModel(latestRoom);
-          if (latestRoom.original_image_url) {
-            imagePreview.src = resolveUrl(latestRoom.original_image_url);
-            previewContainer.classList.remove("hidden");
-          }
-          designCard.classList.remove("hidden");
+
           if (latestRoom.versions && latestRoom.versions.length > 0) {
             const latestVer = latestRoom.versions[latestRoom.versions.length - 1];
             renderResults(latestVer);
           }
-          showToast(`Reopened latest room: ${latestRoom.name}`, "info");
+          showToast(`Reopened room: ${latestRoom.name}`, "info");
         }
       } catch (e) {
         console.error("Room reopen error:", e);
       }
     }
-
 
     document.getElementById("btnCreateProjectSubmit").addEventListener("click", async () => {
       const nameInput = document.getElementById("newProjectNameInput");
@@ -1061,7 +2142,7 @@
     document.getElementById("btnSwitchProject").addEventListener("click", openProjectModal);
     document.getElementById("btnNewProject").addEventListener("click", openProjectModal);
     document.getElementById("btnNewSession").addEventListener("click", () => {
-      if (confirm("Clear local guest session and start a new anonymous guest session?")) {
+      if (confirm("Reset local guest session and start fresh?")) {
         localStorage.removeItem("roomlyst_guest_token");
         localStorage.removeItem("roomlyst_active_project_id");
         localStorage.removeItem("roomlyst_active_project_name");
@@ -1073,487 +2154,13 @@
       }
     });
 
-    // File Upload handling
-    dropzone.addEventListener("click", () => fileInput.click());
-    dropzone.addEventListener("dragover", (e) => { e.preventDefault(); dropzone.classList.add("dragover"); });
-    dropzone.addEventListener("dragleave", () => { dropzone.classList.remove("dragover"); });
-    dropzone.addEventListener("drop", (e) => {
-      e.preventDefault();
-      dropzone.classList.remove("dragover");
-      if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
-    });
-    fileInput.addEventListener("change", (e) => {
-      if (e.target.files.length) handleFile(e.target.files[0]);
-    });
-
-    function handleFile(file) {
-      if (!file.type.startsWith("image/")) {
-        showToast("Please select a valid image file (JPEG, PNG, WebP)", "error");
-        return;
-      }
-      if (file.size > 25 * 1024 * 1024) {
-        showToast("File size exceeds 25MB limit", "error");
-        return;
-      }
-      currentFile = file;
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        imagePreview.src = e.target.result;
-        previewContainer.classList.remove("hidden");
-        btnAnalyze.disabled = false;
-        showToast(`Loaded ${file.name} (${(file.size/1024).toFixed(0)} KB)`, "info");
-      };
-      reader.readAsDataURL(file);
-    }
-
-    // Demo Room Generator (Creates synthetic test living room photo)
-    document.getElementById("btnLoadDemo").addEventListener("click", () => {
-      const canvas = document.createElement("canvas");
-      canvas.width = 800; canvas.height = 600;
-      const ctx = canvas.getContext("2d");
-      
-      // Ceiling
-      ctx.fillStyle = "#e2e8f0"; ctx.fillRect(0, 0, 800, 160);
-      // Main wall
-      ctx.fillStyle = "#cbd5e1"; ctx.fillRect(0, 160, 800, 260);
-      // Floor (Hardwood)
-      ctx.fillStyle = "#b45309"; ctx.fillRect(0, 420, 800, 180);
-      // Window opening (anchor)
-      ctx.fillStyle = "#38bdf8"; ctx.fillRect(440, 180, 260, 160);
-      ctx.strokeStyle = "#1e293b"; ctx.lineWidth = 6; ctx.strokeRect(440, 180, 260, 160);
-      // Sofa
-      ctx.fillStyle = "#475569"; ctx.fillRect(160, 320, 340, 140);
-      // Coffee Table
-      ctx.fillStyle = "#78350f"; ctx.fillRect(240, 470, 180, 50);
-
-      // Noise/Texture
-      const imgData = ctx.getImageData(0, 0, 800, 600);
-      for (let i = 0; i < imgData.data.length; i += 4) {
-        const noise = (Math.random() - 0.5) * 16;
-        imgData.data[i] = Math.min(255, Math.max(0, imgData.data[i] + noise));
-        imgData.data[i+1] = Math.min(255, Math.max(0, imgData.data[i+1] + noise));
-        imgData.data[i+2] = Math.min(255, Math.max(0, imgData.data[i+2] + noise));
-      }
-      ctx.putImageData(imgData, 0, 0);
-
-      canvas.toBlob((blob) => {
-        const file = new File([blob], "sample_living_room.jpg", { type: "image/jpeg" });
-        handleFile(file);
-      }, "image/jpeg");
-    });
-
-    // Style Chips
-    document.querySelectorAll(".style-chip").forEach(chip => {
-      chip.addEventListener("click", () => {
-        document.querySelectorAll(".style-chip").forEach(c => c.classList.remove("active"));
-        chip.classList.add("active");
-        selectedStyle = chip.dataset.style;
-      });
-    });
-
-    // Mode Selector
-    function selectMode(mode) {
-      selectedMode = mode;
-      document.getElementById("modeAlgorithmic").classList.toggle("active", mode === "algorithmic_preview");
-      document.getElementById("modeInpainting").classList.toggle("active", mode === "ai_inpainting");
-
-      if (mode === "ai_inpainting") {
-        showToast("Note: AI inpainting requires cloud provider credentials. If unconfigured, the system gracefully recommends Algorithmic Preview.", "warning");
-      }
-    }
-
-    // Run Room Analyzer
-    btnAnalyze.addEventListener("click", () => {
-      if (!currentFile) return;
-      btnAnalyze.disabled = true;
-      btnAnalyze.innerHTML = '<div class="spinner"></div> Uploading & Analyzing Room...';
-      uploadProgressContainer.classList.remove("hidden");
-      uploadProgressBar.style.width = "20%";
-
-      const formData = new FormData();
-      formData.append("file", currentFile);
-      formData.append("room_name", "Living Room Scan");
-      formData.append("platform", document.getElementById("hardwareSelect").value);
-      formData.append("has_lidar", document.getElementById("hardwareSelect").value === "lidar");
-      if (activeProjectId) {
-        formData.append("project_id", activeProjectId);
-      }
-
-      const xhr = new XMLHttpRequest();
-      xhr.open("POST", resolveUrl("/api/v1/rooms/upload-and-analyze"), true);
-      xhr.withCredentials = true;
-      if (guestToken) {
-        xhr.setRequestHeader("X-Guest-Token", guestToken);
-        xhr.setRequestHeader("X-CSRF-Token", guestToken);
-      }
-
-      xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable) {
-          const pct = Math.round((e.loaded / e.total) * 70);
-          uploadProgressBar.style.width = `${pct}%`;
-        }
-      };
-
-      xhr.onload = () => {
-        uploadProgressBar.style.width = "100%";
-        setTimeout(() => { uploadProgressContainer.classList.add("hidden"); }, 500);
-
-        // Capture session header
-        const respGuestToken = xhr.getResponseHeader("X-Guest-Token") || xhr.getResponseHeader("X-Guest-Session-ID");
-        if (respGuestToken && respGuestToken !== guestToken) {
-          guestToken = respGuestToken;
-          localStorage.setItem("roomlyst_guest_token", guestToken);
-          updateSessionDisplay();
-        }
-
-        if (xhr.status >= 200 && xhr.status < 300) {
-          try {
-            const room = JSON.parse(xhr.responseText);
-            currentRoom = room;
-            if (room.project_id && !activeProjectId) {
-              activeProjectId = room.project_id;
-              localStorage.setItem("roomlyst_active_project_id", activeProjectId);
-              updateSessionDisplay();
-            }
-            renderRoomModel(room);
-            designCard.classList.remove("hidden");
-            btnAnalyze.innerHTML = '<span>Analysis Complete ✓</span>';
-            showToast("Room analysis complete: Architecture and surfaces identified", "success");
-          } catch (e) {
-            showToast("Failed to parse room response", "error");
-            btnAnalyze.disabled = false;
-            btnAnalyze.innerHTML = '<span>Run Room Understanding</span>';
-          }
-        } else {
-          let errDetail = "Upload failed";
-          try { errDetail = JSON.parse(xhr.responseText).detail || errDetail; } catch(e) {}
-          showToast(`Analysis Error: ${errDetail}`, "error");
-          btnAnalyze.disabled = false;
-          btnAnalyze.innerHTML = '<span>Run Room Understanding</span>';
-        }
-      };
-
-      xhr.onerror = () => {
-        uploadProgressContainer.classList.add("hidden");
-        showToast("Network error communicating with Roomlyst server", "error");
-        btnAnalyze.disabled = false;
-        btnAnalyze.innerHTML = '<span>Run Room Understanding</span>';
-      };
-
-      xhr.send(formData);
-    });
-
-    // Render Room Model
-    function renderRoomModel(room) {
-      elementsPlaceholder.classList.add("hidden");
-      elementsContainer.classList.remove("hidden");
-
-      // Quality Report
-      if (room.quality_report) {
-        const qr = room.quality_report;
-        qualityReportDiv.classList.remove("hidden");
-        qualityReportDiv.innerHTML = `
-          <div style="background:rgba(16,185,129,0.1); border:1px solid #059669; padding:8px 12px; border-radius:6px; font-size:0.8rem; color:#34d399;">
-            ✓ Photo Quality Approved · Blur: ${qr.blur_score || 0} · Exposure: ${qr.exposure_mean || 0} · ${qr.width_px || 0}x${qr.height_px || 0}px
-          </div>
-        `;
-      }
-
-      // Openings (Windows, Doors)
-      const openingsList = document.getElementById("openingsList");
-      openingsList.innerHTML = (room.openings || []).map(opn => `
-        <div class="element-row">
-          <div class="element-info">
-            <span class="element-name">${opn.name} <span class="badge badge-keep" style="font-size:0.65rem;">Anchor</span></span>
-            <span class="element-sub">${opn.opening_type} · Confidence: ${(opn.confidence*100).toFixed(0)}%</span>
-          </div>
-          <select class="action-select" onchange="handleActionChange('${opn.id}', this.value, true)">
-            <option value="KEEP" ${opn.action==='KEEP'?'selected':''}>Keep (Anchor)</option>
-            <option value="REPLACE" ${opn.action==='REPLACE'?'selected':''}>Replace Window/Door</option>
-            <option value="REMOVE">Remove (Guard Alert)</option>
-          </select>
-        </div>
-      `).join("") || '<div style="color:var(--text-muted); font-size:0.8rem;">No architectural openings detected.</div>';
-
-      // Surfaces
-      const surfacesList = document.getElementById("surfacesList");
-      surfacesList.innerHTML = (room.surfaces || []).map(s => `
-        <div class="element-row">
-          <div class="element-info">
-            <span class="element-name">${s.name}</span>
-            <span class="element-sub">Detected: ${s.material_detected || 'Unknown'} · Approx ${s.estimated_area_sqm || 0} m²</span>
-          </div>
-          <select class="action-select" onchange="handleActionChange('${s.id}', this.value, false)">
-            <option value="KEEP" ${s.action==='KEEP'?'selected':''}>Keep Finish</option>
-            <option value="REPLACE" ${s.action==='REPLACE'?'selected':''}>Replace Finish</option>
-            <option value="RESTYLE" ${s.action==='RESTYLE'?'selected':''}>Restyle Texture</option>
-          </select>
-        </div>
-      `).join("") || '<div style="color:var(--text-muted); font-size:0.8rem;">No boundaries detected.</div>';
-
-      // Furniture & Objects
-      const objectsList = document.getElementById("objectsList");
-      objectsList.innerHTML = (room.objects || []).map(obj => `
-        <div class="element-row">
-          <div class="element-info">
-            <span class="element-name">${obj.name}</span>
-            <span class="element-sub">${obj.category} · ${(obj.confidence*100).toFixed(0)}% confidence</span>
-          </div>
-          <select class="action-select" onchange="handleActionChange('${obj.id}', this.value, false)">
-            <option value="KEEP" ${obj.action==='KEEP'?'selected':''}>Keep</option>
-            <option value="REPLACE" ${obj.action==='REPLACE'?'selected':''}>Replace</option>
-            <option value="REMOVE" ${obj.action==='REMOVE'?'selected':''}>Remove</option>
-            <option value="RESTYLE" ${obj.action==='RESTYLE'?'selected':''}>Restyle</option>
-          </select>
-        </div>
-      `).join("") || '<div style="color:var(--text-muted); font-size:0.8rem;">No furniture objects detected.</div>';
-
-      // Measurements
-      const measurementsList = document.getElementById("measurementsList");
-      measurementsList.innerHTML = (room.measurements || []).map(m => `
-        <div class="element-row">
-          <div class="element-info">
-            <span class="element-name">${m.measurement_type}: Approx. ${m.value} ${m.unit}</span>
-            <span class="element-sub">Source: ${m.source} · Confidence: ${(m.confidence*100).toFixed(0)}%</span>
-          </div>
-          <span class="badge ${m.verified_by_user ? 'badge-keep':'badge-replace'}">
-            ${m.verified_by_user ? 'Verified' : 'Approximate'}
-          </span>
-        </div>
-      `).join("") || '<div style="color:var(--text-muted); font-size:0.8rem;">No measurement estimates available.</div>';
-    }
-
-    // Structural Conflict Guard and Action Update
-    async function handleActionChange(elementId, newAction, isStructural) {
-      if (isStructural && newAction === "REMOVE") {
-        structuralWarning.classList.remove("hidden");
-        showToast("Structural Warning: Load-bearing openings cannot be removed. Kept as anchor.", "warning");
-        setTimeout(() => { structuralWarning.classList.add("hidden"); }, 5000);
-        return;
-      }
-
-      if (!currentRoom) return;
-      try {
-        await apiFetch(`/api/v1/rooms/${currentRoom.id}/elements/${elementId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: newAction })
-        });
-        showToast(`Updated element action to ${newAction}`, "info");
-      } catch (e) {
-        showToast(`Failed to update element: ${e.message}`, "error");
-      }
-    }
-
-    // Generate Redesigns
-    btnGenerate.addEventListener("click", async () => {
-      if (!currentRoom) return;
-      btnGenerate.disabled = true;
-      genBtnText.innerText = selectedMode === "ai_inpainting" 
-        ? "Submitting to AI Inpainting Pipeline..." 
-        : "Synthesizing 3 Algorithmic Preview Variants...";
-      genSpinner.classList.remove("hidden");
-
-      const payload = {
-        styles: [selectedStyle],
-        goals: ["modernize", "harmonize"],
-        budget_amount: parseFloat(document.getElementById("budgetAmount").value || 15000),
-        budget_currency: document.getElementById("budgetCurrency").value || "MYR",
-        free_text_prompt: document.getElementById("promptText").value || "",
-        generation_mode: selectedMode
-      };
-
-      try {
-        const version = await apiFetch(`/api/v1/rooms/${currentRoom.id}/design-requests`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        });
-        renderResults(version);
-        showToast("Successfully generated 3 redesign concepts", "success");
-      } catch (err) {
-        if (err.message.includes("PROVIDER_UNCONFIGURED") || err.message.includes("503")) {
-          showToast("AI Inpainting provider unconfigured on server. Switched to Algorithmic Preview.", "warning");
-          selectMode("algorithmic_preview");
-          btnGenerate.disabled = false;
-          genBtnText.innerText = "Generate 3 Structurally Preserved Redesigns";
-          genSpinner.classList.add("hidden");
-          btnGenerate.click();
-          return;
-        }
-        showToast(`Generation Error: ${err.message}`, "error");
-      } finally {
-        btnGenerate.disabled = false;
-        genBtnText.innerText = "Generate 3 Structurally Preserved Redesigns";
-        genSpinner.classList.add("hidden");
-      }
-    });
-
-    // Render 3-Variant Results
-    function renderResults(version) {
-      resultsCard.classList.remove("hidden");
-      currentVariants = version.variants || [];
-      const grid = document.getElementById("variantsGrid");
-
-      grid.innerHTML = currentVariants.map((v, i) => {
-        const varId = v.variant_id || v.id;
-        const isFav = !!v.is_favorite;
-        const changes = (v.changes_made || []).map(c => `<li>${c}</li>`).join("");
-        const costStr = v.estimated_cost ? `${version.constraints?.budget_currency || 'MYR'} ${v.estimated_cost.toLocaleString()}` : 'Within Budget';
-
-        return `
-          <div class="variant-card" id="variantCard_${varId}">
-            <div class="variant-img-wrap">
-              <img src="${resolveUrl(v.image_url)}" class="variant-img" alt="${v.title}">
-              <div class="variant-badge-overlay">Concept 0${i+1}</div>
-              <button class="favorite-btn ${isFav ? 'favorited' : ''}" id="favBtn_${varId}" onclick="toggleFavorite('${varId}')" title="Toggle Favorite">
-                ${isFav ? '★' : '☆'}
-              </button>
-            </div>
-            <div class="variant-body">
-              <div>
-                <div style="font-weight:700; font-size:1.05rem;">${v.title}</div>
-                <div style="font-size:0.85rem; color:var(--text-muted); margin-top:4px;">${v.description}</div>
-                
-                <div style="margin-top:12px; font-size:0.8rem; color:#cbd5e1;">
-                  <strong>Structural Changes:</strong>
-                  <ul style="margin-left:18px; margin-top:4px; line-height:1.4;">
-                    ${changes || '<li>Retained architectural anchors and surfaces</li>'}
-                  </ul>
-                </div>
-              </div>
-
-              <div>
-                <div class="preservation-meter">
-                  <span>Structural Anchor Score</span>
-                  <strong>${((v.structural_preservation_score || 0.85) * 100).toFixed(0)}%</strong>
-                </div>
-                <div style="font-size:0.75rem; color:var(--text-muted); margin-top:6px; display:flex; justify-content:space-between;">
-                  <span>Est. Cost: ${costStr}</span>
-                  <span>Latency: ${version.generation_latency_ms || 240}ms</span>
-                </div>
-
-                <div class="variant-actions">
-                  <button onclick="openComparison('${varId}')" class="btn btn-secondary btn-sm" style="flex:1;">
-                    ⚖ Compare
-                  </button>
-                  <button onclick="evaluateOllama('${varId}')" class="btn btn-secondary btn-sm" style="flex:1;">
-                    🧠 Ollama AI
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        `;
-      }).join("");
-
-      resultsCard.scrollIntoView({ behavior: "smooth" });
-    }
-
-    // Toggle Favorite
-    async function toggleFavorite(variantId) {
-      if (!currentRoom) return;
-      const btn = document.getElementById(`favBtn_${variantId}`);
-      const isCurrentlyFav = btn.classList.contains("favorited");
-      const targetState = !isCurrentlyFav;
-
-      try {
-        const updated = await apiFetch(`/api/v1/rooms/${currentRoom.id}/variants/${variantId}/favorite`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ is_favorite: targetState })
-        });
-        btn.classList.toggle("favorited", updated.is_favorite);
-        btn.innerText = updated.is_favorite ? '★' : '☆';
-        showToast(updated.is_favorite ? "Starred concept variant" : "Removed from favorites", "info");
-      } catch (e) {
-        showToast(`Failed to toggle favorite: ${e.message}`, "error");
-      }
-    }
-
-    // Side-by-Side Comparison
-    function openComparison(variantId) {
-      const v = currentVariants.find(x => (x.variant_id || x.id) === variantId);
-      if (!v || !currentRoom) return;
-
-      document.getElementById("compOriginalImg").src = resolveUrl(currentRoom.original_image_url) || imagePreview.src;
-      document.getElementById("compVariantImg").src = resolveUrl(v.image_url);
-      document.getElementById("compVariantLabel").innerText = `${v.title} (${((v.structural_preservation_score||0.85)*100).toFixed(0)}% Anchor Score)`;
-      document.getElementById("compDetails").innerHTML = `
-        <div style="background:#0f172a; padding:12px; border-radius:8px; border:1px solid #22314e;">
-          <strong>Concept Details:</strong> ${v.description}<br>
-          <span style="color:#38bdf8;">Applied Modifications:</span> ${(v.changes_made||[]).join(" · ")}
-        </div>
-      `;
-      openModal("comparisonModal");
-    }
-
-    // Ollama Architectural Critique
-    async function evaluateOllama(variantId) {
-      if (!currentRoom) return;
-      const v = currentVariants.find(x => (x.variant_id || x.id) === variantId);
-      openModal("ollamaModal");
-
-      document.getElementById("ollamaModalLoading").classList.remove("hidden");
-      document.getElementById("ollamaModalContent").classList.add("hidden");
-
-      try {
-        const report = await apiFetch(`/api/v1/rooms/${currentRoom.id}/evaluate-design`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            selected_variant_id: variantId,
-            provider: "ollama"
-          })
-        });
-
-        document.getElementById("ollamaModalLoading").classList.add("hidden");
-        const contentDiv = document.getElementById("ollamaModalContent");
-        contentDiv.classList.remove("hidden");
-        document.getElementById("ollamaModelUsedBadge").innerText = report.model_used || "llama3.2:latest";
-
-        contentDiv.innerHTML = `
-          <div style="background:rgba(56, 189, 248, 0.08); border:1px solid #0284c7; padding:12px 16px; border-radius:8px; margin-bottom:16px;">
-            <div style="font-weight:700; color:#38bdf8; font-size:1rem;">Evaluation for: ${v ? v.title : 'Concept Redesign'}</div>
-            <div style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">Engine: ${report.provider} · Latency: ${report.evaluation_latency_ms || 450}ms</div>
-          </div>
-          
-          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;">
-            <div style="background:#0f172a; padding:10px 14px; border-radius:8px; border:1px solid #22314e;">
-              <span style="color:var(--text-muted); font-size:0.8rem;">Spatial Feasibility Score</span>
-              <div style="font-size:1.3rem; font-weight:800; color:#10b981;">${((report.spatial_score || 0.92)*100).toFixed(0)}%</div>
-            </div>
-            <div style="background:#0f172a; padding:10px 14px; border-radius:8px; border:1px solid #22314e;">
-              <span style="color:var(--text-muted); font-size:0.8rem;">Budget Alignment</span>
-              <div style="font-size:1.3rem; font-weight:800; color:#38bdf8;">${((report.budget_alignment_score || 0.88)*100).toFixed(0)}%</div>
-            </div>
-          </div>
-
-          <div style="background:#0f172a; padding:16px; border-radius:8px; border:1px solid #22314e; white-space:pre-wrap; font-size:0.85rem; line-height:1.6;">
-${report.evaluation_text || report.critique || "Room layout maintains essential window and wall geometries while introducing harmonized color tones and optimized furniture arrangements."}
-          </div>
-        `;
-      } catch (e) {
-        document.getElementById("ollamaModalLoading").classList.add("hidden");
-        const contentDiv = document.getElementById("ollamaModalContent");
-        contentDiv.classList.remove("hidden");
-        contentDiv.innerHTML = `
-          <div style="background:rgba(239, 68, 68, 0.15); border:1px solid #ef4444; border-radius:8px; padding:16px; color:#fca5a5;">
-            <strong>Ollama Evaluation Notice:</strong> ${e.message}<br>
-            <span style="font-size:0.8rem; color:var(--text-muted); margin-top:6px; display:block;">
-              Ensure the Ollama daemon is active at http://192.168.0.200:11434 with llama3.2:latest loaded.
-            </span>
-          </div>
-        `;
-      }
-    }
-
     // Initialization
     updateSessionDisplay();
     checkHealthAndStatus();
+    fetchInpaintingStatus();
     setInterval(checkHealthAndStatus, 15000);
+    setInterval(fetchInpaintingStatus, 30000);
 
-    // If active project saved, reopen it
     if (activeProjectId) {
       loadProjectRooms(activeProjectId);
     }
